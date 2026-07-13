@@ -1,0 +1,3658 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "",
+    "title": "standard public schema",
+    "version": "14.5"
+  },
+  "host": "fwjlrkbycppuajtiblue.supabase.co:443",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json",
+    "application/vnd.pgrst.object+json;nulls=stripped",
+    "application/vnd.pgrst.object+json",
+    "text/csv"
+  ],
+  "produces": [
+    "application/json",
+    "application/vnd.pgrst.object+json;nulls=stripped",
+    "application/vnd.pgrst.object+json",
+    "text/csv"
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "produces": [
+          "application/openapi+json",
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "OpenAPI description (this document)",
+        "tags": [
+          "Introspection"
+        ]
+      }
+    },
+    "/dealers": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.dealers.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.added_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.city"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.address"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.notes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.gstin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.dealer_gallery"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/dealers"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "dealers"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.dealers"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "dealers"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.dealers.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.added_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.city"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.address"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.notes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.gstin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.dealer_gallery"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "dealers"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.dealers.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.added_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.city"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.address"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.notes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.gstin"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealers.dealer_gallery"
+          },
+          {
+            "$ref": "#/parameters/body.dealers"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "dealers"
+        ]
+      }
+    },
+    "/farmers": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.farmers.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.added_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.village"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.address"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.notes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.photo_url"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/farmers"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "farmers"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.farmers"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "farmers"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.farmers.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.added_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.village"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.address"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.notes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.photo_url"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "farmers"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.farmers.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.added_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.phone"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.village"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.address"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.notes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.farmers.photo_url"
+          },
+          {
+            "$ref": "#/parameters/body.farmers"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "farmers"
+        ]
+      }
+    },
+    "/dealer_deliveries": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.dealer_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.dealer_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.reported_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.product_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.product_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.boxes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.delivered_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.gst_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.order_type"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/dealer_deliveries"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "dealer_deliveries"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.dealer_deliveries"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "dealer_deliveries"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.dealer_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.dealer_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.reported_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.product_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.product_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.boxes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.delivered_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.gst_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.order_type"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "dealer_deliveries"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.dealer_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.dealer_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.reported_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.product_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.product_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.boxes"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.delivered_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.gst_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.dealer_deliveries.order_type"
+          },
+          {
+            "$ref": "#/parameters/body.dealer_deliveries"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "dealer_deliveries"
+        ]
+      }
+    },
+    "/chat_messages": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.sender_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.receiver_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.message"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/chat_messages"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "chat_messages"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.chat_messages"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "chat_messages"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.sender_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.receiver_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.message"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "chat_messages"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.sender_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.receiver_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.message"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.chat_messages.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.chat_messages"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "chat_messages"
+        ]
+      }
+    },
+    "/tasks": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tasks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.description"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.assigned_to"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/tasks"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.tasks"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tasks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.description"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.assigned_to"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tasks.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.title"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.description"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.assigned_to"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_by"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tasks.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.tasks"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/tracking_history": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.daily_attendance_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.timestamp"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/tracking_history"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "tracking_history"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.tracking_history"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "tracking_history"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.daily_attendance_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.timestamp"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "tracking_history"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.daily_attendance_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.tracking_history.timestamp"
+          },
+          {
+            "$ref": "#/parameters/body.tracking_history"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "tracking_history"
+        ]
+      }
+    },
+    "/locations": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.locations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/locations"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "locations"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.locations"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "locations"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.locations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "locations"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.locations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.locations.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.locations"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "locations"
+        ]
+      }
+    },
+    "/leave_requests": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.start_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.end_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/leave_requests"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "leave_requests"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.leave_requests"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "leave_requests"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.start_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.end_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "leave_requests"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.start_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.end_date"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.reason"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.leave_requests.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.leave_requests"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "leave_requests"
+        ]
+      }
+    },
+    "/journeys": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.journeys.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.destination_lat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.destination_lng"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.ended_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.distance_km"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.start_lat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.start_lng"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/journeys"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "journeys"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.journeys"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "journeys"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.journeys.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.destination_lat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.destination_lng"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.ended_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.distance_km"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.start_lat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.start_lng"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "journeys"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.journeys.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.destination_lat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.destination_lng"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.ended_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.distance_km"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.start_lat"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.journeys.start_lng"
+          },
+          {
+            "$ref": "#/parameters/body.journeys"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "journeys"
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.users.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.first_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.role"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/users"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.users"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.users.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.first_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.role"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.users.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.first_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.role"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.users.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.users"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/daily_attendance": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.vehicle_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.opening_reading"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.todays_plan"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.farmer_visit_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.dealer_visit_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.sale_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.collection_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.odometer_photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.punch_out_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.total_hours"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.closing_reading"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.todays_summary"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_farmer_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_dealer_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_sale"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_collection"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.punch_out_photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.total_distance_km"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/daily_attendance"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "daily_attendance"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.daily_attendance"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "daily_attendance"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.vehicle_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.opening_reading"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.todays_plan"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.farmer_visit_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.dealer_visit_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.sale_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.collection_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.odometer_photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.punch_out_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.total_hours"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.closing_reading"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.todays_summary"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_farmer_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_dealer_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_sale"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_collection"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.punch_out_photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.total_distance_km"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "daily_attendance"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.vehicle_type"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.opening_reading"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.todays_plan"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.farmer_visit_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.dealer_visit_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.sale_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.collection_target"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.odometer_photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.punch_out_time"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.total_hours"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.closing_reading"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.todays_summary"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_farmer_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_dealer_visit"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_sale"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.actual_collection"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.punch_out_photo_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.daily_attendance.total_distance_km"
+          },
+          {
+            "$ref": "#/parameters/body.daily_attendance"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "daily_attendance"
+        ]
+      }
+    },
+    "/employee_locations": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.dest_latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.dest_longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.timestamp"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.updated_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/employee_locations"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "employee_locations"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.employee_locations"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "employee_locations"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.dest_latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.dest_longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.timestamp"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.updated_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "employee_locations"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.user_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.dest_latitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.dest_longitude"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.timestamp"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.employee_locations.updated_at"
+          },
+          {
+            "$ref": "#/parameters/body.employee_locations"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "employee_locations"
+        ]
+      }
+    },
+    "/rpc/rls_auto_enable": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) rls_auto_enable"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "dealers": {
+      "required": [
+        "id",
+        "added_by",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "added_by": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "phone": {
+          "format": "text",
+          "type": "string"
+        },
+        "city": {
+          "format": "text",
+          "type": "string"
+        },
+        "address": {
+          "format": "text",
+          "type": "string"
+        },
+        "notes": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "gstin": {
+          "format": "text",
+          "type": "string"
+        },
+        "dealer_gallery": {
+          "format": "jsonb"
+        }
+      },
+      "type": "object"
+    },
+    "farmers": {
+      "required": [
+        "id",
+        "added_by",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "added_by": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "phone": {
+          "format": "text",
+          "type": "string"
+        },
+        "village": {
+          "format": "text",
+          "type": "string"
+        },
+        "address": {
+          "format": "text",
+          "type": "string"
+        },
+        "notes": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "photo_url": {
+          "format": "text",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "dealer_deliveries": {
+      "required": [
+        "id",
+        "dealer_id",
+        "reported_by",
+        "product_id",
+        "product_name",
+        "boxes"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "dealer_id": {
+          "description": "Note:\nThis is a Foreign Key to `dealers.id`.<fk table='dealers' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "dealer_name": {
+          "format": "text",
+          "type": "string"
+        },
+        "reported_by": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "product_id": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "product_name": {
+          "format": "text",
+          "type": "string"
+        },
+        "boxes": {
+          "default": 0,
+          "format": "integer",
+          "type": "integer"
+        },
+        "delivered_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "gst_type": {
+          "default": "gst",
+          "format": "text",
+          "type": "string"
+        },
+        "order_type": {
+          "default": "cash",
+          "format": "text",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "chat_messages": {
+      "required": [
+        "id",
+        "sender_id",
+        "receiver_id",
+        "message",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "sender_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "receiver_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "message": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "tasks": {
+      "required": [
+        "id",
+        "title",
+        "assigned_to",
+        "created_by",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "title": {
+          "format": "text",
+          "type": "string"
+        },
+        "description": {
+          "format": "text",
+          "type": "string"
+        },
+        "assigned_to": {
+          "description": "Note:\nThis is a Foreign Key to `users.id`.<fk table='users' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "created_by": {
+          "description": "Note:\nThis is a Foreign Key to `users.id`.<fk table='users' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "status": {
+          "default": "pending",
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "tracking_history": {
+      "required": [
+        "id",
+        "latitude",
+        "longitude"
+      ],
+      "properties": {
+        "id": {
+          "default": "extensions.uuid_generate_v4()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "daily_attendance_id": {
+          "description": "Note:\nThis is a Foreign Key to `daily_attendance.id`.<fk table='daily_attendance' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "latitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "longitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "timestamp": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "locations": {
+      "required": [
+        "id",
+        "user_id",
+        "latitude",
+        "longitude",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "description": "Note:\nThis is a Foreign Key to `users.id`.<fk table='users' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "latitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "longitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "leave_requests": {
+      "required": [
+        "id",
+        "user_id",
+        "start_date",
+        "end_date",
+        "reason",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "start_date": {
+          "format": "date",
+          "type": "string"
+        },
+        "end_date": {
+          "format": "date",
+          "type": "string"
+        },
+        "reason": {
+          "format": "text",
+          "type": "string"
+        },
+        "status": {
+          "default": "pending",
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "journeys": {
+      "required": [
+        "id",
+        "user_id",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "destination_lat": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "destination_lng": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "status": {
+          "default": "active",
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "updated_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "ended_at": {
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "distance_km": {
+          "default": 0,
+          "format": "numeric",
+          "type": "number"
+        },
+        "start_lat": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "start_lng": {
+          "format": "double precision",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "users": {
+      "required": [
+        "id",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "email": {
+          "format": "text",
+          "type": "string"
+        },
+        "first_name": {
+          "format": "text",
+          "type": "string"
+        },
+        "name": {
+          "format": "text",
+          "type": "string"
+        },
+        "role": {
+          "default": "employee",
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "daily_attendance": {
+      "required": [
+        "id",
+        "user_id",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "vehicle_type": {
+          "format": "text",
+          "type": "string"
+        },
+        "opening_reading": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "todays_plan": {
+          "format": "text",
+          "type": "string"
+        },
+        "farmer_visit_target": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "dealer_visit_target": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "sale_target": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "collection_target": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "odometer_photo_url": {
+          "format": "text",
+          "type": "string"
+        },
+        "punch_out_time": {
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "total_hours": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "closing_reading": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "todays_summary": {
+          "format": "text",
+          "type": "string"
+        },
+        "actual_farmer_visit": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "actual_dealer_visit": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "actual_sale": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "actual_collection": {
+          "format": "numeric",
+          "type": "number"
+        },
+        "punch_out_photo_url": {
+          "format": "text",
+          "type": "string"
+        },
+        "total_distance_km": {
+          "default": 0,
+          "format": "numeric",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "employee_locations": {
+      "required": [
+        "id",
+        "user_id",
+        "latitude",
+        "longitude"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "latitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "longitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "dest_latitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "dest_longitude": {
+          "format": "double precision",
+          "type": "number"
+        },
+        "status": {
+          "default": "offline",
+          "format": "text",
+          "type": "string"
+        },
+        "timestamp": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "updated_at": {
+          "default": "timezone('utc'::text, now())",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "parameters": {
+    "preferParams": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "in": "header",
+      "type": "string"
+    },
+    "preferReturn": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "return=representation",
+        "return=minimal",
+        "return=none"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "preferCount": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "count=none"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "preferPost": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "return=representation",
+        "return=minimal",
+        "return=none",
+        "resolution=ignore-duplicates",
+        "resolution=merge-duplicates"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "select": {
+      "name": "select",
+      "description": "Filtering Columns",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "on_conflict": {
+      "name": "on_conflict",
+      "description": "On Conflict",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "order": {
+      "name": "order",
+      "description": "Ordering",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "range": {
+      "name": "Range",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "header",
+      "type": "string"
+    },
+    "rangeUnit": {
+      "name": "Range-Unit",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "default": "items",
+      "in": "header",
+      "type": "string"
+    },
+    "offset": {
+      "name": "offset",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "limit": {
+      "name": "limit",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.dealers": {
+      "name": "dealers",
+      "description": "dealers",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/dealers"
+      }
+    },
+    "rowFilter.dealers.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.added_by": {
+      "name": "added_by",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.phone": {
+      "name": "phone",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.city": {
+      "name": "city",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.address": {
+      "name": "address",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.notes": {
+      "name": "notes",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.gstin": {
+      "name": "gstin",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealers.dealer_gallery": {
+      "name": "dealer_gallery",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.farmers": {
+      "name": "farmers",
+      "description": "farmers",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/farmers"
+      }
+    },
+    "rowFilter.farmers.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.added_by": {
+      "name": "added_by",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.phone": {
+      "name": "phone",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.village": {
+      "name": "village",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.address": {
+      "name": "address",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.notes": {
+      "name": "notes",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.farmers.photo_url": {
+      "name": "photo_url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.dealer_deliveries": {
+      "name": "dealer_deliveries",
+      "description": "dealer_deliveries",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/dealer_deliveries"
+      }
+    },
+    "rowFilter.dealer_deliveries.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.dealer_id": {
+      "name": "dealer_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.dealer_name": {
+      "name": "dealer_name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.reported_by": {
+      "name": "reported_by",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.product_id": {
+      "name": "product_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.product_name": {
+      "name": "product_name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.boxes": {
+      "name": "boxes",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.delivered_at": {
+      "name": "delivered_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.gst_type": {
+      "name": "gst_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.dealer_deliveries.order_type": {
+      "name": "order_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.chat_messages": {
+      "name": "chat_messages",
+      "description": "chat_messages",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/chat_messages"
+      }
+    },
+    "rowFilter.chat_messages.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.chat_messages.sender_id": {
+      "name": "sender_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.chat_messages.receiver_id": {
+      "name": "receiver_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.chat_messages.message": {
+      "name": "message",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.chat_messages.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.tasks": {
+      "name": "tasks",
+      "description": "tasks",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/tasks"
+      }
+    },
+    "rowFilter.tasks.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.title": {
+      "name": "title",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.description": {
+      "name": "description",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.assigned_to": {
+      "name": "assigned_to",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.created_by": {
+      "name": "created_by",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tasks.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.tracking_history": {
+      "name": "tracking_history",
+      "description": "tracking_history",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/tracking_history"
+      }
+    },
+    "rowFilter.tracking_history.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tracking_history.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tracking_history.daily_attendance_id": {
+      "name": "daily_attendance_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tracking_history.latitude": {
+      "name": "latitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tracking_history.longitude": {
+      "name": "longitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.tracking_history.timestamp": {
+      "name": "timestamp",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.locations": {
+      "name": "locations",
+      "description": "locations",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/locations"
+      }
+    },
+    "rowFilter.locations.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.locations.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.locations.latitude": {
+      "name": "latitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.locations.longitude": {
+      "name": "longitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.locations.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.leave_requests": {
+      "name": "leave_requests",
+      "description": "leave_requests",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/leave_requests"
+      }
+    },
+    "rowFilter.leave_requests.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.leave_requests.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.leave_requests.start_date": {
+      "name": "start_date",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.leave_requests.end_date": {
+      "name": "end_date",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.leave_requests.reason": {
+      "name": "reason",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.leave_requests.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.leave_requests.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.journeys": {
+      "name": "journeys",
+      "description": "journeys",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/journeys"
+      }
+    },
+    "rowFilter.journeys.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.destination_lat": {
+      "name": "destination_lat",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.destination_lng": {
+      "name": "destination_lng",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.updated_at": {
+      "name": "updated_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.ended_at": {
+      "name": "ended_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.distance_km": {
+      "name": "distance_km",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.start_lat": {
+      "name": "start_lat",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.journeys.start_lng": {
+      "name": "start_lng",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.users": {
+      "name": "users",
+      "description": "users",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/users"
+      }
+    },
+    "rowFilter.users.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.email": {
+      "name": "email",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.first_name": {
+      "name": "first_name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.name": {
+      "name": "name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.role": {
+      "name": "role",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.users.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.daily_attendance": {
+      "name": "daily_attendance",
+      "description": "daily_attendance",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/daily_attendance"
+      }
+    },
+    "rowFilter.daily_attendance.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.vehicle_type": {
+      "name": "vehicle_type",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.opening_reading": {
+      "name": "opening_reading",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.todays_plan": {
+      "name": "todays_plan",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.farmer_visit_target": {
+      "name": "farmer_visit_target",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.dealer_visit_target": {
+      "name": "dealer_visit_target",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.sale_target": {
+      "name": "sale_target",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.collection_target": {
+      "name": "collection_target",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.odometer_photo_url": {
+      "name": "odometer_photo_url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.punch_out_time": {
+      "name": "punch_out_time",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.total_hours": {
+      "name": "total_hours",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.closing_reading": {
+      "name": "closing_reading",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.todays_summary": {
+      "name": "todays_summary",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.actual_farmer_visit": {
+      "name": "actual_farmer_visit",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.actual_dealer_visit": {
+      "name": "actual_dealer_visit",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.actual_sale": {
+      "name": "actual_sale",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.actual_collection": {
+      "name": "actual_collection",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.punch_out_photo_url": {
+      "name": "punch_out_photo_url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.daily_attendance.total_distance_km": {
+      "name": "total_distance_km",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.employee_locations": {
+      "name": "employee_locations",
+      "description": "employee_locations",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/employee_locations"
+      }
+    },
+    "rowFilter.employee_locations.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.user_id": {
+      "name": "user_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.latitude": {
+      "name": "latitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.longitude": {
+      "name": "longitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.dest_latitude": {
+      "name": "dest_latitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.dest_longitude": {
+      "name": "dest_longitude",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.timestamp": {
+      "name": "timestamp",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.employee_locations.updated_at": {
+      "name": "updated_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    }
+  },
+  "externalDocs": {
+    "description": "PostgREST Documentation",
+    "url": "https://postgrest.org/en/v14/references/api.html"
+  }
+}

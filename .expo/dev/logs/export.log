@@ -1,0 +1,14 @@
+{"_e":"root:init","_t":1783673680768,"format":"v0-jsonl","version":"57.0.6"}
+{"_e":"env:mode","_t":1783673681051,"nodeEnv":"production","babelEnv":"production","mode":"production"}
+{"_e":"env:load","_t":1783673681054,"mode":"production","files":[],"env":{}}
+{"_e":"devserver:start","_t":1783673681078,"mode":"production","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":true}
+{"_e":"metro:config","_t":1783673681878,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":true,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:instantiate","_t":1783673682100,"atlas":false,"workers":8,"host":null,"port":null}
+{"_e":"metro:bundling:started","_t":1783673682417,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"root:init","_t":1783673819462,"format":"v0-jsonl","version":"57.0.6"}
+{"_e":"env:mode","_t":1783673819776,"nodeEnv":"production","babelEnv":"production","mode":"production"}
+{"_e":"env:load","_t":1783673819781,"mode":"production","files":[],"env":{}}
+{"_e":"devserver:start","_t":1783673819809,"mode":"production","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":true}
+{"_e":"metro:config","_t":1783673820629,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":true,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:instantiate","_t":1783673820859,"atlas":false,"workers":8,"host":null,"port":null}
+{"_e":"metro:bundling:started","_t":1783673821164,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}

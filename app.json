@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "uber",
+    "slug": "uber",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": ""
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
+    },
+    "android": {
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
+      "package": "com.manthanp_2811.uber"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "db981639-a3b6-4856-9e4e-33ffc9a8f15d"
+      }
+    }
+  }
+}

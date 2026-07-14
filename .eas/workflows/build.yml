@@ -1,0 +1,12 @@
+name: Build Android Preview
+on:
+  push:
+    branches:
+      - 'master'
+jobs:
+  build:
+    name: Build APK
+    type: build
+    params:
+      platform: android
+      profile: preview

@@ -4,8 +4,12 @@ import { Feather } from '@expo/vector-icons';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+
 const ChatScreen = () => {
   const { logout, user } = useAppState();
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<any, any>>();
   const [activeChat, setActiveChat] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -15,6 +19,21 @@ const ChatScreen = () => {
   
   const [messageText, setMessageText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Check for route params to auto-open chat
+  useEffect(() => {
+    if (route.params?.employeeId && employees.length > 0) {
+      const emp = employees.find(e => e.id === route.params?.employeeId);
+      if (emp) {
+        setActiveChat({
+          ...emp,
+          initial: emp.name ? emp.name.charAt(0) : 'U'
+        });
+        // Clear params so it doesn't get stuck if user goes back to list
+        navigation.setParams({ employeeId: undefined, employeeName: undefined });
+      }
+    }
+  }, [route.params?.employeeId, employees]);
 
   const fetchChatData = async () => {
     try {

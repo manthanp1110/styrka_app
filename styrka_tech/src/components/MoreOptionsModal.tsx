@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAppState } from '../store/useAppState';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { navigationRef } from '../navigation/navigationRef';
 
 type OptionItemProps = {
   iconName: any;
@@ -46,14 +46,15 @@ const GridOption = ({ iconName, title, onPress }: any) => (
 
 const MoreOptionsModal = () => {
   const { user, isMoreModalVisible, setMoreModalVisible } = useAppState();
-  const navigation = useNavigation<NavigationProp<any>>();
 
   const handleClose = () => setMoreModalVisible(false);
 
   const handleNavigate = (screenName: string) => {
     handleClose();
     setTimeout(() => {
-      navigation.navigate(screenName);
+      if (navigationRef.isReady()) {
+        navigationRef.navigate(screenName as never);
+      }
     }, 150);
   };
 
@@ -85,7 +86,7 @@ const MoreOptionsModal = () => {
             {isAdmin ? (
               // Admin List Layout
               <>
-                <OptionItem iconName="map-pin" title="Live Tracking" onPress={handleClose} />
+                <OptionItem iconName="map-pin" title="Live Tracking" onPress={() => handleNavigate('AdminTracking')} />
                 <OptionItem iconName="navigation" title="Journey Logs" onPress={handleClose} />
                 <OptionItem iconName="droplet" title="Mileage & Expenses" onPress={handleClose} />
                 <OptionItem iconName="clipboard" title="Leave Requests" onPress={() => handleNavigate('LeaveRequests')} />
@@ -106,7 +107,7 @@ const MoreOptionsModal = () => {
               // Employee Vertical List Layout
               <>
                 <OptionItem iconName="calendar" title="Attendance" onPress={() => handleNavigate('Attendance')} />
-                <OptionItem iconName="map-pin" title="Live Routing" onPress={handleClose} />
+                <OptionItem iconName="map-pin" title="Live Routing" onPress={() => handleNavigate('LiveTracking')} />
                 <OptionItem iconName="message-circle" title="Chat" onPress={() => handleNavigate('Chat')} />
                 <OptionItem iconName="shopping-cart" title="Orders" onPress={() => handleNavigate('Orders')} />
                 <OptionItem iconName="image" title="Gallery" onPress={handleClose} />

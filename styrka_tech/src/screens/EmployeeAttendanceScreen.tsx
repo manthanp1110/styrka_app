@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
 
 const EmployeeAttendanceScreen = () => {
@@ -14,6 +17,8 @@ const EmployeeAttendanceScreen = () => {
   const [attendanceRecord, setAttendanceRecord] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [odometerPhoto, setOdometerPhoto] = useState<string | null>(null);
+  const [odometerBase64, setOdometerBase64] = useState<string | null>(null);
 
   // Punch In Form State
   const [vehicleType, setVehicleType] = useState('');
@@ -63,14 +68,94 @@ const EmployeeAttendanceScreen = () => {
     if (user.id) fetchTodayAttendance();
   }, [user.id]);
 
+  const pickImage = () => {
+    Alert.alert(
+      "Odometer Photo",
+      "Choose a photo source",
+      [
+        {
+          text: "Camera",
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+            if (permissionResult.granted === false) {
+              alert("Camera permissions are required.");
+              return;
+            }
+            launchPicker(true);
+          }
+        },
+        {
+          text: "Gallery (Recommended)",
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (permissionResult.granted === false) {
+              alert("Gallery permissions are required.");
+              return;
+            }
+            launchPicker(false);
+          }
+        },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
+  const launchPicker = async (isCamera: boolean) => {
+    try {
+      let result = isCamera 
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            quality: 0.5,
+            base64: true,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            quality: 0.5,
+            base64: true,
+          });
+      
+      if (!result.canceled) {
+        setOdometerPhoto(result.assets[0].uri);
+        setOdometerBase64(result.assets[0].base64 || null);
+      }
+    } catch (e) {
+      alert("Failed to launch image picker. Try again.");
+    }
+  };
+
   const handlePunchIn = async () => {
-    if (!vehicleType || !openingReading) {
-      alert("Please enter Vehicle Type and Opening Reading.");
+    if (!vehicleType || !openingReading || !odometerPhoto) {
+      alert("Please enter Vehicle Type, Opening Reading, and take an Odometer Photo.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      // 0. Upload Photo
+      let photoUrl = null;
+      try {
+        const ext = odometerPhoto.substring(odometerPhoto.lastIndexOf('.') + 1) || 'jpg';
+        const fileName = `${user.id}_${Date.now()}.${ext}`;
+        
+        if (!odometerBase64) throw new Error("Image data is missing.");
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('odometer-photos')
+          .upload(fileName, decode(odometerBase64), { contentType: `image/${ext}` });
+          
+        if (uploadError) throw uploadError;
+        
+        const { data: publicUrlData } = supabase.storage
+          .from('odometer-photos')
+          .getPublicUrl(fileName);
+          
+        photoUrl = publicUrlData.publicUrl;
+      } catch (uploadE: any) {
+        throw new Error("Failed to upload odometer photo. Make sure the 'odometer-photos' bucket exists and is public. Details: " + uploadE.message);
+      }
+
       // 1. Ask for background location permissions
       const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
       const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
@@ -90,6 +175,7 @@ const EmployeeAttendanceScreen = () => {
           user_id: user.id,
           vehicle_type: vehicleType,
           opening_reading: parseFloat(openingReading),
+          odometer_photo_url: photoUrl,
           todays_plan: todaysPlan,
           farmer_visit_target: parseInt(farmerVisitTarget || '0', 10),
           dealer_visit_target: parseInt(dealerVisitTarget || '0', 10),
@@ -103,7 +189,7 @@ const EmployeeAttendanceScreen = () => {
       // 4. Start Journey in DB
       await supabase.from('journeys').insert([{
         user_id: user.id,
-        status: 'Active',
+        status: 'active',
         start_lat: initialLocation.coords.latitude,
         start_lng: initialLocation.coords.longitude,
         destination_lat: initialLocation.coords.latitude, // mock
@@ -148,9 +234,9 @@ const EmployeeAttendanceScreen = () => {
       // 2. End Journey in DB
       await supabase
         .from('journeys')
-        .update({ status: 'Completed', ended_at: new Date().toISOString() })
+        .update({ status: 'completed', ended_at: new Date().toISOString() })
         .eq('user_id', user.id)
-        .eq('status', 'Active');
+        .eq('status', 'active');
 
       // 3. Complete Attendance
       const { error } = await supabase
@@ -332,6 +418,28 @@ const EmployeeAttendanceScreen = () => {
                       onChangeText={setOpeningReading}
                     />
                   </View>
+                </View>
+
+                <View className="mb-6">
+                  <Text className="text-[#1F2937] font-bold text-sm mb-2">Odometer Photo *</Text>
+                  <TouchableOpacity 
+                    onPress={pickImage}
+                    className="border border-dashed border-gray-400 rounded-xl h-32 bg-gray-50 items-center justify-center overflow-hidden"
+                  >
+                    {odometerPhoto ? (
+                      <View className="w-full h-full">
+                        <Image source={{ uri: odometerPhoto }} style={{ width: '100%', height: '100%' }} />
+                        <View className="absolute bottom-2 right-2 bg-black/50 px-2 py-1 rounded-md">
+                          <Text className="text-white text-xs font-bold">Retake</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View className="items-center">
+                        <Feather name="camera" size={24} color="#6B7280" />
+                        <Text className="text-gray-500 mt-2 font-medium">Tap to capture Odometer</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 <View className="mb-6">

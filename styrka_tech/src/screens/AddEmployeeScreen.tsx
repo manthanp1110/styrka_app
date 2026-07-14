@@ -4,6 +4,8 @@ import { Feather } from '@expo/vector-icons';
 import { useAppState } from '../store/useAppState';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { supabase } from '../config/supabase';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 
 const AddEmployeeScreen = () => {
   const { logout, user } = useAppState();
@@ -22,19 +24,41 @@ const AddEmployeeScreen = () => {
 
     setIsSubmitting(true);
     try {
-      // For this demo, we are just inserting into the public.users table.
-      // In a real production app, an Admin should call an Edge Function to create an Auth user safely.
-      const { error } = await supabase.from('users').insert([
+      // Initialize an admin client to bypass RLS for this prototype
+      const { createClient } = require('@supabase/supabase-js');
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+      
+      if (!serviceRoleKey) throw new Error("Service Role Key is missing from .env");
+      
+      const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      });
+
+      // 1. Create the user in Auth so they can actually log in
+      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+        email: email,
+        password: password,
+        email_confirm: true,
+        user_metadata: { name: fullName, role: 'employee' }
+      });
+
+      if (authError) throw authError;
+
+      // 2. Insert into the public.users table (bypassing RLS with admin client)
+      const { error: dbError } = await adminSupabase.from('users').insert([
         {
+          id: authData.user.id,
           name: fullName,
           email: email,
           role: 'employee',
-          // mock id for demo purposes since we aren't using real auth for this row
-          id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)
         }
       ]);
 
-      if (error) throw error;
+      if (dbError) {
+        // If it fails because a trigger already inserted it, that's fine. Ignore unique constraint errors.
+        if (dbError.code !== '23505') throw dbError; 
+      }
       
       alert(`Successfully added ${fullName} to the directory! Note: Real Auth requires Supabase Edge Functions.`);
       setFullName('');

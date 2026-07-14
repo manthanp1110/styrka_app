@@ -2,19 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import Animated, { FadeInDown, FadeInUp, FadeInLeft } from 'react-native-reanimated';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 
-const ActionPill = ({ icon, label, bgColor, onPress }: { icon: any, label: string, bgColor: string, onPress?: () => void }) => (
-  <TouchableOpacity onPress={onPress} className={`${bgColor} flex-row items-center px-4 py-2.5 rounded-xl mr-2 mb-3`}>
-    <Feather name={icon} size={16} color="white" />
-    <Text className="text-white font-bold text-sm ml-2">{label}</Text>
-  </TouchableOpacity>
+const QuickActionButton = ({ title, iconName, bgColor, onPress, index = 0 }: { title: string, iconName: any, bgColor: string, onPress?: () => void, index?: number }) => (
+  <View style={{ width: '47%', marginBottom: 16 }}>
+    <TouchableOpacity 
+      onPress={onPress} 
+      className={`items-center px-4 py-5 rounded-3xl ${bgColor} shadow-sm border border-black/5`}
+      activeOpacity={0.8}
+    >
+      <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center mb-3">
+        <Feather name={iconName} size={22} color="white" />
+      </View>
+      <Text className="text-white font-bold text-center text-[13px] tracking-wide">{title}</Text>
+    </TouchableOpacity>
+  </View>
 );
 
 const EmployeeDashboard = () => {
-  const { logout, user } = useAppState();
   const navigation = useNavigation<NavigationProp<any>>();
+  const { logout, user } = useAppState();
   const [activeTaskTab, setActiveTaskTab] = useState('All');
   
   const [attendance, setAttendance] = useState<any>(null);
@@ -119,7 +128,7 @@ const EmployeeDashboard = () => {
           
           {/* Top Row Stat Cards */}
           <View className="flex-row justify-between mb-4">
-            <View className="flex-1 bg-white rounded-2xl p-4 shadow-sm shadow-gray-200 border border-gray-100 mr-2 flex-row items-start">
+            <Animated.View entering={FadeInLeft.delay(100).springify()} className="flex-1 bg-white rounded-2xl p-4 shadow-sm shadow-gray-200 border border-gray-100 mr-2 flex-row items-start">
               <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 mt-1 ${attendanceStatus === 'Absent' ? 'bg-red-50' : 'bg-emerald-50'}`}>
                 <Feather name="clock" size={18} color={attendanceStatus === 'Absent' ? "#EF4444" : "#10B981"} />
               </View>
@@ -128,9 +137,9 @@ const EmployeeDashboard = () => {
                 <Text className="text-[#1F2937] text-xl font-black mb-1">{attendanceStatus}</Text>
                 <Text className="text-gray-400 text-[10px]" numberOfLines={1}>{attendanceSub}</Text>
               </View>
-            </View>
+            </Animated.View>
 
-            <View className="flex-1 bg-white rounded-2xl p-4 shadow-sm shadow-gray-200 border border-gray-100 ml-2 flex-row items-start">
+            <Animated.View entering={FadeInLeft.delay(200).springify()} className="flex-1 bg-white rounded-2xl p-4 shadow-sm shadow-gray-200 border border-gray-100 ml-2 flex-row items-start">
               <View className="w-10 h-10 rounded-xl bg-orange-50 items-center justify-center mr-3 mt-1">
                 <Feather name="check-square" size={18} color="#F59E0B" />
               </View>
@@ -138,11 +147,11 @@ const EmployeeDashboard = () => {
                 <Text className="text-gray-500 text-[10px] font-bold tracking-wider mb-1 uppercase">PENDING{'\n'}TASKS</Text>
                 <Text className="text-[#1F2937] text-xl font-black mb-1">{pendingCount}</Text>
               </View>
-            </View>
+            </Animated.View>
           </View>
 
           {/* Leave Balance Card */}
-          <View className="w-1/2 pr-2 mb-6">
+          <Animated.View entering={FadeInLeft.delay(300).springify()} className="w-1/2 pr-2 mb-6">
             <View className="bg-white rounded-2xl p-4 shadow-sm shadow-gray-200 border border-gray-100 flex-row items-center">
               <View className="w-10 h-10 rounded-xl bg-blue-50 items-center justify-center mr-3">
                 <Feather name="clipboard" size={18} color="#3B82F6" />
@@ -152,24 +161,26 @@ const EmployeeDashboard = () => {
                 <Text className="text-[#1F2937] text-xl font-black">12 Days</Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
 
           {/* Quick Actions */}
-          <View className="bg-white rounded-2xl shadow-sm shadow-gray-200 border border-gray-100 mb-6">
-            <View className="px-5 py-4 border-b border-gray-100">
-              <Text className="text-lg font-bold text-[#1F2937]">Quick Actions</Text>
+          <Animated.View entering={FadeInUp.delay(400).springify()} className="bg-white rounded-[32px] shadow-sm shadow-gray-200 border border-gray-100 overflow-hidden pt-1 pb-4 mb-6">
+            <View className="px-6 py-5 border-b border-gray-50 flex-row justify-between items-center">
+              <Text className="text-xl font-black text-[#1F2937] tracking-tight">Quick Actions</Text>
+              <Feather name="zap" size={20} color="#F59E0B" />
             </View>
-            <View className="p-4 flex-row flex-wrap">
-              <ActionPill icon="log-in" label="Punch IN" bgColor="bg-[#10B981]" onPress={() => navigation.navigate('Attendance')} />
-              <ActionPill icon="clipboard" label="Apply Leave" bgColor="bg-[#065F46]" onPress={() => navigation.navigate('Leave')} />
-              <ActionPill icon="user-plus" label="Add Farmer" bgColor="bg-[#F59E0B]" onPress={() => navigation.navigate('My Farmers')} />
-              <ActionPill icon="shopping-cart" label="Log Order" bgColor="bg-[#8B5CF6]" onPress={() => navigation.navigate('Log Delivery')} />
-              <ActionPill icon="map-pin" label="Live Tracking" bgColor="bg-emerald-600" onPress={() => navigation.navigate('LiveTracking')} />
+            <View className="px-5 pt-6 flex-row flex-wrap justify-between">
+              <QuickActionButton index={0} title="Punch IN" iconName="log-in" bgColor="bg-[#10B981]" onPress={() => navigation.navigate('Attendance')} />
+              <QuickActionButton index={1} title="Apply Leave" iconName="clipboard" bgColor="bg-[#065F46]" onPress={() => navigation.navigate('Leave')} />
+              <QuickActionButton index={2} title="Add Farmer" iconName="user-plus" bgColor="bg-[#F59E0B]" onPress={() => navigation.navigate('My Farmers')} />
+              <QuickActionButton index={3} title="Log Order" iconName="shopping-cart" bgColor="bg-[#8B5CF6]" onPress={() => navigation.navigate('Log Delivery')} />
+              <QuickActionButton index={4} title="Destinations" iconName="map-pin" bgColor="bg-purple-600" onPress={() => navigation.navigate('EmployeeDestination')} />
+              <QuickActionButton index={5} title="Live Tracking" iconName="navigation" bgColor="bg-emerald-600" onPress={() => navigation.navigate('LiveTracking')} />
             </View>
-          </View>
+          </Animated.View>
 
           {/* My Assigned Tasks */}
-          <View className="bg-white rounded-2xl shadow-sm shadow-gray-200 border border-gray-100 mb-6">
+          <Animated.View entering={FadeInUp.delay(500).springify()} className="bg-white rounded-2xl shadow-sm shadow-gray-200 border border-gray-100 mb-6">
             <View className="px-5 pt-4 pb-2">
               <Text className="text-lg font-bold text-[#1F2937] mb-3">My Assigned Tasks</Text>
               <View className="flex-row items-center bg-gray-50 rounded-lg self-start p-1 mb-4">
@@ -199,8 +210,8 @@ const EmployeeDashboard = () => {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#10B981" />
               ) : filteredTasks.length > 0 ? (
-                filteredTasks.map(task => (
-                  <View key={task.id} className="border border-gray-200 rounded-xl p-4 mb-3">
+                filteredTasks.map((task, index) => (
+                  <Animated.View key={task.id} entering={FadeInDown.delay(600 + (index * 100)).springify()} className="border border-gray-200 rounded-xl p-4 mb-3">
                     <View className="flex-row justify-between mb-2">
                       <Text className="text-[#1F2937] font-bold flex-1 pr-2">{task.title}</Text>
                       <View className={`px-2 py-1 rounded-md h-6 justify-center ${task.status === 'Completed' ? 'bg-emerald-100' : 'bg-amber-100'}`}>
@@ -216,7 +227,7 @@ const EmployeeDashboard = () => {
                         <Text className="text-emerald-700 font-bold text-xs">Mark as Completed</Text>
                       </TouchableOpacity>
                     )}
-                  </View>
+                  </Animated.View>
                 ))
               ) : (
                 <View className="border-t border-gray-100 py-6 items-center">
@@ -224,7 +235,7 @@ const EmployeeDashboard = () => {
                 </View>
               )}
             </View>
-          </View>
+          </Animated.View>
 
         </View>
       </ScrollView>

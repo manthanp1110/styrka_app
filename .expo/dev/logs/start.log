@@ -703,3 +703,62 @@
 {"_e":"metro:client_log","_t":1783928262251,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
 {"_e":"metro:client_log","_t":1783928273651,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
 {"_e":"metro:client_log","_t":1783928437562,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
+{"_e":"root:init","_t":1784044209039,"format":"v0-jsonl","version":"57.0.6"}
+{"_e":"env:mode","_t":1784044209041,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1784044209044,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amxya2J5Y3BwdWFqdGlibHVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTIyOTcsImV4cCI6MjA5MDcyODI5N30.ikkGPOD29szpLg5AlJcWTheA7_7pj_r3Nm0cj81ck0M","EXPO_PUBLIC_SUPABASE_URL":"https://fwjlrkbycppuajtiblue.supabase.co","GOOGLE_MAPS_API_KEY":"AIzaSyB_S3uA4Ks1Tu6W9ZTk5e6ADgqXsbRWV5c","SUPABASE_PUBLISHABLE_KEY":"sb_publishable_5rSFvBDeXR6FRE8aElyznA_m5wNVBl5","SUPABASE_SECRET_KEY":"sb_secret_SmLNM4WCf9ji0f0769zijg_stAUQaLh","SUPABASE_SERVICE_ROLE_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amxya2J5Y3BwdWFqdGlibHVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTE1MjI5NywiZXhwIjoyMDkwNzI4Mjk3fQ.VKj5ZaNQDZPlVF9QV2n9IWIGxQN7N0JP54rsLePe3nk"}}
+{"_e":"devserver:start","_t":1784044209458,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1784044210569,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1784044211520,"plugins":[]}
+{"_e":"metro:instantiate","_t":1784044217263,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1784044222595,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1784044222596,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1784044222616,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1784044224058,"id":"1","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:progress","_t":1784044224158,"id":"1","progress":0.010000000000000002,"total":3,"current":1}
+{"_e":"metro:bundling:progress","_t":1784044224198,"id":"1","progress":0.04000000000000001,"total":3,"current":2}
+{"_e":"metro:bundling:progress","_t":1784044224299,"id":"1","progress":0.04000000000000001,"total":11,"current":2}
+{"_e":"metro:bundling:progress","_t":1784044224317,"id":"1","progress":0.07438016528925619,"total":11,"current":3}
+{"_e":"metro:bundling:progress","_t":1784044224425,"id":"1","progress":0.15123456790123457,"total":18,"current":7}
+{"_e":"metro:bundling:progress","_t":1784044224562,"id":"1","progress":0.25,"total":28,"current":14}
+{"_e":"metro:bundling:progress","_t":1784044224662,"id":"1","progress":0.25,"total":92,"current":22}
+{"_e":"metro:bundling:progress","_t":1784044224764,"id":"1","progress":0.25,"total":102,"current":33}
+{"_e":"metro:bundling:progress","_t":1784044224864,"id":"1","progress":0.25,"total":109,"current":42}
+{"_e":"metro:bundling:progress","_t":1784044224965,"id":"1","progress":0.25,"total":118,"current":51}
+{"_e":"metro:bundling:progress","_t":1784044225067,"id":"1","progress":0.25,"total":126,"current":56}
+{"_e":"metro:bundling:progress","_t":1784044225171,"id":"1","progress":0.25,"total":130,"current":64}
+{"_e":"metro:bundling:progress","_t":1784044225271,"id":"1","progress":0.25,"total":143,"current":67}
+{"_e":"metro:bundling:progress","_t":1784044225371,"id":"1","progress":0.25653567212008765,"total":154,"current":78}
+{"_e":"metro:bundling:progress","_t":1784044225475,"id":"1","progress":0.35012779664577576,"total":169,"current":100}
+{"_e":"metro:bundling:progress","_t":1784044225578,"id":"1","progress":0.36,"total":210,"current":126}
+{"_e":"metro:bundling:progress","_t":1784044225680,"id":"1","progress":0.44248869568592436,"total":227,"current":151}
+{"_e":"metro:bundling:progress","_t":1784044225785,"id":"1","progress":0.492355765835746,"total":238,"current":167}
+{"_e":"metro:bundling:progress","_t":1784044225894,"id":"1","progress":0.5344961514017371,"total":238,"current":174}
+{"_e":"metro:bundling:progress","_t":1784044226008,"id":"1","progress":0.5344961514017371,"total":250,"current":180}
+{"_e":"metro:bundling:progress","_t":1784044226114,"id":"1","progress":0.5344961514017371,"total":299,"current":196}
+{"_e":"metro:bundling:progress","_t":1784044226214,"id":"1","progress":0.5344961514017371,"total":328,"current":223}
+{"_e":"metro:bundling:progress","_t":1784044226318,"id":"1","progress":0.5344961514017371,"total":367,"current":245}
+{"_e":"metro:bundling:progress","_t":1784044226421,"id":"1","progress":0.5344961514017371,"total":410,"current":274}
+{"_e":"metro:bundling:progress","_t":1784044226521,"id":"1","progress":0.5344961514017371,"total":470,"current":299}
+{"_e":"metro:bundling:progress","_t":1784044226621,"id":"1","progress":0.5344961514017371,"total":491,"current":332}
+{"_e":"metro:bundling:progress","_t":1784044226721,"id":"1","progress":0.5344961514017371,"total":522,"current":378}
+{"_e":"metro:bundling:progress","_t":1784044226822,"id":"1","progress":0.5760700791884479,"total":556,"current":422}
+{"_e":"metro:bundling:progress","_t":1784044226923,"id":"1","progress":0.583852728468113,"total":585,"current":447}
+{"_e":"metro:bundling:progress","_t":1784044227023,"id":"1","progress":0.6243590432679387,"total":610,"current":482}
+{"_e":"metro:bundling:progress","_t":1784044227124,"id":"1","progress":0.6592014622497814,"total":638,"current":518}
+{"_e":"metro:bundling:progress","_t":1784044227225,"id":"1","progress":0.6861028451154013,"total":664,"current":550}
+{"_e":"metro:bundling:progress","_t":1784044227327,"id":"1","progress":0.7318070674637359,"total":678,"current":580}
+{"_e":"metro:bundling:progress","_t":1784044227428,"id":"1","progress":0.7783994768874806,"total":705,"current":622}
+{"_e":"metro:bundling:progress","_t":1784044227528,"id":"1","progress":0.8147635895164238,"total":719,"current":649}
+{"_e":"metro:bundling:progress","_t":1784044227628,"id":"1","progress":0.8922589481373265,"total":740,"current":699}
+{"_e":"metro:bundling:progress","_t":1784044227728,"id":"1","progress":0.9176683283804248,"total":761,"current":729}
+{"_e":"metro:bundling:progress","_t":1784044227832,"id":"1","progress":0.9410010443793404,"total":768,"current":745}
+{"_e":"metro:bundling:progress","_t":1784044227932,"id":"1","progress":0.9923615811120367,"total":784,"current":781}
+{"_e":"metro:bundling:progress","_t":1784044228061,"id":"1","progress":0.999,"total":786,"current":786}
+{"_e":"metro:bundling:progress","_t":1784044228161,"id":"1","progress":0.999,"total":788,"current":788}
+{"_e":"metro:bundling:done","_t":1784044228211,"id":"1","total":788,"ms":5615.617}
+{"_e":"metro:client_log","_t":1784044228416,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1784044228416,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1784044228416,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1784044229785,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1784044438372,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
+{"_e":"metro:client_log","_t":1784044446938,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}

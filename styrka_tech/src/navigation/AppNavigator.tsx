@@ -3,6 +3,8 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
+
+import { navigationRef } from './navigationRef';
 import { useAppState } from '../store/useAppState';
 import EmployeeDashboard from '../screens/EmployeeDashboard';
 import AdminDashboard from '../screens/AdminDashboard';
@@ -23,6 +25,8 @@ import EmployeeFarmersScreen from '../screens/EmployeeFarmersScreen';
 import EmployeeDealersScreen from '../screens/EmployeeDealersScreen';
 import FarmersScreen from '../screens/FarmersScreen';
 import DealersScreen from '../screens/DealersScreen';
+import AdminDestinationScreen from '../screens/AdminDestinationScreen';
+import EmployeeDestinationScreen from '../screens/EmployeeDestinationScreen';
 import EmployeeTrackingScreen from '../screens/EmployeeTrackingScreen';
 import AdminTrackingScreen from '../screens/AdminTrackingScreen';
 import LogDeliveryScreen from '../screens/LogDeliveryScreen';
@@ -75,8 +79,11 @@ const AdminTabs = () => {
           return <Feather name={iconName} size={22} color={finalColor} />;
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 10,
+          fontWeight: '600',
+        },
+        tabBarItemStyle: {
+          padding: 2,
         },
       })}
     >
@@ -84,29 +91,33 @@ const AdminTabs = () => {
       <Tab.Screen name="Attendance" component={AttendanceScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
       <Tab.Screen name="Employee" component={EmployeeDirectoryScreen} />
+      <Tab.Screen name="Dealers" component={DealersScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
+      <Tab.Screen name="AdminDestination" component={AdminDestinationScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
+      <Tab.Screen name="EmployeeDestination" component={EmployeeDestinationScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
+      <Tab.Screen name="EmployeeTracking" component={EmployeeTrackingScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
       <Tab.Screen 
         name="EmployeeProfile" 
         component={EmployeeProfileScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="LeaveRequests" 
         component={LeaveRequestsScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="AssignTask" 
         component={AssignTaskScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="Chat" 
         component={ChatScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="More" 
-        children={() => <DummyScreen title="More" />} 
+        component={DummyScreen} 
         listeners={{
           tabPress: (e) => {
             e.preventDefault();
@@ -117,17 +128,18 @@ const AdminTabs = () => {
       <Tab.Screen 
         name="AddEmployee" 
         component={AddEmployeeScreen}
-        options={{ tabBarButton: () => null }} // Hide from the actual tab bar
+        options={{ tabBarItemStyle: { display: 'none' } }} // Hide from the actual tab bar
       />
       <Tab.Screen 
         name="Farmers" 
         component={FarmersScreen}
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
+
       <Tab.Screen 
-        name="Dealers" 
-        component={DealersScreen}
-        options={{ tabBarButton: () => null }}
+        name="AdminTracking" 
+        component={AdminTrackingScreen}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
     </Tab.Navigator>
   );
@@ -159,8 +171,11 @@ const EmployeeTabs = () => {
           return <Feather name={iconName} size={22} color={color} />;
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 10,
+          fontWeight: '600',
+        },
+        tabBarItemStyle: {
+          padding: 2,
         },
       })}
     >
@@ -169,32 +184,37 @@ const EmployeeTabs = () => {
       <Tab.Screen 
         name="Attendance" 
         component={EmployeeAttendanceScreen} 
-        options={{ tabBarButton: () => null }} 
+        options={{ tabBarItemStyle: { display: 'none' } }} 
       />
       <Tab.Screen 
         name="Leave" 
         component={EmployeeLeaveScreen} 
-        options={{ tabBarButton: () => null }} 
+        options={{ tabBarItemStyle: { display: 'none' } }} 
       />
       <Tab.Screen 
         name="Log Delivery" 
         component={LogDeliveryScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="LiveTracking" 
         component={EmployeeTrackingScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="My Dealers" 
         component={EmployeeDealersScreen} 
-        options={{ tabBarButton: () => null }}
+        options={{ tabBarItemStyle: { display: 'none' } }}
       />
       <Tab.Screen 
         name="Chat" 
         component={EmployeeChatScreen} 
-        options={{ tabBarButton: () => null }} 
+        options={{ tabBarItemStyle: { display: 'none' } }} 
+      />
+      <Tab.Screen 
+        name="EmployeeDestination" 
+        component={EmployeeDestinationScreen} 
+        options={{ tabBarItemStyle: { display: 'none' } }} 
       />
       <Tab.Screen 
         name="More" 
@@ -231,7 +251,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {user.role === 'admin' ? <AdminTabs /> : <EmployeeTabs />}
       <MoreOptionsModal />
     </NavigationContainer>

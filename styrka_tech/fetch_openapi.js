@@ -1,10 +1,11 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const fs = require('fs');
 
 async function fetchSchema() {
-  const url = 'https://fwjlrkbycppuajtiblue.supabase.co/rest/v1/';
+  const url = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/`;
   const headers = {
-    'apikey': 'sb_secret_SmLNM4WCf9ji0f0769zijg_stAUQaLh',
-    'Authorization': 'Bearer sb_secret_SmLNM4WCf9ji0f0769zijg_stAUQaLh'
+    'apikey': process.env.SUPABASE_SECRET_KEY,
+    'Authorization': `Bearer ${process.env.SUPABASE_SECRET_KEY}`
   };
 
   try {

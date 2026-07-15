@@ -1,12 +1,103 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, TextInput, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
-import MapViewDirections from '../components/NativeDirections';
+import { AnimatedRegion, Marker as RNMarker } from 'react-native-maps';
+import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
+
+const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, styles }: any) => {
+  const [coordinate] = useState(
+    new AnimatedRegion({
+      latitude: Number(latestLocation.latitude),
+      longitude: Number(latestLocation.longitude),
+      latitudeDelta: 0,
+      longitudeDelta: 0,
+    })
+  );
+
+  useEffect(() => {
+    coordinate.timing({
+      latitude: Number(latestLocation.latitude),
+      longitude: Number(latestLocation.longitude),
+      duration: 1500,
+      useNativeDriver: false,
+    } as any).start();
+  }, [latestLocation.latitude, latestLocation.longitude]);
+
+  const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
+
+  return (
+    <RNMarker.Animated
+      coordinate={coordinate as any}
+      anchor={{ x: 0.5, y: 0.5 }}
+      style={{ zIndex: 2 }}
+    >
+      <View style={{ alignItems: 'center', width: 200 }}>
+        {/* Username Bubble */}
+        <View style={{ backgroundColor: 'white', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, marginBottom: 4, borderWidth: 1, borderColor: '#1F473A', flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4, maxWidth: 160 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 6 }} />
+          <Text style={{ color: '#1F2937', fontWeight: 'bold', fontSize: 13 }} numberOfLines={1} ellipsizeMode="tail">{empName}</Text>
+        </View>
+        
+        {/* Motorcycle Image (No background) */}
+        <Image 
+          source={require('../../../assets/motorcycle.png')}
+          style={{ width: 45, height: 45, resizeMode: 'contain', transform: [{ rotate: '180deg' }] }}
+        />
+      </View>
+      <Callout tooltip>
+        <View style={{ width: 220, backgroundColor: 'white', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 }}>
+          {/* Top Section */}
+          <View style={{ backgroundColor: '#215647', padding: 15, flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#477A6D', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>{empName.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View>
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>{empName}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 }} />
+                <Text style={{ color: '#A7F3D0', fontSize: 12 }}>Tracking active</Text>
+              </View>
+            </View>
+          </View>
+          
+          {/* Bottom Section */}
+          <View style={{ padding: 15 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Feather name="globe" size={14} color="#3B82F6" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 14 }}>Lat</Text>
+              </View>
+              <Text style={{ color: '#1F2937', fontSize: 14, fontWeight: '500' }}>{Number(latestLocation.latitude).toFixed(5)}</Text>
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Feather name="globe" size={14} color="#3B82F6" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 14 }}>Lng</Text>
+              </View>
+              <Text style={{ color: '#1F2937', fontSize: 14, fontWeight: '500' }}>{Number(latestLocation.longitude).toFixed(5)}</Text>
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Feather name="clock" size={14} color="#6B7280" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 14 }}>Time</Text>
+              </View>
+              <Text style={{ color: '#1F2937', fontSize: 14, fontWeight: '500' }}>
+                {new Date(latestLocation.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).toLowerCase()}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Callout>
+    </RNMarker.Animated>
+  );
+};
 
 const AdminTrackingScreen = () => {
   const { user } = useAppState();
@@ -24,6 +115,33 @@ const AdminTrackingScreen = () => {
   // selectedEmployeeId === null -> show List
   // selectedEmployeeId !== null -> show Map for this employee
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [currentRouteCoords, setCurrentRouteCoords] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (selectedEmployeeId && activeJourneys[selectedEmployeeId]) {
+      const journey = activeJourneys[selectedEmployeeId];
+      if (journey.destination_lat && journey.destination_lng) {
+        const fetchRoute = async () => {
+          try {
+            const originLat = journey.start_lat;
+            const originLng = journey.start_lng;
+            const url = `http://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${journey.destination_lng},${journey.destination_lat}?overview=full&geometries=polyline`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.routes && data.routes.length > 0) {
+              const decodedCoords = decodePolyline(data.routes[0].geometry);
+              setCurrentRouteCoords(decodedCoords);
+            }
+          } catch (e) {
+            console.log('OSRM routing error', e);
+          }
+        };
+        fetchRoute();
+      }
+    } else {
+      setCurrentRouteCoords([]);
+    }
+  }, [selectedEmployeeId]);
 
   const fetchTrackingData = async () => {
     setIsRefreshing(true);
@@ -61,19 +179,31 @@ const AdminTrackingScreen = () => {
       
       await Promise.all((journeysData || []).map(async (j) => {
         // fetch their location history
+        // Allow up to 15 mins of clock skew from the device
+        const journeyStart = new Date(j.created_at);
+        journeyStart.setMinutes(journeyStart.getMinutes() - 15);
+
         const { data: pings } = await supabase
           .from('employee_locations')
           .select('*')
           .eq('user_id', j.user_id)
-          .gte('timestamp', j.created_at)
+          .gte('timestamp', journeyStart.toISOString())
           .order('timestamp', { ascending: true });
           
-        const latestPing = pings && pings.length > 0 ? pings[pings.length - 1] : null;
+        const startNode = {
+          latitude: j.start_lat,
+          longitude: j.start_lng,
+          timestamp: j.created_at,
+          status: 'Started'
+        };
+        
+        const history = [startNode, ...(pings || [])];
+        const latestPing = pings && pings.length > 0 ? pings[pings.length - 1] : startNode;
         
         journeyMap[j.user_id] = {
            ...j,
-           locationHistory: pings || [],
-           latestLocation: latestPing || { latitude: j.start_lat, longitude: j.start_lng, status: 'Starting', timestamp: j.created_at }
+           locationHistory: history,
+           latestLocation: latestPing
         };
       }));
 
@@ -175,7 +305,7 @@ const AdminTrackingScreen = () => {
               {selectedEmployeeId ? 'EMPLOYEE MAP' : 'FLEET TRACKING'}
             </Text>
             <Text className="text-[#F59E0B] text-xs font-bold tracking-widest">
-              {selectedEmployeeId ? `TRACKING ${selectedEmp?.name?.toUpperCase()}` : 'ALL EMPLOYEES'}
+              {selectedEmployeeId ? `TRACKING ${(selectedEmp?.name || selectedEmp?.first_name || 'EMPLOYEE').toUpperCase()}` : 'ALL EMPLOYEES'}
             </Text>
           </View>
         </View>
@@ -258,23 +388,12 @@ const AdminTrackingScreen = () => {
               initialRegion={initialRegion}
             >
               {selectedJourney.latestLocation && selectedJourney.latestLocation.latitude != null && (
-                <Marker
-                  coordinate={{ 
-                    latitude: Number(selectedJourney.latestLocation.latitude), 
-                    longitude: Number(selectedJourney.latestLocation.longitude) 
-                  }}
-                  pinColor="#10B981"
-                >
-                  <Callout tooltip>
-                    <View style={styles.calloutContainer}>
-                      <Text style={styles.calloutName}>{selectedEmp?.name}</Text>
-                      <Text style={styles.calloutStatus}>
-                        Status: {selectedJourney.latestLocation.status}
-                      </Text>
-                      <Text style={styles.calloutTime}>Last seen: {new Date(selectedJourney.latestLocation.timestamp).toLocaleTimeString()}</Text>
-                    </View>
-                  </Callout>
-                </Marker>
+                <AnimatedVehicleMarker
+                  latestLocation={selectedJourney.latestLocation}
+                  startLocation={{ latitude: selectedJourney.start_lat, longitude: selectedJourney.start_lng }}
+                  selectedEmp={selectedEmp}
+                  styles={styles}
+                />
               )}
 
               {selectedJourney.destination_lat != null && selectedJourney.destination_lng != null && (
@@ -287,15 +406,11 @@ const AdminTrackingScreen = () => {
                 />
               )}
 
-              {selectedJourney.latestLocation && selectedJourney.destination_lat != null && (
-                <MapViewDirections
-                  origin={{ latitude: Number(selectedJourney.latestLocation.latitude), longitude: Number(selectedJourney.latestLocation.longitude) }}
-                  destination={{ latitude: Number(selectedJourney.destination_lat), longitude: Number(selectedJourney.destination_lng) }}
-                  apikey={process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY || ""}
-                  strokeWidth={4}
-                  strokeColor="#3B82F6"
-                  lineDashPattern={[10, 10]}
-                  optimizeWaypoints={true}
+              {currentRouteCoords.length > 0 && (
+                <Polyline
+                  coordinates={currentRouteCoords}
+                  strokeWidth={6}
+                  strokeColor="#1D4ED8"
                 />
               )}
               

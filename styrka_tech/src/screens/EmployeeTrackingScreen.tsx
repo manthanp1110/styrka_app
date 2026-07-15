@@ -6,8 +6,9 @@ import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 import { MapView, Marker } from '../components/NativeMap';
 import * as Location from 'expo-location';
-import MapViewDirections from '../components/NativeDirections';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
+import { decodePolyline } from '../utils/mapsUtils';
+import { Polyline } from '../components/NativeMap';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -36,20 +37,36 @@ const EmployeeTrackingScreen = () => {
   const [distance, setDistance] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [address, setAddress] = useState<string>("Locating...");
+  const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_GEOCODING_API_KEY;
-      if (!apiKey) return;
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
       const data = await res.json();
-      if (data.results && data.results.length > 0) {
+      if (data.display_name) {
         // Just take the first part of the address (e.g. street name) to keep it concise
-        const formatted = data.results[0].formatted_address.split(',')[0];
+        const formatted = data.display_name.split(',')[0];
         setAddress(formatted);
       }
     } catch (e) {
       console.log('Geocoding error', e);
+    }
+  };
+
+  const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
+    try {
+      const url = `http://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        setDistance(route.distance / 1000); // meters to km
+        setDuration(route.duration / 60); // seconds to mins
+        const decodedCoords = decodePolyline(route.geometry);
+        setRouteCoordinates(decodedCoords);
+      }
+    } catch (e) {
+      console.log('OSRM routing error', e);
     }
   };
 
@@ -97,6 +114,18 @@ const EmployeeTrackingScreen = () => {
   useEffect(() => {
     if (user.id) fetchActiveJourney();
   }, [user.id]);
+
+  useEffect(() => {
+    if (activeJourney && currentLocation && activeJourney.destination_lat && activeJourney.destination_lng) {
+      // Fetch route once when journey is active and location is known
+      if (routeCoordinates.length === 0) {
+        fetchRoute(
+          currentLocation.latitude, currentLocation.longitude,
+          activeJourney.destination_lat, activeJourney.destination_lng
+        );
+      }
+    }
+  }, [activeJourney, currentLocation]);
 
   // Geofencing Check: Auto-stop tracking when within 100m (0.1km)
   useEffect(() => {
@@ -146,8 +175,21 @@ const EmployeeTrackingScreen = () => {
       const assignedDestination = route.params?.assignedDestination;
       
       if (assignedDestination) {
-        destLat = assignedDestination.latitude;
-        destLng = assignedDestination.longitude;
+        if (assignedDestination.latitude && assignedDestination.longitude) {
+          destLat = assignedDestination.latitude;
+          destLng = assignedDestination.longitude;
+        } else if (assignedDestination.address) {
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(assignedDestination.address)}&format=json&limit=1`);
+            const geoData = await res.json();
+            if (geoData && geoData.length > 0) {
+              destLat = parseFloat(geoData[0].lat);
+              destLng = parseFloat(geoData[0].lon);
+            }
+          } catch (e) {
+            console.log("Error geocoding destination address:", e);
+          }
+        }
       }
 
       const { data, error } = await supabase.from('journeys').insert([
@@ -298,18 +340,13 @@ const EmployeeTrackingScreen = () => {
                   title="Destination"
                   pinColor="red"
                 />
-                <MapViewDirections
-                  origin={currentLocation || { latitude: activeJourney.start_lat, longitude: activeJourney.start_lng }}
-                  destination={{ latitude: activeJourney.destination_lat, longitude: activeJourney.destination_lng }}
-                  apikey={process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY || ""}
-                  strokeWidth={5}
-                  strokeColor="#3B82F6"
-                  optimizeWaypoints={true}
-                  onReady={(result) => {
-                    setDistance(result.distance);
-                    setDuration(result.duration);
-                  }}
-                />
+                {routeCoordinates.length > 0 && (
+                  <Polyline
+                    coordinates={routeCoordinates}
+                    strokeWidth={5}
+                    strokeColor="#3B82F6"
+                  />
+                )}
               </>
             )}
           </MapView>
@@ -369,7 +406,7 @@ const EmployeeTrackingScreen = () => {
                 ) : (
                   <>
                     <Feather name="play" size={18} color="white" />
-                    <Text className="text-white font-bold text-base ml-2">Start Uber Journey</Text>
+                    <Text className="text-white font-bold text-base ml-2">Start Journey</Text>
                   </>
                 )}
               </TouchableOpacity>

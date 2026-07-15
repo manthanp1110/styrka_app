@@ -186,29 +186,7 @@ const EmployeeAttendanceScreen = () => {
 
       if (error) throw error;
 
-      // 4. Start Journey in DB
-      await supabase.from('journeys').insert([{
-        user_id: user.id,
-        status: 'active',
-        start_lat: initialLocation.coords.latitude,
-        start_lng: initialLocation.coords.longitude,
-        destination_lat: initialLocation.coords.latitude, // mock
-        destination_lng: initialLocation.coords.longitude // mock
-      }]);
-
-      // 5. Start Background Tracking Task
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 50,
-        showsBackgroundLocationIndicator: true,
-        foregroundService: {
-          notificationTitle: "Styrka Tracking Active",
-          notificationBody: "Your location is being tracked for your active shift.",
-          notificationColor: "#10B981"
-        }
-      });
-
-      alert("Punched In Successfully! Tracking has started.");
+      alert("Punched In Successfully!");
       fetchTodayAttendance();
     } catch (e: any) {
       alert("Error: " + e.message);

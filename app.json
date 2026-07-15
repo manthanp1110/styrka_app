@@ -30,6 +30,11 @@
       ],
       "package": "com.manthanp_2811.styrka"
     },
-    "extra": {}
+    "extra": {
+      "eas": {
+        "projectId": "714587b8-0d06-4ade-8c04-6df9c49db5ea"
+      }
+    },
+    "owner": "manthanp_2811"
   }
 }

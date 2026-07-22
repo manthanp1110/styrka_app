@@ -1,8 +1,14 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import { supabase } from '../config/supabase';
+import { getSocket } from '../utils/socket';
+import * as Battery from 'expo-battery';
+import NetInfo from '@react-native-community/netinfo';
+import * as Device from 'expo-device';
+import { TelemetryQueue } from '../utils/TelemetryQueue';
 
 export const LOCATION_TASK_NAME = 'background-location-task';
+let backgroundSequenceNumber = 1;
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -31,18 +37,9 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          // 1. Log Location
-          await supabase.from('employee_locations').insert([
-            {
-              user_id: session.user.id,
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-              status: 'Moving',
-              timestamp: new Date().toISOString()
-            }
-          ]);
+          const timestamp = new Date(loc.timestamp || Date.now()).toISOString();
           
-          // 2. Geofencing check
+          // Fetch the active journey to retrieve trackingSessionId (journey.id)
           const { data: journey } = await supabase
             .from('journeys')
             .select('*')
@@ -51,8 +48,55 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
-            
+
           if (journey) {
+            let batteryLevel = 1.0;
+            try {
+              batteryLevel = await Battery.getBatteryLevelAsync();
+            } catch (e) {}
+
+            let networkType = 'unknown';
+            try {
+              const netInfo = await NetInfo.fetch();
+              networkType = netInfo.type;
+            } catch (e) {}
+
+            const isMoving = loc.coords.speed !== null && loc.coords.speed > 0.5;
+            const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
+            const seq = backgroundSequenceNumber++;
+
+            const payload = {
+              protocolVersion: '1.0',
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              accuracy: loc.coords.accuracy,
+              speed: loc.coords.speed,
+              heading: loc.coords.heading,
+              altitude: loc.coords.altitude,
+              timestamp,
+              batteryLevel,
+              networkType,
+              isMoving,
+              deviceId,
+              trackingSessionId: journey.id,
+              sequenceNumber: seq,
+            };
+
+            // Enqueue coordinate
+            await TelemetryQueue.enqueue(payload);
+
+            // Attempt immediate background socket emit if connected
+            const socket = getSocket(session.access_token);
+            if (socket && socket.connected) {
+              const packet = await TelemetryQueue.peek();
+              if (packet) {
+                socket.emit('location:update', packet, (ackResponse: any) => {
+                  if (ackResponse && ackResponse.success) {
+                    TelemetryQueue.dequeue();
+                  }
+                });
+              }
+            }
             const dist = getDistanceFromLatLonInKm(
               loc.coords.latitude, loc.coords.longitude,
               journey.destination_lat, journey.destination_lng

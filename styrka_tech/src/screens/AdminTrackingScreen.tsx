@@ -6,96 +6,125 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
-import { AnimatedRegion, Marker as RNMarker } from 'react-native-maps';
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
+import { getSocket, disconnectSocket } from '../utils/socket';
 
 const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, styles }: any) => {
-  const [coordinate] = useState(
-    new AnimatedRegion({
-      latitude: Number(latestLocation.latitude),
-      longitude: Number(latestLocation.longitude),
-      latitudeDelta: 0,
-      longitudeDelta: 0,
-    })
-  );
-
-  useEffect(() => {
-    coordinate.timing({
-      latitude: Number(latestLocation.latitude),
-      longitude: Number(latestLocation.longitude),
-      duration: 1500,
-      useNativeDriver: false,
-    } as any).start();
-  }, [latestLocation.latitude, latestLocation.longitude]);
-
   const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
+  const isOffline = latestLocation.status === 'offline';
 
   return (
-    <RNMarker.Animated
-      coordinate={coordinate as any}
+    <Marker
+      coordinate={{
+        latitude: Number(latestLocation.latitude),
+        longitude: Number(latestLocation.longitude),
+      }}
       anchor={{ x: 0.5, y: 0.5 }}
       style={{ zIndex: 2 }}
     >
       <View style={{ alignItems: 'center', width: 200 }}>
         {/* Username Bubble */}
         <View style={{ backgroundColor: 'white', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, marginBottom: 4, borderWidth: 1, borderColor: '#1F473A', flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4, maxWidth: 160 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 6 }} />
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 6 }} />
           <Text style={{ color: '#1F2937', fontWeight: 'bold', fontSize: 13 }} numberOfLines={1} ellipsizeMode="tail">{empName}</Text>
         </View>
         
-        {/* Motorcycle Image (No background) */}
+        {/* Motorcycle Image with dynamic heading-based rotation */}
         <Image 
           source={require('../../../assets/motorcycle.png')}
-          style={{ width: 45, height: 45, resizeMode: 'contain', transform: [{ rotate: '180deg' }] }}
+          style={{ 
+            width: 45, 
+            height: 45, 
+            resizeMode: 'contain', 
+            transform: [{ rotate: latestLocation.heading != null ? `${Number(latestLocation.heading) + 180}deg` : '180deg' }] 
+          }}
         />
       </View>
       <Callout tooltip>
-        <View style={{ width: 220, backgroundColor: 'white', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 }}>
+        <View style={{ width: 240, backgroundColor: 'white', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 }}>
           {/* Top Section */}
           <View style={{ backgroundColor: '#215647', padding: 15, flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#477A6D', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
               <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>{empName.charAt(0).toUpperCase()}</Text>
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>{empName}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 }} />
-                <Text style={{ color: '#A7F3D0', fontSize: 12 }}>Tracking active</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 6 }} />
+                <Text style={{ color: isOffline ? '#D1D5DB' : '#A7F3D0', fontSize: 12 }}>
+                  {isOffline ? 'Offline (Stopped)' : 'Online (Active)'}
+                </Text>
               </View>
             </View>
           </View>
           
           {/* Bottom Section */}
           <View style={{ padding: 15 }}>
+            {latestLocation.current_road && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 0.5 }}>
+                  <Feather name="map-pin" size={14} color="#10B981" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#4B5563', fontSize: 13 }}>Road</Text>
+                </View>
+                <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500', flex: 0.5, textAlign: 'right' }} numberOfLines={1} ellipsizeMode="tail">
+                  {latestLocation.current_road}
+                </Text>
+              </View>
+            )}
+
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="globe" size={14} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 14 }}>Lat</Text>
+                <Feather name="zap" size={14} color="#F59E0B" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 13 }}>Speed</Text>
               </View>
-              <Text style={{ color: '#1F2937', fontSize: 14, fontWeight: '500' }}>{Number(latestLocation.latitude).toFixed(5)}</Text>
+              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
+                {latestLocation.speed != null ? `${(latestLocation.speed * 3.6).toFixed(1)} km/h` : 'N/A'}
+              </Text>
             </View>
-            
+
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="globe" size={14} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 14 }}>Lng</Text>
+                <Feather name="target" size={14} color="#10B981" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 13 }}>Accuracy</Text>
               </View>
-              <Text style={{ color: '#1F2937', fontSize: 14, fontWeight: '500' }}>{Number(latestLocation.longitude).toFixed(5)}</Text>
+              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
+                {latestLocation.accuracy ? `±${Math.round(latestLocation.accuracy)}m` : 'N/A'}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Feather name="battery" size={14} color="#3B82F6" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 13 }}>Battery</Text>
+              </View>
+              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
+                {latestLocation.battery_level != null ? `${Math.round(latestLocation.battery_level * 100)}%` : 'N/A'}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Feather name="wifi" size={14} color="#6B7280" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#4B5563', fontSize: 13 }}>Network</Text>
+              </View>
+              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500', textTransform: 'capitalize' }}>
+                {latestLocation.network_type || 'Unknown'}
+              </Text>
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Feather name="clock" size={14} color="#6B7280" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 14 }}>Time</Text>
+                <Text style={{ color: '#4B5563', fontSize: 13 }}>Last Update</Text>
               </View>
-              <Text style={{ color: '#1F2937', fontSize: 14, fontWeight: '500' }}>
+              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
                 {new Date(latestLocation.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).toLowerCase()}
               </Text>
             </View>
           </View>
         </View>
       </Callout>
-    </RNMarker.Animated>
+    </Marker>
   );
 };
 
@@ -111,6 +140,9 @@ const AdminTrackingScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [followMode, setFollowMode] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+  const [mapRegion, setMapRegion] = useState<any>(null);
   
   // selectedEmployeeId === null -> show List
   // selectedEmployeeId !== null -> show Map for this employee
@@ -221,24 +253,70 @@ const AdminTrackingScreen = () => {
   useEffect(() => {
     fetchTrackingData();
     
-    const locationSubscription = supabase
-      .channel('live-locations')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'employee_locations' }, (payload) => {
-        const newLocation = payload.new;
-        setActiveJourneys(current => {
-          if (!current[newLocation.user_id]) return current;
-          const journey = current[newLocation.user_id];
-          return {
-            ...current,
-            [newLocation.user_id]: {
-              ...journey,
-              locationHistory: [...(journey.locationHistory || []), newLocation],
-              latestLocation: newLocation
-            }
-          };
-        });
-      })
-      .subscribe();
+    let isMounted = true;
+
+    const setupSocket = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token || !isMounted) return;
+
+        const socket = getSocket(session.access_token);
+        if (socket) {
+          socket.on('location:batch_update', (batch: any[]) => {
+            setActiveJourneys(current => {
+              const updated = { ...current };
+              let hasChanged = false;
+              
+              batch.forEach(newLocation => {
+                const empId = newLocation.employee_id;
+                if (updated[empId]) {
+                  const journey = updated[empId];
+                  
+                  const normalizedLoc = {
+                    user_id: empId,
+                    latitude: Number(newLocation.latitude),
+                    longitude: Number(newLocation.longitude),
+                    status: newLocation.status || 'online',
+                    timestamp: newLocation.timestamp,
+                    accuracy: newLocation.accuracy,
+                    speed: newLocation.speed,
+                    heading: newLocation.heading,
+                  };
+
+                  updated[empId] = {
+                    ...journey,
+                    locationHistory: [...(journey.locationHistory || []), normalizedLoc],
+                    latestLocation: normalizedLoc
+                  };
+                  hasChanged = true;
+                }
+              });
+              return hasChanged ? updated : current;
+            });
+          });
+
+          socket.on('employee:status_change', ({ employee_id, status }: any) => {
+            setActiveJourneys(current => {
+              if (!current[employee_id]) return current;
+              return {
+                ...current,
+                [employee_id]: {
+                  ...current[employee_id],
+                  latestLocation: {
+                    ...(current[employee_id].latestLocation || {}),
+                    status: status,
+                  }
+                }
+              };
+            });
+          });
+        }
+      } catch (err) {
+        console.error('[Admin Socket Setup Error]', err);
+      }
+    };
+
+    setupSocket();
 
     const journeysSubscription = supabase
       .channel('live-journeys')
@@ -248,7 +326,8 @@ const AdminTrackingScreen = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(locationSubscription);
+      isMounted = false;
+      disconnectSocket();
       supabase.removeChannel(journeysSubscription);
     };
   }, []);
@@ -291,6 +370,30 @@ const AdminTrackingScreen = () => {
     initialRegion.latitude = Number(selectedJourney.latestLocation.latitude);
     initialRegion.longitude = Number(selectedJourney.latestLocation.longitude);
   }
+
+  useEffect(() => {
+    if (followMode && mapRef.current && selectedJourney?.latestLocation && mapRegion) {
+      const lat = Number(selectedJourney.latestLocation.latitude);
+      const lng = Number(selectedJourney.latestLocation.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        // Calculate safe viewport margins (80% box from center)
+        const margin = 0.8;
+        const latMin = mapRegion.latitude - (mapRegion.latitudeDelta / 2) * margin;
+        const latMax = mapRegion.latitude + (mapRegion.latitudeDelta / 2) * margin;
+        const lngMin = mapRegion.longitude - (mapRegion.longitudeDelta / 2) * margin;
+        const lngMax = mapRegion.longitude + (mapRegion.longitudeDelta / 2) * margin;
+
+        if (lat < latMin || lat > latMax || lng < lngMin || lng > lngMax) {
+          mapRef.current.animateToRegion({
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: mapRegion.latitudeDelta,
+            longitudeDelta: mapRegion.longitudeDelta,
+          }, 1000);
+        }
+      }
+    }
+  }, [selectedJourney?.latestLocation?.latitude, selectedJourney?.latestLocation?.longitude, followMode, mapRegion]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>
@@ -382,10 +485,65 @@ const AdminTrackingScreen = () => {
         {/* MAP VIEW */}
         {selectedEmployeeId && selectedJourney && (
           <View style={{ flex: 1 }}>
+            {/* Map Controls Floating Overlay */}
+            <View style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, flexDirection: 'row', gap: 10 }}>
+              {/* Follow Mode Toggle */}
+              <TouchableOpacity 
+                onPress={() => setFollowMode(!followMode)}
+                style={{ 
+                  backgroundColor: followMode ? '#10B981' : '#FFF', 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 10, 
+                  borderRadius: 12, 
+                  shadowColor: '#000', 
+                  shadowOffset: { width: 0, height: 2 }, 
+                  shadowOpacity: 0.1, 
+                  shadowRadius: 4, 
+                  elevation: 3,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: followMode ? '#059669' : '#E5E7EB'
+                }}
+              >
+                <Feather name="navigation" size={16} color={followMode ? '#FFF' : '#374151'} style={{ marginRight: 6 }} />
+                <Text style={{ color: followMode ? '#FFF' : '#374151', fontWeight: 'bold', fontSize: 13 }}>
+                  {followMode ? 'Follow ON' : 'Follow OFF'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Show History Toggle */}
+              <TouchableOpacity 
+                onPress={() => setShowHistory(!showHistory)}
+                style={{ 
+                  backgroundColor: showHistory ? '#F59E0B' : '#FFF', 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 10, 
+                  borderRadius: 12, 
+                  shadowColor: '#000', 
+                  shadowOffset: { width: 0, height: 2 }, 
+                  shadowOpacity: 0.1, 
+                  shadowRadius: 4, 
+                  elevation: 3,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: showHistory ? '#D97706' : '#E5E7EB'
+                }}
+              >
+                <Feather name="map" size={16} color={showHistory ? '#FFF' : '#374151'} style={{ marginRight: 6 }} />
+                <Text style={{ color: showHistory ? '#FFF' : '#374151', fontWeight: 'bold', fontSize: 13 }}>
+                  {showHistory ? 'Show History' : 'Live Map'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <MapView 
               ref={mapRef}
               style={styles.map} 
               initialRegion={initialRegion}
+              onRegionChangeComplete={setMapRegion}
+              onPanDrag={() => setFollowMode(false)}
             >
               {selectedJourney.latestLocation && selectedJourney.latestLocation.latitude != null && (
                 <AnimatedVehicleMarker
@@ -414,7 +572,7 @@ const AdminTrackingScreen = () => {
                 />
               )}
               
-              {selectedJourney.locationHistory && selectedJourney.locationHistory.length > 0 && (
+              {showHistory && selectedJourney.locationHistory && selectedJourney.locationHistory.length > 0 && (
                 <Polyline 
                   coordinates={selectedJourney.locationHistory.map((loc: any) => ({
                     latitude: Number(loc.latitude),

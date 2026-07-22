@@ -9,6 +9,11 @@ import * as Location from 'expo-location';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
 import { decodePolyline } from '../utils/mapsUtils';
 import { Polyline } from '../components/NativeMap';
+import { getSocket, disconnectSocket } from '../utils/socket';
+import * as Battery from 'expo-battery';
+import NetInfo from '@react-native-community/netinfo';
+import * as Device from 'expo-device';
+import { TelemetryQueue } from '../utils/TelemetryQueue';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -22,6 +27,13 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   var d = R * c;
   return d;
 }
+
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 const EmployeeTrackingScreen = () => {
   const { logout, user } = useAppState();
@@ -38,6 +50,10 @@ const EmployeeTrackingScreen = () => {
   const [duration, setDuration] = useState<number>(0);
   const [address, setAddress] = useState<string>("Locating...");
   const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
+  const [trackingSessionId, setTrackingSessionId] = useState<string | null>(null);
+  const sequenceNumberRef = React.useRef(1);
+  const lastTelemetrySentTimeRef = React.useRef(0);
+  const heartbeatTimerRef = React.useRef<any>(null);
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
@@ -149,6 +165,65 @@ const EmployeeTrackingScreen = () => {
     };
   }, [locationSubscription]);
 
+  const isProcessingQueueRef = React.useRef(false);
+
+  const processQueue = async () => {
+    if (isProcessingQueueRef.current) return;
+    
+    const socket = getSocket();
+    if (!socket || !socket.connected) return;
+
+    const size = await TelemetryQueue.size();
+    if (size === 0) return;
+
+    isProcessingQueueRef.current = true;
+
+    try {
+      let active = true;
+      while (active && socket.connected) {
+        const packet = await TelemetryQueue.peek();
+        if (!packet) {
+          active = false;
+          break;
+        }
+
+        // Emit telemetry with Socket.IO ACK response
+        const success = await new Promise<boolean>((resolve) => {
+          socket.emit('location:update', packet, (ackResponse: any) => {
+            if (ackResponse && ackResponse.success) {
+              resolve(true);
+            } else {
+              console.warn('[Telemetry Queue] Ingestion rejected by server:', ackResponse?.reason);
+              if (
+                ackResponse?.reason?.includes('Duplicate') || 
+                ackResponse?.reason?.includes('out-of-order') || 
+                ackResponse?.reason?.includes('bounds')
+              ) {
+                resolve(true); // Discard from queue
+              } else {
+                resolve(false); // Retain for retry
+              }
+            }
+          });
+
+          // Acknowledgment timeout fallback
+          setTimeout(() => resolve(false), 2000);
+        });
+
+        if (success) {
+          await TelemetryQueue.dequeue();
+        } else {
+          // Retry later
+          break;
+        }
+      }
+    } catch (e) {
+      console.error('[Telemetry Queue] Queue processing crash:', e);
+    } finally {
+      isProcessingQueueRef.current = false;
+    }
+  };
+
   const startJourney = async () => {
     setIsProcessing(true);
     try {
@@ -204,36 +279,119 @@ const EmployeeTrackingScreen = () => {
       ]).select().single();
       
       if (error) throw error;
+      const sessionUuid = generateUUID();
+      setTrackingSessionId(sessionUuid);
+      sequenceNumberRef.current = 1;
       setActiveJourney(data);
       
+      // Get session token and initialize Socket.IO
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const socket = getSocket(token);
+
+      if (socket) {
+        socket.on('connect', () => {
+          console.log('[Socket] Connected / Reconnected. Processing queue...');
+          processQueue();
+        });
+      }
+
       const sub = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          distanceInterval: 50,
+          distanceInterval: 10, // watch location at 10m intervals
         },
         async (loc) => {
           const newLat = loc.coords.latitude;
           const newLng = loc.coords.longitude;
-          setCurrentLocation({ latitude: newLat, longitude: newLng });
-          // Optionally update address periodically, but let's avoid too many API calls
+          const timestamp = new Date(loc.timestamp).toISOString();
           
-          const { data: newPing } = await supabase.from('employee_locations').insert([
-            {
-              user_id: user.id,
-              latitude: newLat,
-              longitude: newLng,
-              status: 'Moving',
-              timestamp: new Date().toISOString()
-            }
-          ]).select().single();
-
-          if (newPing) {
-            setPings(prev => [...prev, newPing]);
+          setCurrentLocation({ latitude: newLat, longitude: newLng });
+          
+          // Gather expanded telemetry
+          let batteryLevel = 1.0;
+          try {
+            batteryLevel = await Battery.getBatteryLevelAsync();
+          } catch (e) {
+            // Emulator or permission issues
           }
+
+          let networkType = 'unknown';
+          try {
+            const netInfo = await NetInfo.fetch();
+            networkType = netInfo.type;
+          } catch (e) {}
+
+          const isMoving = loc.coords.speed !== null && loc.coords.speed > 0.5;
+          const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
+          const seq = sequenceNumberRef.current++;
+
+          const payload = {
+            protocolVersion: '1.0',
+            latitude: newLat,
+            longitude: newLng,
+            accuracy: loc.coords.accuracy,
+            speed: loc.coords.speed,
+            heading: loc.coords.heading,
+            altitude: loc.coords.altitude,
+            timestamp,
+            batteryLevel,
+            networkType,
+            isMoving,
+            deviceId,
+            trackingSessionId: sessionUuid,
+            sequenceNumber: seq,
+          };
+
+          // Enqueue coordinate and process queue
+          await TelemetryQueue.enqueue(payload);
+          lastTelemetrySentTimeRef.current = Date.now();
+          processQueue();
+
+          // Update local state pings (we keep it for local distance calculations or clear it to save memory)
+          const newPing = {
+            latitude: newLat,
+            longitude: newLng,
+            status: 'Moving',
+            timestamp,
+          };
+          setPings(prev => [...prev, newPing]);
         }
       );
       setLocationSubscription(sub);
       
+      // Start presence heartbeat loop (Step 9)
+      lastTelemetrySentTimeRef.current = Date.now();
+      heartbeatTimerRef.current = setInterval(async () => {
+        const activeSocket = getSocket();
+        if (activeSocket && activeSocket.connected) {
+          const now = Date.now();
+          if (now - lastTelemetrySentTimeRef.current >= 10000) {
+            let batteryLevel = 1.0;
+            try {
+              batteryLevel = await Battery.getBatteryLevelAsync();
+            } catch (e) {}
+
+            let networkType = 'unknown';
+            try {
+              const netInfo = await NetInfo.fetch();
+              networkType = netInfo.type;
+            } catch (e) {}
+
+            const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
+            const seq = sequenceNumberRef.current;
+
+            activeSocket.emit('heartbeat', {
+              deviceId,
+              trackingSessionId: sessionUuid,
+              sequenceNumber: seq,
+              networkType,
+              batteryLevel,
+            });
+          }
+        }
+      }, 10000);
+
       // Start true background tracking
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.High,
@@ -276,7 +434,17 @@ const EmployeeTrackingScreen = () => {
       // Stop background tracking
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log(e));
 
+      // Clear presence heartbeat loop
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+
+      // Disconnect socket
+      disconnectSocket();
+
       setActiveJourney(null);
+      setTrackingSessionId(null);
       setPings([]);
       alert("Journey completed successfully.");
     } catch (e: any) {

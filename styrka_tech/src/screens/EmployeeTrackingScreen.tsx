@@ -60,17 +60,17 @@ const EmployeeTrackingScreen = () => {
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-        headers: { 'User-Agent': 'StyrkaApp/1.0' }
-      });
-      const data = await res.json();
-      if (data.display_name) {
-        // Just take the first part of the address (e.g. street name) to keep it concise
-        const formatted = data.display_name.split(',')[0];
+      const result = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (result && result.length > 0) {
+        const addressData = result[0];
+        const formatted = addressData.street || addressData.name || addressData.city || 'Unknown Location';
         setAddress(formatted);
+      } else {
+        setAddress('Address not found');
       }
     } catch (e) {
-      console.log('Geocoding error', e);
+      console.log('Reverse geocoding error:', e);
+      setAddress('Address unavailable');
     }
   };
 
@@ -365,13 +365,10 @@ const EmployeeTrackingScreen = () => {
           destLng = assignedDestination.longitude;
         } else if (assignedDestination.address) {
           try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(assignedDestination.address)}&format=json&limit=1`, {
-              headers: { 'User-Agent': 'StyrkaApp/1.0' }
-            });
-            const geoData = await res.json();
-            if (geoData && geoData.length > 0) {
-              destLat = parseFloat(geoData[0].lat);
-              destLng = parseFloat(geoData[0].lon);
+            const result = await Location.geocodeAsync(assignedDestination.address);
+            if (result && result.length > 0) {
+              destLat = result[0].latitude;
+              destLng = result[0].longitude;
             }
           } catch (e) {
             console.log("Error geocoding destination address:", e);

@@ -135,7 +135,7 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   );
 });
 
-export const Marker = ({ coordinate, onPress, children, ...props }: any) => {
+export const Marker = ({ coordinate, onPress, children, pinColor, ...props }: any) => {
   if (!coordinate) return null;
   return (
     <MapLibreMarker
@@ -143,8 +143,25 @@ export const Marker = ({ coordinate, onPress, children, ...props }: any) => {
       onPress={onPress}
       {...props}
     >
-      {/* MapLibre Marker expects a single wrapper view child */}
-      <View>{children}</View>
+      {children ? (
+        <View>{children}</View>
+      ) : (
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ 
+            width: 16, 
+            height: 16, 
+            borderRadius: 8, 
+            backgroundColor: pinColor || '#EF4444', 
+            borderWidth: 2, 
+            borderColor: 'white',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 3,
+            elevation: 4
+          }} />
+        </View>
+      )}
     </MapLibreMarker>
   );
 };

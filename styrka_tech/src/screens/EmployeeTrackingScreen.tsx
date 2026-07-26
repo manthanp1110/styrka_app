@@ -77,7 +77,7 @@ const EmployeeTrackingScreen = () => {
   const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { 'User-Agent': 'StyrkaApp/1.0' }});
       const data = await res.json();
       if (data.routes && data.routes.length > 0) {
         const route = data.routes[0];

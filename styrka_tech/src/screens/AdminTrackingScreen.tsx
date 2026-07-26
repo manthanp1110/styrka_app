@@ -158,7 +158,7 @@ const AdminTrackingScreen = () => {
             const originLat = journey.start_lat;
             const originLng = journey.start_lng;
             const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${journey.destination_lng},${journey.destination_lat}?overview=full&geometries=polyline`;
-            const res = await fetch(url);
+            const res = await fetch(url, { headers: { 'User-Agent': 'StyrkaApp/1.0' }});
             const data = await res.json();
             if (data.routes && data.routes.length > 0) {
               const decodedCoords = decodePolyline(data.routes[0].geometry);

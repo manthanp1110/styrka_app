@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator, StyleSheet, Platform, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
-import { MapView, Marker } from '../components/NativeMap';
+import { MapView, Marker, Polyline } from '../components/NativeMap';
 import * as Location from 'expo-location';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
 import { decodePolyline } from '../utils/mapsUtils';
-import { Polyline } from '../components/NativeMap';
 import { getSocket, disconnectSocket } from '../utils/socket';
 import * as Battery from 'expo-battery';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { Platform, Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
@@ -31,17 +29,11 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   return d;
 }
 
-const generateUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
-
 const EmployeeTrackingScreen = () => {
   const { logout, user } = useAppState();
   const navigation = useNavigation();
   const route = useRoute<any>();
+  const mapRef = useRef<any>(null);
   
   const [activeJourney, setActiveJourney] = useState<any>(null);
   const [pings, setPings] = useState<any[]>([]);
@@ -54,22 +46,45 @@ const EmployeeTrackingScreen = () => {
   const [address, setAddress] = useState<string>("Locating...");
   const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
   const [trackingSessionId, setTrackingSessionId] = useState<string | null>(null);
-  const sequenceNumberRef = React.useRef(1);
-  const lastTelemetrySentTimeRef = React.useRef(0);
-  const heartbeatTimerRef = React.useRef<any>(null);
+  const sequenceNumberRef = useRef(1);
+  const lastTelemetrySentTimeRef = useRef(0);
+  const heartbeatTimerRef = useRef<any>(null);
+
+  const fetchWithTimeout = (promise: Promise<any>, ms: number) => {
+    let timeoutId: any;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Timeout')), ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+  };
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      const result = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      // First try native geocoding with a timeout
+      const result = await fetchWithTimeout(Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }), 3000);
       if (result && result.length > 0) {
         const addressData = result[0];
-        const formatted = addressData.street || addressData.name || addressData.city || 'Unknown Location';
+        const formatted = addressData.street || addressData.name || addressData.city || addressData.region || 'Unknown Location';
         setAddress(formatted);
+        return;
+      }
+    } catch (e) {
+      console.log('Native reverse geocoding error or timeout:', e);
+    }
+    
+    // Fallback to nominatim if native fails or times out
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+        headers: { 'User-Agent': `StyrkaApp-${Date.now()}/1.0` }
+      });
+      const data = await res.json();
+      if (data.display_name) {
+        setAddress(data.display_name.split(',')[0]);
       } else {
         setAddress('Address not found');
       }
     } catch (e) {
-      console.log('Reverse geocoding error:', e);
+      console.log('Fallback geocoding error', e);
       setAddress('Address unavailable');
     }
   };
@@ -81,13 +96,44 @@ const EmployeeTrackingScreen = () => {
       const data = await res.json();
       if (data.routes && data.routes.length > 0) {
         const route = data.routes[0];
-        setDistance(route.distance / 1000); // meters to km
-        setDuration(route.duration / 60); // seconds to mins
+        setDistance(route.distance / 1000);
+        setDuration(route.duration / 60);
         const decodedCoords = decodePolyline(route.geometry);
         setRouteCoordinates(decodedCoords);
+        
+        // Auto fit to show start and end
+        if (mapRef.current && decodedCoords.length > 0) {
+          mapRef.current.fitToCoordinates(decodedCoords, {
+            edgePadding: { top: 50, right: 50, bottom: 200, left: 50 },
+            duration: 1000
+          });
+        }
+      } else {
+        // Fallback distance calculation if routing fails (straight line)
+        const straightDist = getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng);
+        setDistance(straightDist);
+        setDuration((straightDist / 40) * 60); // assume 40km/h
+        setRouteCoordinates([{ latitude: originLat, longitude: originLng }, { latitude: destLat, longitude: destLng }]);
+        if (mapRef.current) {
+          mapRef.current.fitToCoordinates([
+            { latitude: originLat, longitude: originLng },
+            { latitude: destLat, longitude: destLng }
+          ], { edgePadding: { top: 50, right: 50, bottom: 200, left: 50 }, duration: 1000 });
+        }
       }
     } catch (e) {
       console.log('OSRM routing error', e);
+      // Fallback on error
+      const straightDist = getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng);
+      setDistance(straightDist);
+      setDuration((straightDist / 40) * 60);
+      setRouteCoordinates([{ latitude: originLat, longitude: originLng }, { latitude: destLat, longitude: destLng }]);
+      if (mapRef.current) {
+        mapRef.current.fitToCoordinates([
+          { latitude: originLat, longitude: originLng },
+          { latitude: destLat, longitude: destLng }
+        ], { edgePadding: { top: 50, right: 50, bottom: 200, left: 50 }, duration: 1000 });
+      }
     }
   };
 
@@ -123,7 +169,6 @@ const EmployeeTrackingScreen = () => {
           fetchAddress(journey.start_lat, journey.start_lng);
         }
 
-        // Setup tracking if resumed
         if (!heartbeatTimerRef.current) {
           setTrackingSessionId(journey.id);
           setupTracking(journey.id);
@@ -145,7 +190,6 @@ const EmployeeTrackingScreen = () => {
 
   useEffect(() => {
     if (activeJourney && currentLocation && activeJourney.destination_lat && activeJourney.destination_lng) {
-      // Fetch route once when journey is active and location is known
       if (routeCoordinates.length === 0) {
         fetchRoute(
           currentLocation.latitude, currentLocation.longitude,
@@ -155,7 +199,6 @@ const EmployeeTrackingScreen = () => {
     }
   }, [activeJourney, currentLocation]);
 
-  // Geofencing Check: Auto-stop tracking when within 100m (0.1km)
   useEffect(() => {
     if (activeJourney && currentLocation && !isProcessing) {
       const dist = getDistanceFromLatLonInKm(
@@ -177,7 +220,7 @@ const EmployeeTrackingScreen = () => {
     };
   }, [locationSubscription]);
 
-  const isProcessingQueueRef = React.useRef(false);
+  const isProcessingQueueRef = useRef(false);
 
   const processQueue = async () => {
     if (isProcessingQueueRef.current) return;
@@ -212,7 +255,6 @@ const EmployeeTrackingScreen = () => {
       }
     }
   };
-
   
   const setupTracking = async (journeyId: string) => {
     try {
@@ -222,7 +264,7 @@ const EmployeeTrackingScreen = () => {
 
       if (socket) {
         socket.on('connect', () => {
-          console.log('[Socket] Connected / Reconnected. Socket presence enabled.');
+          console.log('[Socket] Connected / Reconnected.');
         });
       }
 
@@ -239,15 +281,10 @@ const EmployeeTrackingScreen = () => {
           setCurrentLocation({ latitude: newLat, longitude: newLng });
           
           let batteryLevel = 1.0;
-          try {
-            batteryLevel = await Battery.getBatteryLevelAsync();
-          } catch (e) {}
+          try { batteryLevel = await Battery.getBatteryLevelAsync(); } catch (e) {}
 
           let networkType = 'unknown';
-          try {
-            const netInfo = await NetInfo.fetch();
-            networkType = netInfo.type;
-          } catch (e) {}
+          try { const netInfo = await NetInfo.fetch(); networkType = netInfo.type; } catch (e) {}
 
           const isMoving = loc.coords.speed !== null && loc.coords.speed > 0.5;
           const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
@@ -273,14 +310,6 @@ const EmployeeTrackingScreen = () => {
           await TelemetryQueue.enqueue(payload);
           lastTelemetrySentTimeRef.current = Date.now();
           processQueue();
-
-          const newPing = {
-            latitude: newLat,
-            longitude: newLng,
-            status: 'Moving',
-            timestamp,
-          };
-          setPings(prev => [...prev, newPing]);
         }
       );
       setLocationSubscription(sub);
@@ -292,22 +321,13 @@ const EmployeeTrackingScreen = () => {
           const now = Date.now();
           if (now - lastTelemetrySentTimeRef.current >= 10000) {
             let batteryLevel = 1.0;
-            try {
-              batteryLevel = await Battery.getBatteryLevelAsync();
-            } catch (e) {}
+            try { batteryLevel = await Battery.getBatteryLevelAsync(); } catch (e) {}
             let networkType = 'unknown';
-            try {
-              const netInfo = await NetInfo.fetch();
-              networkType = netInfo.type;
-            } catch (e) {}
+            try { const netInfo = await NetInfo.fetch(); networkType = netInfo.type; } catch (e) {}
             const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
             const seq = sequenceNumberRef.current;
             LocationUploadService.sendHeartbeat({
-              deviceId,
-              trackingSessionId: journeyId,
-              sequenceNumber: seq,
-              networkType,
-              batteryLevel,
+              deviceId, trackingSessionId: journeyId, sequenceNumber: seq, networkType, batteryLevel,
             });
           }
         }, 10000);
@@ -322,7 +342,7 @@ const EmployeeTrackingScreen = () => {
           pausesUpdatesAutomatically: false,
           foregroundService: {
             notificationTitle: "Styrka Tracking Active",
-            notificationBody: "Your location is being tracked for the current journey."
+            notificationBody: "Your location is being tracked."
           }
         }).catch(e => console.log(e));
       }
@@ -342,12 +362,7 @@ const EmployeeTrackingScreen = () => {
       }
       
       let { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus !== 'granted') {
-        alert('Background permission was denied. Tracking will only work while the app is open.');
-      } else {
-        // Prompt for battery optimization if they just started a journey
-        checkBatteryOptimization();
-      }
+      if (bgStatus === 'granted') checkBatteryOptimization();
 
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const startLat = location.coords.latitude;
@@ -365,27 +380,38 @@ const EmployeeTrackingScreen = () => {
           destLng = assignedDestination.longitude;
         } else if (assignedDestination.address) {
           try {
-            const result = await Location.geocodeAsync(assignedDestination.address);
+            // Forward geocode with fallback
+            const result = await fetchWithTimeout(Location.geocodeAsync(assignedDestination.address), 3000);
             if (result && result.length > 0) {
               destLat = result[0].latitude;
               destLng = result[0].longitude;
             }
           } catch (e) {
-            console.log("Error geocoding destination address:", e);
+            console.log("Native forward geocode failed, using fallback:", e);
+            try {
+              const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(assignedDestination.address)}&format=json&limit=1`, {
+                headers: { 'User-Agent': `StyrkaApp-${Date.now()}/1.0` }
+              });
+              const geoData = await res.json();
+              if (geoData && geoData.length > 0) {
+                destLat = parseFloat(geoData[0].lat);
+                destLng = parseFloat(geoData[0].lon);
+              }
+            } catch (fallbackErr) {
+              console.log("Fallback forward geocode failed:", fallbackErr);
+            }
           }
         }
       }
 
-      const { data, error } = await supabase.from('journeys').insert([
-        {
-          user_id: user.id,
-          status: 'active',
-          start_lat: startLat,
-          start_lng: startLng,
-          destination_lat: destLat,
-          destination_lng: destLng,
-        }
-      ]).select().single();
+      const { data, error } = await supabase.from('journeys').insert([{
+        user_id: user.id,
+        status: 'active',
+        start_lat: startLat,
+        start_lng: startLng,
+        destination_lat: destLat,
+        destination_lng: destLng,
+      }]).select().single();
       
       if (error) throw error;
       setTrackingSessionId(data.id);
@@ -393,8 +419,7 @@ const EmployeeTrackingScreen = () => {
       setActiveJourney(data);
       
       await setupTracking(data.id);
-
-      alert("Journey started! Tracking is active even in the background.");
+      alert("Journey started! Tracking is active.");
     } catch (e: any) {
       alert("Failed to start journey: " + e.message);
     } finally {
@@ -406,7 +431,6 @@ const EmployeeTrackingScreen = () => {
     if (!activeJourney) return;
     setIsProcessing(true);
     try {
-      // 1. Mark Journey as Completed
       const { error } = await supabase.from('journeys').update({
         status: 'completed',
         ended_at: new Date().toISOString()
@@ -414,7 +438,6 @@ const EmployeeTrackingScreen = () => {
       
       if (error) throw error;
       
-      // 2. Mark assigned destination as Completed if we used one
       if (route.params?.assignedDestination?.id) {
         await supabase.from('assigned_destinations').update({
           status: 'completed'
@@ -426,22 +449,23 @@ const EmployeeTrackingScreen = () => {
         setLocationSubscription(null);
       }
       
-      // Stop background tracking
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log(e));
 
-      // Clear presence heartbeat loop
       if (heartbeatTimerRef.current) {
         clearInterval(heartbeatTimerRef.current);
         heartbeatTimerRef.current = null;
       }
 
-      // Disconnect socket
       disconnectSocket();
-
       setActiveJourney(null);
       setTrackingSessionId(null);
       setPings([]);
+      setRouteCoordinates([]);
+      setAddress("Locating...");
       alert("Journey completed successfully.");
+      
+      // Auto go back so they can pick a new destination easily
+      navigation.goBack();
     } catch (e: any) {
       alert("Failed to end journey: " + e.message);
     } finally {
@@ -458,7 +482,6 @@ const EmployeeTrackingScreen = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>
-      {/* Header */}
       <View className="bg-[#0F4C3A] flex-row items-center justify-between px-4 py-4 z-10">
         <View className="flex-row items-center">
           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3 p-1">
@@ -468,7 +491,7 @@ const EmployeeTrackingScreen = () => {
             <Text className="text-white font-bold text-lg">{user.name?.charAt(0) || 'E'}</Text>
           </View>
           <View className="ml-3">
-            <Text className="text-white font-bold text-lg leading-tight">STYRKA</Text>
+            <Text className="text-white font-bold text-lg leading-tight">STYRKA v2</Text>
             <Text className="text-[#F59E0B] text-[10px] font-bold tracking-widest">LIVE TRACKING</Text>
           </View>
         </View>
@@ -486,6 +509,7 @@ const EmployeeTrackingScreen = () => {
           </View>
         ) : (
           <MapView 
+            ref={mapRef}
             style={styles.map} 
             initialRegion={initialRegion}
             showsUserLocation={true}
@@ -494,12 +518,12 @@ const EmployeeTrackingScreen = () => {
             {activeJourney && (
               <>
                 <Marker 
-                  coordinate={{ latitude: activeJourney.start_lat, longitude: activeJourney.start_lng }}
+                  coordinate={{ latitude: Number(activeJourney.start_lat), longitude: Number(activeJourney.start_lng) }}
                   title="Start Location"
                   pinColor="green"
                 />
                 <Marker 
-                  coordinate={{ latitude: activeJourney.destination_lat, longitude: activeJourney.destination_lng }}
+                  coordinate={{ latitude: Number(activeJourney.destination_lat), longitude: Number(activeJourney.destination_lng) }}
                   title="Destination"
                   pinColor="red"
                 />
@@ -515,7 +539,6 @@ const EmployeeTrackingScreen = () => {
           </MapView>
         )}
 
-        {/* Overlay Card */}
         <View style={styles.overlayCard}>
           {activeJourney ? (
             <View>
@@ -528,11 +551,11 @@ const EmployeeTrackingScreen = () => {
               </View>
               
               <View className="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4 flex-row items-center justify-between">
-                 <View>
+                 <View style={{ flex: 1 }}>
                    <Text className="text-xs text-gray-400 font-bold uppercase mb-1">Current Location</Text>
-                   <Text className="text-gray-800 font-bold">{address}</Text>
+                   <Text className="text-gray-800 font-bold" numberOfLines={1}>{address}</Text>
                  </View>
-                 <View className="items-end">
+                 <View className="items-end ml-4">
                    <Text className="text-xs text-gray-400 font-bold uppercase mb-1">Distance</Text>
                    <Text className="text-gray-800 font-bold">{distance.toFixed(1)} km</Text>
                  </View>
@@ -582,37 +605,13 @@ const EmployeeTrackingScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  mapContainer: {
-    flex: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  map: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  mapContainer: { flex: 1, backgroundColor: '#E5E7EB' },
+  map: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   overlayCard: {
-    position: 'absolute',
-    bottom: 30,
-    left: 20,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: 'white',
+    borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: '#E5E7EB',
   }
 });
 

@@ -1,16 +1,9 @@
 /**
- * MapLibre compatibility wrapper for react-native-maps
+ * Mappls compatibility wrapper for react-native-maps
  */
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import {
-  Map,
-  Camera,
-  Marker as MapLibreMarker,
-  Callout as MapLibreCallout,
-  GeoJSONSource,
-  Layer,
-} from '@maplibre/maplibre-react-native';
+import MapplsGL from 'mappls-map-react-native';
 
 // Mathematically correct Mercator Zoom-from-Delta calculation
 function getZoomFromRegion(region: any): number {
@@ -31,13 +24,6 @@ function getZoomFromRegion(region: any): number {
   return Math.min(Math.max(zoom, minZoom), maxZoom);
 }
 
-// MapTiler Vector tile style setup using environment variable
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY;
-const MAP_STYLE_URL = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-
-
 export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLongPress, children, ...props }: any, ref) => {
   const cameraRef = useRef<any>(null);
   const mapRef = useRef<any>(null);
@@ -45,9 +31,9 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   useImperativeHandle(ref, () => ({
     animateToRegion: (targetRegion: any, duration = 1000) => {
       cameraRef.current?.setCamera({
-        center: [targetRegion.longitude, targetRegion.latitude],
-        zoom: getZoomFromRegion(targetRegion),
-        duration: duration,
+        centerCoordinate: [targetRegion.longitude, targetRegion.latitude],
+        zoomLevel: getZoomFromRegion(targetRegion),
+        animationDuration: duration,
       });
     },
     fitToCoordinates: (coordinates: any[], options: any = {}) => {
@@ -116,33 +102,33 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   };
 
   return (
-    <Map
+    <MapplsGL.MapView
       ref={mapRef}
       style={style || styles.map}
-      mapStyle={MAP_STYLE_URL}
       onPress={handlePress}
       onLongPress={handleLongPress}
-      attribution={false}
-      logo={false}
+      attributionEnabled={false}
+      logoEnabled={false}
     >
-      <Camera
+      <MapplsGL.Camera
         ref={cameraRef}
-        center={centerCoordinate as [number, number]}
-        zoom={zoomLevel}
+        centerCoordinate={centerCoordinate as [number, number]}
+        zoomLevel={zoomLevel}
       />
       {children}
-    </Map>
+    </MapplsGL.MapView>
   );
 });
 
 export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }: any) => {
   if (!coordinate) return null;
+  const markerId = id || `marker-${coordinate.latitude}-${coordinate.longitude}`;
+  
   return (
-    <MapLibreMarker
-      id={id || `marker-${coordinate.latitude}-${coordinate.longitude}`}
+    <MapplsGL.PointAnnotation
+      id={markerId}
       coordinate={[coordinate.longitude, coordinate.latitude]}
-      lngLat={[coordinate.longitude, coordinate.latitude]}
-      onPress={onPress}
+      onSelected={onPress}
       {...props}
     >
       {children ? (
@@ -164,7 +150,7 @@ export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }
           }} />
         </View>
       )}
-    </MapLibreMarker>
+    </MapplsGL.PointAnnotation>
   );
 };
 
@@ -183,10 +169,9 @@ export const Polyline = ({ coordinates, strokeColor = '#10B981', strokeWidth = 4
   const layerId = `polyline-layer-${coordinates[0].latitude}-${coordinates[0].longitude}`;
 
   return (
-    <GeoJSONSource id={sourceId} data={geojson}>
-      <Layer
+    <MapplsGL.ShapeSource id={sourceId} shape={geojson}>
+      <MapplsGL.LineLayer
         id={layerId}
-        type="line"
         style={{
           lineColor: strokeColor,
           lineWidth: strokeWidth,
@@ -194,15 +179,15 @@ export const Polyline = ({ coordinates, strokeColor = '#10B981', strokeWidth = 4
           lineJoin: 'round',
         }}
       />
-    </GeoJSONSource>
+    </MapplsGL.ShapeSource>
   );
 };
 
 export const Callout = ({ children, ...props }: any) => {
   return (
-    <MapLibreCallout {...props}>
+    <MapplsGL.Callout {...props}>
       {children}
-    </MapLibreCallout>
+    </MapplsGL.Callout>
   );
 };
 

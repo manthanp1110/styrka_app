@@ -15,6 +15,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
+import MapplsGL, { RestApi } from 'mappls-map-react-native';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -60,16 +61,13 @@ const EmployeeTrackingScreen = () => {
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      // First try native geocoding with a timeout
-      const result = await fetchWithTimeout(Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }), 3000);
-      if (result && result.length > 0) {
-        const addressData = result[0];
-        const formatted = addressData.street || addressData.name || addressData.city || addressData.region || 'Unknown Location';
-        setAddress(formatted);
+      const res = await fetchWithTimeout(RestApi.reverseGeocode({ latitude: lat, longitude: lng }), 5000);
+      if (res && res.results && res.results.length > 0) {
+        setAddress(res.results[0].formatted_address);
         return;
       }
     } catch (e) {
-      console.log('Native reverse geocoding error or timeout:', e);
+      console.log('Mappls reverse geocoding error:', e);
     }
     
     // Fallback to nominatim if native fails or times out
@@ -91,11 +89,16 @@ const EmployeeTrackingScreen = () => {
 
   const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'StyrkaApp/1.0' }});
-      const data = await res.json();
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
+      const res = await fetchWithTimeout(RestApi.direction({
+        origin: `${originLng},${originLat}`,
+        destination: `${destLng},${destLat}`,
+        profile: RestApi.DirectionsCriteria.PROFILE_DRIVING,
+        overview: RestApi.DirectionsCriteria.OVERVIEW_FULL,
+        geometries: RestApi.DirectionsCriteria.GEOMETRY_POLYLINE
+      }), 10000);
+      
+      if (res && res.routes && res.routes.length > 0) {
+        const route = res.routes[0];
         setDistance(route.distance / 1000);
         setDuration(route.duration / 60);
         const decodedCoords = decodePolyline(route.geometry);
@@ -122,7 +125,7 @@ const EmployeeTrackingScreen = () => {
         }
       }
     } catch (e) {
-      console.log('OSRM routing error', e);
+      console.log('Mappls routing error', e);
       // Fallback on error
       const straightDist = getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng);
       setDistance(straightDist);

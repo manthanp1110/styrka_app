@@ -58,14 +58,15 @@
     },
     "owner": "manthanp_2811",
     "plugins": [
-      "@maplibre/maplibre-react-native",
       [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Styrka requires continuous background location access to track field journeys and calculate route compliance.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "./withMapplsKeys.js",
+      "./withMapplsMaven.js"
     ],
     "runtimeVersion": {
       "policy": "appVersion"

@@ -8,6 +8,7 @@ import { supabase } from '../config/supabase';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
 import { getSocket, disconnectSocket } from '../utils/socket';
+import MapplsGL, { RestApi } from 'mappls-map-react-native';
 
 const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, styles }: any) => {
   const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
@@ -157,15 +158,21 @@ const AdminTrackingScreen = () => {
           try {
             const originLat = journey.start_lat;
             const originLng = journey.start_lng;
-            const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${journey.destination_lng},${journey.destination_lat}?overview=full&geometries=polyline`;
-            const res = await fetch(url, { headers: { 'User-Agent': 'StyrkaApp/1.0' }});
-            const data = await res.json();
-            if (data.routes && data.routes.length > 0) {
-              const decodedCoords = decodePolyline(data.routes[0].geometry);
+            
+            const res = await RestApi.direction({
+              origin: `${originLng},${originLat}`,
+              destination: `${journey.destination_lng},${journey.destination_lat}`,
+              profile: RestApi.DirectionsCriteria.PROFILE_DRIVING,
+              overview: RestApi.DirectionsCriteria.OVERVIEW_FULL,
+              geometries: RestApi.DirectionsCriteria.GEOMETRY_POLYLINE
+            });
+            
+            if (res && res.routes && res.routes.length > 0) {
+              const decodedCoords = decodePolyline(res.routes[0].geometry);
               setCurrentRouteCoords(decodedCoords);
             }
           } catch (e) {
-            console.log('OSRM routing error', e);
+            console.log('Mappls routing error', e);
           }
         };
         fetchRoute();

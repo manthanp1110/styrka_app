@@ -13,7 +13,9 @@ buildscript {
 }
 
 allprojects {
-  repositories {
+    repositories {
+        maven { url 'https://maven.mappls.com/repository/mappls/' }
+
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }

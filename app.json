@@ -66,7 +66,8 @@
         }
       ],
       "./withMapplsKeys.js",
-      "./withMapplsMaven.js"
+      "./withMapplsMaven.js",
+      "./withMapplsOlf.js"
     ],
     "runtimeVersion": {
       "policy": "appVersion"

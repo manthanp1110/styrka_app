@@ -11,9 +11,12 @@ import { decodePolyline } from '../utils/mapsUtils';
 import { Polyline } from '../components/NativeMap';
 import { getSocket, disconnectSocket } from '../utils/socket';
 import * as Battery from 'expo-battery';
+import * as IntentLauncher from 'expo-intent-launcher';
+import { Platform, Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
+import LocationUploadService from '../services/LocationUploadService';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -169,58 +172,35 @@ const EmployeeTrackingScreen = () => {
 
   const processQueue = async () => {
     if (isProcessingQueueRef.current) return;
-    
-    const socket = getSocket();
-    if (!socket || !socket.connected) return;
-
-    const size = await TelemetryQueue.size();
-    if (size === 0) return;
-
     isProcessingQueueRef.current = true;
-
     try {
-      let active = true;
-      while (active && socket.connected) {
-        const packet = await TelemetryQueue.peek();
-        if (!packet) {
-          active = false;
-          break;
-        }
-
-        // Emit telemetry with Socket.IO ACK response
-        const success = await new Promise<boolean>((resolve) => {
-          socket.emit('location:update', packet, (ackResponse: any) => {
-            if (ackResponse && ackResponse.success) {
-              resolve(true);
-            } else {
-              console.warn('[Telemetry Queue] Ingestion rejected by server:', ackResponse?.reason);
-              if (
-                ackResponse?.reason?.includes('Duplicate') || 
-                ackResponse?.reason?.includes('out-of-order') || 
-                ackResponse?.reason?.includes('bounds')
-              ) {
-                resolve(true); // Discard from queue
-              } else {
-                resolve(false); // Retain for retry
-              }
-            }
-          });
-
-          // Acknowledgment timeout fallback
-          setTimeout(() => resolve(false), 2000);
-        });
-
-        if (success) {
-          await TelemetryQueue.dequeue();
-        } else {
-          // Retry later
-          break;
-        }
-      }
-    } catch (e) {
-      console.error('[Telemetry Queue] Queue processing crash:', e);
+      await LocationUploadService.processQueue();
     } finally {
       isProcessingQueueRef.current = false;
+    }
+  };
+
+  const checkBatteryOptimization = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        Alert.alert(
+          "Battery Optimization",
+          "To ensure background tracking works reliably, please set this app's battery usage to 'Unrestricted' in settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { 
+              text: "Open Settings", 
+              onPress: async () => {
+                await IntentLauncher.startActivityAsync(
+                  IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+                );
+              }
+            }
+          ]
+        );
+      } catch (e) {
+        console.log("Could not launch battery settings", e);
+      }
     }
   };
 
@@ -237,9 +217,12 @@ const EmployeeTrackingScreen = () => {
       let { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
       if (bgStatus !== 'granted') {
         alert('Background permission was denied. Tracking will only work while the app is open.');
+      } else {
+        // Prompt for battery optimization if they just started a journey
+        checkBatteryOptimization();
       }
 
-      let location = await Location.getCurrentPositionAsync({});
+      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const startLat = location.coords.latitude;
       const startLng = location.coords.longitude;
       setCurrentLocation({ latitude: startLat, longitude: startLng });
@@ -291,8 +274,7 @@ const EmployeeTrackingScreen = () => {
 
       if (socket) {
         socket.on('connect', () => {
-          console.log('[Socket] Connected / Reconnected. Processing queue...');
-          processQueue();
+          console.log('[Socket] Connected / Reconnected. Socket presence enabled.');
         });
       }
 
@@ -360,43 +342,48 @@ const EmployeeTrackingScreen = () => {
       );
       setLocationSubscription(sub);
       
-      // Start presence heartbeat loop (Step 9)
+      // Start presence heartbeat loop
       lastTelemetrySentTimeRef.current = Date.now();
       heartbeatTimerRef.current = setInterval(async () => {
-        const activeSocket = getSocket();
-        if (activeSocket && activeSocket.connected) {
-          const now = Date.now();
-          if (now - lastTelemetrySentTimeRef.current >= 10000) {
-            let batteryLevel = 1.0;
-            try {
-              batteryLevel = await Battery.getBatteryLevelAsync();
-            } catch (e) {}
+        // Attempt to flush offline queue periodically just in case
+        processQueue();
 
-            let networkType = 'unknown';
-            try {
-              const netInfo = await NetInfo.fetch();
-              networkType = netInfo.type;
-            } catch (e) {}
+        const now = Date.now();
+        if (now - lastTelemetrySentTimeRef.current >= 10000) {
+          let batteryLevel = 1.0;
+          try {
+            batteryLevel = await Battery.getBatteryLevelAsync();
+          } catch (e) {}
 
-            const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
-            const seq = sequenceNumberRef.current;
+          let networkType = 'unknown';
+          try {
+            const netInfo = await NetInfo.fetch();
+            networkType = netInfo.type;
+          } catch (e) {}
 
-            activeSocket.emit('heartbeat', {
-              deviceId,
-              trackingSessionId: sessionUuid,
-              sequenceNumber: seq,
-              networkType,
-              batteryLevel,
-            });
-          }
+          const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
+          const seq = sequenceNumberRef.current;
+
+          LocationUploadService.sendHeartbeat({
+            deviceId,
+            trackingSessionId: sessionUuid,
+            sequenceNumber: seq,
+            networkType,
+            batteryLevel,
+          });
         }
       }, 10000);
 
-      // Start true background tracking
+      // Start true background tracking (High accuracy, no pause)
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.High,
         distanceInterval: 10,
         showsBackgroundLocationIndicator: true,
+        pausesUpdatesAutomatically: false,
+        foregroundService: {
+          notificationTitle: "Styrka Tracking Active",
+          notificationBody: "Your location is being tracked for the current journey."
+        }
       });
 
       alert("Journey started! Tracking is active even in the background.");

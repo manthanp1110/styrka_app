@@ -35,7 +35,7 @@ function getZoomFromRegion(region: any): number {
 const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY;
 const MAP_STYLE_URL = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://demotiles.maplibre.org/style.json';
+  : 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
 
 export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLongPress, children, ...props }: any, ref) => {

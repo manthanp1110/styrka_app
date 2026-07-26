@@ -3,13 +3,17 @@
     "name": "Styrka",
     "slug": "Styrka",
     "version": "1.0.0",
+    "icon": "./styrka-icon.png",
+    "splash": {
+      "image": "./styrka-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.manthanp2811.styrka",
       "supportsTablet": true,
-      "config": {
-        "googleMapsApiKey": ""
-      },
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
@@ -20,10 +24,9 @@
       }
     },
     "android": {
-      "config": {
-        "googleMaps": {
-          "apiKey": ""
-        }
+      "adaptiveIcon": {
+        "foregroundImage": "./styrka-icon.png",
+        "backgroundColor": "#ffffff"
       },
       "permissions": [
         "INTERNET",
@@ -32,7 +35,9 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK"
       ],
       "package": "com.manthanp_2811.styrka"
     },

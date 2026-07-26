@@ -35,6 +35,11 @@ app.set('activeEmployees', activeEmployees);
 // Bind Observability Diagnostics Health Route (Step 19)
 app.use(healthRoutes.router);
 
+// Bind Location REST API
+const expressAuth = require('./middleware/expressAuth');
+const locationRoutes = require('./routes/location');
+app.use('/api/location', expressAuth, locationRoutes);
+
 server.listen(config.PORT, () => {
   console.log(`🚀 Modular Fleet Telemetry Server listening on port ${config.PORT}`);
 });

@@ -1,12 +1,18 @@
-name: Build Android Preview
+name: Build App Preview
 on:
   push:
     branches:
       - 'master'
 jobs:
-  build:
+  build_android:
     name: Build APK
     type: build
     params:
       platform: android
+      profile: preview
+  build_ios:
+    name: Build iOS Simulator
+    type: build
+    params:
+      platform: ios
       profile: preview

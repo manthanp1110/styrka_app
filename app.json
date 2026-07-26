@@ -17,6 +17,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
+          "fetch",
+          "location",
           "fetch"
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Styrka requires continuous background location access to track field journeys and calculate route compliance.",
@@ -37,6 +39,15 @@
         "FOREGROUND_SERVICE_LOCATION",
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
         "WAKE_LOCK"
       ],
       "package": "com.manthanp_2811.styrka"
@@ -49,6 +60,12 @@
     "owner": "manthanp_2811",
     "plugins": [
       "@maplibre/maplibre-react-native"
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/714587b8-0d06-4ade-8c04-6df9c49db5ea"
+    }
   }
 }

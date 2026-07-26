@@ -157,7 +157,7 @@ const AdminTrackingScreen = () => {
           try {
             const originLat = journey.start_lat;
             const originLng = journey.start_lng;
-            const url = `http://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${journey.destination_lng},${journey.destination_lat}?overview=full&geometries=polyline`;
+            const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${journey.destination_lng},${journey.destination_lat}?overview=full&geometries=polyline`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.routes && data.routes.length > 0) {

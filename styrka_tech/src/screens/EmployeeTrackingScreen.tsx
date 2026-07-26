@@ -365,7 +365,9 @@ const EmployeeTrackingScreen = () => {
           destLng = assignedDestination.longitude;
         } else if (assignedDestination.address) {
           try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(assignedDestination.address)}&format=json&limit=1`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(assignedDestination.address)}&format=json&limit=1`, {
+              headers: { 'User-Agent': 'StyrkaApp/1.0' }
+            });
             const geoData = await res.json();
             if (geoData && geoData.length > 0) {
               destLat = parseFloat(geoData[0].lat);

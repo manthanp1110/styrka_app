@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Styrka",
-    "slug": "Styrka",
+    "slug": "styrka",
     "version": "1.0.0",
     "icon": "./styrka-icon.png",
     "splash": {
@@ -53,10 +53,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": "714587b8-0d06-4ade-8c04-6df9c49db5ea"
+        "projectId": "c83f58f3-19bc-4984-abcd-07c93c39c853"
       }
     },
-    "owner": "manthanp_2811",
+    "owner": "styrka",
     "plugins": [
       [
         "expo-location",

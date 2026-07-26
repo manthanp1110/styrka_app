@@ -8,17 +8,25 @@ import { supabase } from '../config/supabase';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
 import { getSocket, disconnectSocket } from '../utils/socket';
+import { useSmoothLocation } from '../hooks/useSmoothLocation';
 import MapplsGL, { RestApi } from 'mappls-map-react-native';
 
 const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, styles }: any) => {
   const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
   const isOffline = latestLocation.status === 'offline';
+  
+  const animatedLoc = useSmoothLocation(
+    Number(latestLocation.latitude),
+    Number(latestLocation.longitude),
+    Number(latestLocation.heading || 0),
+    2000
+  );
 
   return (
     <Marker
       coordinate={{
-        latitude: Number(latestLocation.latitude),
-        longitude: Number(latestLocation.longitude),
+        latitude: animatedLoc.latitude,
+        longitude: animatedLoc.longitude,
       }}
       anchor={{ x: 0.5, y: 0.5 }}
       style={{ zIndex: 2 }}
@@ -37,7 +45,7 @@ const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, sty
             width: 45, 
             height: 45, 
             resizeMode: 'contain', 
-            transform: [{ rotate: latestLocation.heading != null ? `${Number(latestLocation.heading) + 180}deg` : '180deg' }] 
+            transform: [{ rotate: `${animatedLoc.heading + 180}deg` }] 
           }}
         />
       </View>

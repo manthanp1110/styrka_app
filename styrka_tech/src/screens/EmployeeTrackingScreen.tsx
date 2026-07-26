@@ -60,7 +60,9 @@ const EmployeeTrackingScreen = () => {
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+        headers: { 'User-Agent': 'StyrkaApp/1.0' }
+      });
       const data = await res.json();
       if (data.display_name) {
         // Just take the first part of the address (e.g. street name) to keep it concise
@@ -74,7 +76,7 @@ const EmployeeTrackingScreen = () => {
 
   const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
     try {
-      const url = `http://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.routes && data.routes.length > 0) {
@@ -117,7 +119,14 @@ const EmployeeTrackingScreen = () => {
           setCurrentLocation({ latitude: lastPing.latitude, longitude: lastPing.longitude });
           fetchAddress(lastPing.latitude, lastPing.longitude);
         } else {
+          setCurrentLocation({ latitude: journey.start_lat, longitude: journey.start_lng });
           fetchAddress(journey.start_lat, journey.start_lng);
+        }
+
+        // Setup tracking if resumed
+        if (!heartbeatTimerRef.current) {
+          setTrackingSessionId(journey.id);
+          setupTracking(journey.id);
         }
       } else {
         setActiveJourney(null);
@@ -204,6 +213,124 @@ const EmployeeTrackingScreen = () => {
     }
   };
 
+  
+  const setupTracking = async (journeyId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const socket = getSocket(token);
+
+      if (socket) {
+        socket.on('connect', () => {
+          console.log('[Socket] Connected / Reconnected. Socket presence enabled.');
+        });
+      }
+
+      const sub = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 10,
+        },
+        async (loc) => {
+          const newLat = loc.coords.latitude;
+          const newLng = loc.coords.longitude;
+          const timestamp = new Date(loc.timestamp).toISOString();
+          
+          setCurrentLocation({ latitude: newLat, longitude: newLng });
+          
+          let batteryLevel = 1.0;
+          try {
+            batteryLevel = await Battery.getBatteryLevelAsync();
+          } catch (e) {}
+
+          let networkType = 'unknown';
+          try {
+            const netInfo = await NetInfo.fetch();
+            networkType = netInfo.type;
+          } catch (e) {}
+
+          const isMoving = loc.coords.speed !== null && loc.coords.speed > 0.5;
+          const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
+          const seq = sequenceNumberRef.current++;
+
+          const payload = {
+            protocolVersion: '1.0',
+            latitude: newLat,
+            longitude: newLng,
+            accuracy: loc.coords.accuracy,
+            speed: loc.coords.speed,
+            heading: loc.coords.heading,
+            altitude: loc.coords.altitude,
+            timestamp,
+            batteryLevel,
+            networkType,
+            isMoving,
+            deviceId,
+            trackingSessionId: journeyId,
+            sequenceNumber: seq,
+          };
+
+          await TelemetryQueue.enqueue(payload);
+          lastTelemetrySentTimeRef.current = Date.now();
+          processQueue();
+
+          const newPing = {
+            latitude: newLat,
+            longitude: newLng,
+            status: 'Moving',
+            timestamp,
+          };
+          setPings(prev => [...prev, newPing]);
+        }
+      );
+      setLocationSubscription(sub);
+      
+      lastTelemetrySentTimeRef.current = Date.now();
+      if (!heartbeatTimerRef.current) {
+        heartbeatTimerRef.current = setInterval(async () => {
+          processQueue();
+          const now = Date.now();
+          if (now - lastTelemetrySentTimeRef.current >= 10000) {
+            let batteryLevel = 1.0;
+            try {
+              batteryLevel = await Battery.getBatteryLevelAsync();
+            } catch (e) {}
+            let networkType = 'unknown';
+            try {
+              const netInfo = await NetInfo.fetch();
+              networkType = netInfo.type;
+            } catch (e) {}
+            const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
+            const seq = sequenceNumberRef.current;
+            LocationUploadService.sendHeartbeat({
+              deviceId,
+              trackingSessionId: journeyId,
+              sequenceNumber: seq,
+              networkType,
+              batteryLevel,
+            });
+          }
+        }, 10000);
+      }
+
+      const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+      if (!isBackgroundRunning) {
+        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 10,
+          showsBackgroundLocationIndicator: true,
+          pausesUpdatesAutomatically: false,
+          foregroundService: {
+            notificationTitle: "Styrka Tracking Active",
+            notificationBody: "Your location is being tracked for the current journey."
+          }
+        }).catch(e => console.log(e));
+      }
+    } catch (e) {
+      console.log('Error setting up tracking', e);
+    }
+  };
+
   const startJourney = async () => {
     setIsProcessing(true);
     try {
@@ -262,129 +389,11 @@ const EmployeeTrackingScreen = () => {
       ]).select().single();
       
       if (error) throw error;
-      const sessionUuid = generateUUID();
-      setTrackingSessionId(sessionUuid);
+      setTrackingSessionId(data.id);
       sequenceNumberRef.current = 1;
       setActiveJourney(data);
       
-      // Get session token and initialize Socket.IO
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const socket = getSocket(token);
-
-      if (socket) {
-        socket.on('connect', () => {
-          console.log('[Socket] Connected / Reconnected. Socket presence enabled.');
-        });
-      }
-
-      const sub = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10, // watch location at 10m intervals
-        },
-        async (loc) => {
-          const newLat = loc.coords.latitude;
-          const newLng = loc.coords.longitude;
-          const timestamp = new Date(loc.timestamp).toISOString();
-          
-          setCurrentLocation({ latitude: newLat, longitude: newLng });
-          
-          // Gather expanded telemetry
-          let batteryLevel = 1.0;
-          try {
-            batteryLevel = await Battery.getBatteryLevelAsync();
-          } catch (e) {
-            // Emulator or permission issues
-          }
-
-          let networkType = 'unknown';
-          try {
-            const netInfo = await NetInfo.fetch();
-            networkType = netInfo.type;
-          } catch (e) {}
-
-          const isMoving = loc.coords.speed !== null && loc.coords.speed > 0.5;
-          const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
-          const seq = sequenceNumberRef.current++;
-
-          const payload = {
-            protocolVersion: '1.0',
-            latitude: newLat,
-            longitude: newLng,
-            accuracy: loc.coords.accuracy,
-            speed: loc.coords.speed,
-            heading: loc.coords.heading,
-            altitude: loc.coords.altitude,
-            timestamp,
-            batteryLevel,
-            networkType,
-            isMoving,
-            deviceId,
-            trackingSessionId: sessionUuid,
-            sequenceNumber: seq,
-          };
-
-          // Enqueue coordinate and process queue
-          await TelemetryQueue.enqueue(payload);
-          lastTelemetrySentTimeRef.current = Date.now();
-          processQueue();
-
-          // Update local state pings (we keep it for local distance calculations or clear it to save memory)
-          const newPing = {
-            latitude: newLat,
-            longitude: newLng,
-            status: 'Moving',
-            timestamp,
-          };
-          setPings(prev => [...prev, newPing]);
-        }
-      );
-      setLocationSubscription(sub);
-      
-      // Start presence heartbeat loop
-      lastTelemetrySentTimeRef.current = Date.now();
-      heartbeatTimerRef.current = setInterval(async () => {
-        // Attempt to flush offline queue periodically just in case
-        processQueue();
-
-        const now = Date.now();
-        if (now - lastTelemetrySentTimeRef.current >= 10000) {
-          let batteryLevel = 1.0;
-          try {
-            batteryLevel = await Battery.getBatteryLevelAsync();
-          } catch (e) {}
-
-          let networkType = 'unknown';
-          try {
-            const netInfo = await NetInfo.fetch();
-            networkType = netInfo.type;
-          } catch (e) {}
-
-          const deviceId = Device.osBuildId || Device.modelName || 'RN_Device';
-          const seq = sequenceNumberRef.current;
-
-          LocationUploadService.sendHeartbeat({
-            deviceId,
-            trackingSessionId: sessionUuid,
-            sequenceNumber: seq,
-            networkType,
-            batteryLevel,
-          });
-        }
-      }, 10000);
-
-      // Start true background tracking (High accuracy, no pause)
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 10,
-        showsBackgroundLocationIndicator: true,
-        pausesUpdatesAutomatically: false,
-        foregroundService: {
-          notificationTitle: "Styrka Tracking Active",
-          notificationBody: "Your location is being tracked for the current journey."
-        }
-      });
+      await setupTracking(data.id);
 
       alert("Journey started! Tracking is active even in the background.");
     } catch (e: any) {

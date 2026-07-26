@@ -6,7 +6,7 @@ const config = require('../config');
 
 // Snapping coordinates onto the nearest road utilizing OSRM nearest service
 async function snapToNearestRoad(latitude, longitude) {
-  const url = `http://router.project-osrm.org/nearest/v1/driving/${longitude},${latitude}?number=1`;
+  const url = `https://router.project-osrm.org/nearest/v1/driving/${longitude},${latitude}?number=1`;
   
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.OSRM_TIMEOUT_MS);

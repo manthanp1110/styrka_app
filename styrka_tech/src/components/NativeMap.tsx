@@ -135,10 +135,12 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   );
 });
 
-export const Marker = ({ coordinate, onPress, children, pinColor, ...props }: any) => {
+export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }: any) => {
   if (!coordinate) return null;
   return (
     <MapLibreMarker
+      id={id || `marker-${coordinate.latitude}-${coordinate.longitude}`}
+      coordinate={[coordinate.longitude, coordinate.latitude]}
       lngLat={[coordinate.longitude, coordinate.latitude]}
       onPress={onPress}
       {...props}

@@ -17,11 +17,17 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
+          "fetch",
+          "location",
           "fetch"
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Styrka requires continuous background location access to track field journeys and calculate route compliance.",
         "NSLocationAlwaysUsageDescription": "Styrka requires continuous background location access to track field journeys and calculate route compliance.",
-        "NSLocationWhenInUseUsageDescription": "Styrka requires background location access to track field journeys."
+        "NSLocationWhenInUseUsageDescription": "Styrka requires background location access to track field journeys.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyB_S3uA4Ks1Tu6W9ZTk5e6ADgqXsbRWV5c"
       }
     },
     "android": {
@@ -65,7 +71,6 @@
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
-      "./withMapplsKeys.js",
       "./withMapplsMaven.js",
       "./withMapplsOlf.js"
     ],

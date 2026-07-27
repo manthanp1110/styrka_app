@@ -1,4 +1,4 @@
-const { withMainApplication } = require('@expo/config-plugins');
+const { withMainApplication, withAppDelegate } = require('@expo/config-plugins');
 require('dotenv').config();
 
 const withMapplsKeys = (config) => {
@@ -45,6 +45,43 @@ const withMapplsKeys = (config) => {
     config.modResults.contents = mainApplication;
     return config;
   });
+
+  // Inject into iOS AppDelegate
+  config = withAppDelegate(config, (config) => {
+    let appDelegate = config.modResults.contents;
+    
+    if (!appDelegate.includes('#import <MapplsAPICore/MapplsAPICore.h>')) {
+      appDelegate = appDelegate.replace(
+        '#import "AppDelegate.h"',
+        '#import "AppDelegate.h"\n#import <MapplsAPICore/MapplsAPICore.h>'
+      );
+    }
+
+    const restApiKey = process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY || "";
+    const mapSDKKey = process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY || "";
+    const atlasClientId = process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID || "";
+    const atlasClientSecret = process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET || "";
+
+    const initCode = `
+  [MapplsAccountManager setRestAPIKey:@"${restApiKey}"];
+  [MapplsAccountManager setMapSDKKey:@"${mapSDKKey}"];
+  [MapplsAccountManager setAtlasClientId:@"${atlasClientId}"];
+  [MapplsAccountManager setAtlasClientSecret:@"${atlasClientSecret}"];
+`;
+
+    if (!appDelegate.includes('[MapplsAccountManager setRestAPIKey')) {
+      // Find didFinishLaunchingWithOptions and insert after the opening brace
+      appDelegate = appDelegate.replace(
+        /(didFinishLaunchingWithOptions[^\{]*\{)/,
+        `$1\n${initCode}`
+      );
+    }
+    
+    config.modResults.contents = appDelegate;
+    return config;
+  });
+
+  return config;
 };
 
 module.exports = withMapplsKeys;

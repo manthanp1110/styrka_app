@@ -170,9 +170,9 @@ const AdminTrackingScreen = () => {
             const res = await RestApi.direction({
               origin: `${originLng},${originLat}`,
               destination: `${journey.destination_lng},${journey.destination_lat}`,
-              profile: RestApi.DirectionsCriteria.PROFILE_DRIVING,
-              overview: RestApi.DirectionsCriteria.OVERVIEW_FULL,
-              geometries: RestApi.DirectionsCriteria.GEOMETRY_POLYLINE
+              profile: 'driving',
+              overview: 'full',
+              geometries: 'polyline'
             });
             
             if (res && res.routes && res.routes.length > 0) {

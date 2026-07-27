@@ -92,9 +92,9 @@ const EmployeeTrackingScreen = () => {
       const res = await fetchWithTimeout(RestApi.direction({
         origin: `${originLng},${originLat}`,
         destination: `${destLng},${destLat}`,
-        profile: RestApi.DirectionsCriteria.PROFILE_DRIVING,
-        overview: RestApi.DirectionsCriteria.OVERVIEW_FULL,
-        geometries: RestApi.DirectionsCriteria.GEOMETRY_POLYLINE
+        profile: 'driving',
+        overview: 'full',
+        geometries: 'polyline'
       }), 10000);
       
       if (res && res.routes && res.routes.length > 0) {

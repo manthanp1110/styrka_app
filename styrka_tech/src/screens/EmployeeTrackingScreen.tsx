@@ -383,26 +383,22 @@ const EmployeeTrackingScreen = () => {
           destLng = assignedDestination.longitude;
         } else if (assignedDestination.address) {
           try {
-            // Forward geocode with fallback
-            const result = await fetchWithTimeout(Location.geocodeAsync(assignedDestination.address), 3000);
-            if (result && result.length > 0) {
-              destLat = result[0].latitude;
-              destLng = result[0].longitude;
+            // Use Mappls native geocoding for best accuracy in India
+            const result = await fetchWithTimeout(RestApi.geocode({ address: assignedDestination.address }), 5000);
+            
+            if (result && result.results && result.results.length > 0) {
+              destLat = result.results[0].latitude;
+              destLng = result.results[0].longitude;
+            } else {
+              // Fallback to expo-location if Mappls fails to find the specific address
+              const fallbackResult = await fetchWithTimeout(Location.geocodeAsync(assignedDestination.address), 3000);
+              if (fallbackResult && fallbackResult.length > 0) {
+                destLat = fallbackResult[0].latitude;
+                destLng = fallbackResult[0].longitude;
+              }
             }
           } catch (e) {
-            console.log("Native forward geocode failed, using fallback:", e);
-            try {
-              const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(assignedDestination.address)}&format=json&limit=1`, {
-                headers: { 'User-Agent': `StyrkaApp-${Date.now()}/1.0` }
-              });
-              const geoData = await res.json();
-              if (geoData && geoData.length > 0) {
-                destLat = parseFloat(geoData[0].lat);
-                destLng = parseFloat(geoData[0].lon);
-              }
-            } catch (fallbackErr) {
-              console.log("Fallback forward geocode failed:", fallbackErr);
-            }
+            console.log("Forward geocode failed:", e);
           }
         }
       }

@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { supabase } from '../config/supabase';
 import { useAppState } from '../store/useAppState';
+import { RestApi } from 'mappls-map-react-native';
 
 const AdminDestinationScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
@@ -35,41 +36,47 @@ const AdminDestinationScreen = () => {
       return;
     }
     
+    setIsLoading(true);
     try {
-      // Fallback to free OpenStreetMap API since Google API billing is not enabled
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5`, {
-        headers: {
-          'User-Agent': 'StyrkaApp/1.0 (Testing)'
-        }
-      });
+      const res = await RestApi.autoSuggest({ query: text });
       
-      if (!res.ok) {
-        throw new Error(`Nominatim API returned ${res.status}`);
+      if (res && res.suggestedLocations) {
+        const formattedResults = res.suggestedLocations.map((item: any) => ({
+          place_id: item.mapplsPin,
+          description: item.placeAddress ? `${item.placeName}, ${item.placeAddress}` : item.placeName,
+          mapplsPin: item.mapplsPin
+        }));
+        setSearchResults(formattedResults || []);
       }
-      
-      const json = await res.json();
-      
-      const formattedResults = json.map((item: any) => ({
-        place_id: item.place_id.toString(),
-        description: item.display_name,
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon)
-      }));
-      
-      setSearchResults(formattedResults || []);
     } catch (e) {
       console.error("Place search error", e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const selectPlace = (place: any) => {
+  const selectPlace = async (place: any) => {
     setSearchQuery(place.description);
     setSearchResults([]);
-    setSelectedPlace({
-      address: place.description,
-      latitude: place.lat,
-      longitude: place.lng
-    });
+    
+    try {
+      setIsLoading(true);
+      const detailRes = await RestApi.placeDetail({ mapplsPin: place.mapplsPin });
+      if (detailRes && detailRes.latitude && detailRes.longitude) {
+        setSelectedPlace({
+          address: place.description,
+          latitude: detailRes.latitude,
+          longitude: detailRes.longitude
+        });
+      } else {
+        Alert.alert("Error", "Could not fetch coordinates for this location.");
+      }
+    } catch (error) {
+      console.error("Place detail error:", error);
+      Alert.alert("Error", "Failed to fetch exact location details.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const assignDestination = async () => {

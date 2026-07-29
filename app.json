@@ -71,6 +71,15 @@
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "newArchEnabled": false
+          }
+        }
+      ],
+      "./withAndroidConfig.js",
       "./withMapplsMaven.js",
       "./withMapplsOlf.js"
     ],
@@ -78,7 +87,8 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/714587b8-0d06-4ade-8c04-6df9c49db5ea"
+      "url": "https://u.expo.dev/714587b8-0d06-4ade-8c04-6df9c49db5ea",
+      "enabled": false
     }
   }
 }

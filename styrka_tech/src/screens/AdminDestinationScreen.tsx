@@ -62,12 +62,22 @@ const AdminDestinationScreen = () => {
     
     try {
       setIsLoading(true);
-      const detailRes = await MapplsApi.placeDetail({ mapplsPin: place.mapplsPin });
-      if (detailRes && detailRes.latitude && detailRes.longitude) {
+      let lat = place.latitude;
+      let lng = place.longitude;
+
+      if ((!lat || !lng) && place.mapplsPin) {
+        const detailRes = await MapplsApi.placeDetail({ mapplsPin: place.mapplsPin });
+        if (detailRes && detailRes.latitude && detailRes.longitude) {
+          lat = detailRes.latitude;
+          lng = detailRes.longitude;
+        }
+      }
+
+      if (lat && lng) {
         setSelectedPlace({
           address: place.description,
-          latitude: detailRes.latitude,
-          longitude: detailRes.longitude
+          latitude: lat,
+          longitude: lng
         });
       } else {
         Alert.alert("Error", "Could not fetch coordinates for this location.");

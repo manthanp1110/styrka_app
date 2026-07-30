@@ -32,6 +32,11 @@ const activeEmployees = socketHandler(io);
 app.set('io', io);
 app.set('activeEmployees', activeEmployees);
 
+// Bind Root / Landing Route
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'UP', message: 'Styrka Modular Fleet Telemetry Server' });
+});
+
 // Bind Observability Diagnostics Health Route (Step 19)
 app.use(healthRoutes.router);
 

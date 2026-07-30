@@ -6,12 +6,12 @@ const config = require('../config');
 
 // Snapping coordinates onto the nearest road utilizing Mappls Reverse Geocoding
 async function snapToNearestRoad(latitude, longitude) {
-  if (!config.MAPPLS_ATLAS_REST_API_KEY) {
+  if (!config.MAPPLS_API_KEY) {
     console.warn('[Map Snapping Service] Mappls API key is missing.');
     return null;
   }
 
-  const url = `https://apis.mappls.com/advancedmaps/v1/${config.MAPPLS_ATLAS_REST_API_KEY}/rev_geocode?lat=${latitude}&lng=${longitude}`;
+  const url = `https://apis.mappls.com/advancedmaps/v1/${config.MAPPLS_API_KEY}/rev_geocode?lat=${latitude}&lng=${longitude}`;
   
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.OSRM_TIMEOUT_MS);

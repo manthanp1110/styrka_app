@@ -1,6 +1,11 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import MapplsTracking from 'mappls-tracking-react-native';
+let MapplsTracking: any = null;
+try {
+  MapplsTracking = require('mappls-tracking-react-native');
+} catch (e) {
+  MapplsTracking = null;
+}
 
 export interface MapplsTrackingMapProps {
   origin: { latitude: number; longitude: number };

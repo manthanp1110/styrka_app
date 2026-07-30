@@ -502,21 +502,38 @@ const AdminTrackingScreen = () => {
 
             <View style={styles.overlayFooter}>
               <View style={styles.footerInner}>
-                <View style={styles.statBox}>
-                  <View style={[styles.avatar, { width: 50, height: 50, borderRadius: 25, backgroundColor: '#10B981' }]}>
-                    <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{selectedEmp?.name?.charAt(0)}</Text>
-                  </View>
-                </View>
-                <View style={{ flex: 1, paddingLeft: 15, justifyContent: 'center' }}>
-                  <Text style={{ color: '#1F2937', fontWeight: 'bold', fontSize: 18 }}>{selectedEmp?.name}</Text>
-                  <Text style={{ color: '#059669', fontSize: 13, marginTop: 2, fontWeight: '600' }}>Active Live Tracking</Text>
+                {/* Rider Pointer Avatar */}
+                <View style={[styles.avatar, { width: 44, height: 44, borderRadius: 22, backgroundColor: '#3B82F6', borderWidth: 2, borderColor: '#60A5FA' }]}>
+                  <Feather name="navigation" size={20} color="white" />
                 </View>
                 
+                {/* Rider Position Pointer Info */}
+                <View style={{ flex: 1, paddingLeft: 12, justifyContent: 'center' }}>
+                  <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 16 }}>
+                    {selectedEmp?.name || 'Rider'} Position
+                  </Text>
+                  <Text style={{ color: '#3B82F6', fontSize: 12, marginTop: 2, fontWeight: '700' }}>
+                    📍 {selectedJourney?.latestLocation?.latitude ? `${Number(selectedJourney.latestLocation.latitude).toFixed(4)}°N, ${Number(selectedJourney.latestLocation.longitude).toFixed(4)}°E` : 'Locating rider...'}
+                  </Text>
+                </View>
+
+                {/* Recenter Map Button */}
                 <TouchableOpacity 
-                  onPress={() => navigation.navigate('Chat', { employeeId: selectedEmp?.id, employeeName: selectedEmp?.name })}
-                  style={{ padding: 15, backgroundColor: '#E0F2FE', borderRadius: 12, borderWidth: 1, borderColor: '#BAE6FD', alignSelf: 'center' }}
+                  onPress={() => {
+                    if (selectedJourney?.latestLocation && mapRef.current) {
+                      mapRef.current.animateToRegion({
+                        latitude: Number(selectedJourney.latestLocation.latitude),
+                        longitude: Number(selectedJourney.latestLocation.longitude),
+                        latitudeDelta: 0.02,
+                        longitudeDelta: 0.02,
+                      }, 1000);
+                      setFollowMode(true);
+                    }
+                  }}
+                  style={{ paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#EFF6FF', borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}
                 >
-                  <Feather name="message-circle" size={20} color="#0284C7" />
+                  <Feather name="crosshair" size={16} color="#2563EB" style={{ marginRight: 6 }} />
+                  <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 13 }}>Recenter</Text>
                 </TouchableOpacity>
               </View>
             </View>

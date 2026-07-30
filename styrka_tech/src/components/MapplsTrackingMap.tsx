@@ -21,7 +21,7 @@ const layerStyle = {
     lineOpacity: 0.85,
     lineCap: 'round',
     lineJoin: 'round',
-  },
+  } as any,
   dashRoutePolylineStyle: {
     lineColor: '#9CA3AF',
     lineWidth: 4,
@@ -29,7 +29,7 @@ const layerStyle = {
     lineCap: 'round',
     lineJoin: 'round',
     lineDasharray: [2, 4],
-  },
+  } as any,
 };
 
 export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTrackingMapProps>(

@@ -8,16 +8,12 @@ import './styrka_tech/src/tasks/locationTask';
 import MapplsGL from 'mappls-map-react-native';
 
 
-MapplsGL.setMapSDKKey = (MapplsGL as any).setMapSDKKey;
-MapplsGL.setRestAPIKey = (MapplsGL as any).setRestAPIKey;
-MapplsGL.setAtlasClientId = (MapplsGL as any).setAtlasClientId;
-MapplsGL.setAtlasClientSecret = (MapplsGL as any).setAtlasClientSecret;
-
-if (MapplsGL.setMapSDKKey) {
-  MapplsGL.setMapSDKKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY);
-  MapplsGL.setRestAPIKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY);
-  MapplsGL.setAtlasClientId(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID);
-  MapplsGL.setAtlasClientSecret(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET);
+const mapplsAny = MapplsGL as any;
+if (typeof mapplsAny.setMapSDKKey === 'function') {
+  mapplsAny.setMapSDKKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY);
+  mapplsAny.setRestAPIKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY);
+  mapplsAny.setAtlasClientId(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID);
+  mapplsAny.setAtlasClientSecret(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET);
 }
 
 export default function App() {

@@ -30,6 +30,24 @@ const layerStyle = {
     lineJoin: 'round',
     lineDasharray: [2, 4],
   } as any,
+  destinationIconStyle: {
+    iconAllowOverlap: true,
+    iconAnchor: 'bottom',
+    iconSize: 0.2,
+  } as any,
+  OriginIconStyle: {
+    iconAllowOverlap: true,
+    iconAnchor: 'bottom',
+    iconSize: 0.2,
+  } as any,
+  destinationRouteConnectorStyle: {
+    lineColor: '#787878',
+    lineWidth: 4,
+    lineOpacity: 0.75,
+    lineCap: 'round',
+    lineJoin: 'round',
+    lineDasharray: [2, 4],
+  } as any,
 };
 
 export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTrackingMapProps>(
@@ -53,6 +71,7 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
       <View style={[styles.container, style]}>
         <MapplsTracking.MapplsTrackingWidget
           ref={trackingWidgetRef}
+          orderId={`order-${origin.latitude}-${origin.longitude}`}
           originPoint={originPointStr}
           destinationPoint={destinationPointStr}
           speedInMillis={3000}
@@ -64,6 +83,9 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
           cameraZoomLevel={14}
           routePolylineStyle={layerStyle.routePolylineStyle}
           dashRoutePolylineStyle={layerStyle.dashRoutePolylineStyle}
+          destinationIconStyle={layerStyle.destinationIconStyle}
+          OriginIconStyle={layerStyle.OriginIconStyle}
+          destinationRouteConnectorStyle={layerStyle.destinationRouteConnectorStyle}
           enableDestinationRouteConnector={true}
           fitBoundsPadding={80}
           fitBoundsDuration={1000}

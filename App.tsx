@@ -4,15 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './styrka_tech/src/navigation/AppNavigator';
 import { ThemeColors } from './styrka_tech/src/theme/theme';
 import { StatusBar } from 'expo-status-bar';
-import { NativeModules } from 'react-native';
-
-// Polyfill native module objects if running in Expo Go environment to prevent startup prototype crash
-if (!NativeModules.MGLModule) {
-  NativeModules.MGLModule = {};
-}
-if (!NativeModules.MGLRestApiModule) {
-  NativeModules.MGLRestApiModule = {};
-}
+import './styrka_tech/src/tasks/locationTask';
 
 import MapplsGL from 'mappls-map-react-native';
 

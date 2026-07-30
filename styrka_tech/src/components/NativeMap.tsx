@@ -1,9 +1,11 @@
-/**
- * Mappls compatibility wrapper for react-native-maps
- */
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, UIManager } from 'react-native';
 import MapplsGL from 'mappls-map-react-native';
+
+const isNativeMapplsAvailable = 
+  typeof UIManager.getViewManagerConfig === 'function' &&
+  !!UIManager.getViewManagerConfig('RCTMGLMapView') &&
+  !!UIManager.getViewManagerConfig('RCTMGLCamera');
 
 // Mathematically correct Mercator Zoom-from-Delta calculation
 function getZoomFromRegion(region: any): number {

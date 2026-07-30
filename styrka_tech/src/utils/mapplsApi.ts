@@ -8,7 +8,7 @@ import { decodePolyline } from './mapsUtils';
 const MAPPLS_KEY = 
   process.env.EXPO_PUBLIC_MAPPLS_API_KEY || 
   process.env.MAPPLS_API_KEY || 
-  'mbukurbbkmusokbnskezflvgncgpmexqlnlm';
+  '28b2df366fa28c4d538d96c1b5cf32fb';
 
 let NativeRestApi: any = null;
 

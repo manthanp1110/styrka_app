@@ -50,16 +50,23 @@ const layerStyle = {
   } as any,
 };
 
+import { MapView, Marker } from './NativeMap';
+
 export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTrackingMapProps>(
   ({ origin, destination, style, onSegmentComplete, onTrackingEvent }, ref) => {
     const trackingWidgetRef = useRef<any>(null);
+    const [hasError, setHasError] = React.useState(false);
 
     useImperativeHandle(ref, () => ({
       updateLocation: (coord: { latitude: number; longitude: number }) => {
-        if (trackingWidgetRef.current) {
-          trackingWidgetRef.current.startTracking({
-            currentLocation: [coord.longitude, coord.latitude],
-          });
+        if (trackingWidgetRef.current && typeof trackingWidgetRef.current.startTracking === 'function') {
+          try {
+            trackingWidgetRef.current.startTracking({
+              currentLocation: [coord.longitude, coord.latitude],
+            });
+          } catch (e) {
+            console.log('[MapplsTracking] Update error:', e);
+          }
         }
       },
     }));
@@ -67,38 +74,65 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
     const originPointStr = `${origin.longitude},${origin.latitude}`;
     const destinationPointStr = `${destination.longitude},${destination.latitude}`;
 
-    return (
-      <View style={[styles.container, style]}>
-        <MapplsTracking.MapplsTrackingWidget
-          ref={trackingWidgetRef}
-          orderId={`order-${origin.latitude}-${origin.longitude}`}
-          originPoint={originPointStr}
-          destinationPoint={destinationPointStr}
-          speedInMillis={3000}
-          resource="route_eta"
-          profile="driving"
-          routeChangeBuffer={50}
-          latentViz="jump"
-          polylineRefresh={false}
-          cameraZoomLevel={14}
-          routePolylineStyle={layerStyle.routePolylineStyle}
-          dashRoutePolylineStyle={layerStyle.dashRoutePolylineStyle}
-          destinationIconStyle={layerStyle.destinationIconStyle}
-          OriginIconStyle={layerStyle.OriginIconStyle}
-          destinationRouteConnectorStyle={layerStyle.destinationRouteConnectorStyle}
-          enableDestinationRouteConnector={true}
-          fitBoundsPadding={80}
-          fitBoundsDuration={1000}
-          latentVizRadius={100}
-          trackingSegmentCompleteCallback={(event: any) => {
-            if (onSegmentComplete) onSegmentComplete(event);
-          }}
-          trackingEventCallback={(eventName: string, eventValue: any) => {
-            if (onTrackingEvent) onTrackingEvent(eventName, eventValue);
-          }}
-        />
-      </View>
-    );
+    const isWidgetAvailable = MapplsTracking && MapplsTracking.MapplsTrackingWidget && !hasError;
+
+    if (!isWidgetAvailable) {
+      return (
+        <View style={[styles.container, style]}>
+          <MapView
+            style={styles.container}
+            initialRegion={{
+              latitude: origin.latitude,
+              longitude: origin.longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+          >
+            <Marker coordinate={origin} title="Start" pinColor="green" />
+            <Marker coordinate={destination} title="Destination" pinColor="red" />
+          </MapView>
+        </View>
+      );
+    }
+
+    try {
+      return (
+        <View style={[styles.container, style]}>
+          <MapplsTracking.MapplsTrackingWidget
+            ref={trackingWidgetRef}
+            orderId={`order-${origin.latitude}-${origin.longitude}`}
+            originPoint={originPointStr}
+            destinationPoint={destinationPointStr}
+            speedInMillis={3000}
+            resource="route_eta"
+            profile="driving"
+            routeChangeBuffer={50}
+            latentViz="jump"
+            polylineRefresh={false}
+            cameraZoomLevel={14}
+            routePolylineStyle={layerStyle.routePolylineStyle}
+            dashRoutePolylineStyle={layerStyle.dashRoutePolylineStyle}
+            destinationIconStyle={layerStyle.destinationIconStyle}
+            OriginIconStyle={layerStyle.OriginIconStyle}
+            destinationRouteConnectorStyle={layerStyle.destinationRouteConnectorStyle}
+            enableDestinationRouteConnector={true}
+            fitBoundsPadding={80}
+            fitBoundsDuration={1000}
+            latentVizRadius={100}
+            trackingSegmentCompleteCallback={(event: any) => {
+              if (onSegmentComplete) onSegmentComplete(event);
+            }}
+            trackingEventCallback={(eventName: string, eventValue: any) => {
+              if (onTrackingEvent) onTrackingEvent(eventName, eventValue);
+            }}
+          />
+        </View>
+      );
+    } catch (err) {
+      console.warn('[MapplsTrackingMap] Render fallback due to native error:', err);
+      setHasError(true);
+      return null;
+    }
   }
 );
 

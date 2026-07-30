@@ -1,20 +1,17 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, UIManager, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 let MapplsGL: any = null;
 let isNativeMapplsAvailable = false;
 
-const isExpoGo = 
-  Constants.appOwnership === 'expo' || 
-  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-
+// Strictly set isNativeMapplsAvailable to false in JS bundle unless native Mappls native views exist
 try {
-  if (!isExpoGo && Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
+  if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
     const mapViewConfig = UIManager.getViewManagerConfig('RCTMGLMapView');
     const cameraConfig = UIManager.getViewManagerConfig('RCTMGLCamera');
-    if (mapViewConfig && cameraConfig) {
+    // Verify view manager configs are valid objects with native commands
+    if (mapViewConfig && cameraConfig && (mapViewConfig as any).Commands) {
       MapplsGL = require('mappls-map-react-native').default;
       isNativeMapplsAvailable = true;
     }
@@ -270,12 +267,39 @@ const NativeMapView = forwardRef(({ initialRegion, region, style, onPress, onLon
   );
 });
 
+// Error Boundary Wrapper for MapView to catch native view config errors
+class MapErrorBoundary extends React.Component<any, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.log('[NativeMap] Native map renderer exception, fallback to WebView:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <ExpoGoWebViewMap {...this.props} />;
+    }
+    return this.props.children;
+  }
+}
+
 // ──────────────────────────────────────────────
-// Exported MapView — auto-selects native or WebView map
+// Exported MapView — auto-selects native or WebView map with error boundary
 // ──────────────────────────────────────────────
 export const MapView = forwardRef((props: any, ref: any) => {
-  if (isNativeMapplsAvailable) {
-    return <NativeMapView ref={ref} {...props} />;
+  if (isNativeMapplsAvailable && MapplsGL) {
+    return (
+      <MapErrorBoundary {...props}>
+        <NativeMapView ref={ref} {...props} />
+      </MapErrorBoundary>
+    );
   }
   return <ExpoGoWebViewMap ref={ref} {...props} />;
 });
@@ -286,7 +310,7 @@ export const MapView = forwardRef((props: any, ref: any) => {
 export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...props }: any) => {
   if (!coordinate) return null;
 
-  if (!isNativeMapplsAvailable) {
+  if (!isNativeMapplsAvailable || !MapplsGL) {
     return children || null;
   }
 
@@ -322,7 +346,7 @@ export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...
 export const Polyline = ({ coordinates, strokeColor = '#3B82F6', strokeWidth = 4 }: any) => {
   if (!coordinates || coordinates.length < 2) return null;
 
-  if (!isNativeMapplsAvailable) {
+  if (!isNativeMapplsAvailable || !MapplsGL) {
     return null;
   }
 
@@ -356,7 +380,7 @@ export const Polyline = ({ coordinates, strokeColor = '#3B82F6', strokeWidth = 4
 // Callout
 // ──────────────────────────────────────────────
 export const Callout = ({ children, ...props }: any) => {
-  if (!isNativeMapplsAvailable) return children || null;
+  if (!isNativeMapplsAvailable || !MapplsGL) return children || null;
   return (
     <MapplsGL.Callout {...props}>
       {children}

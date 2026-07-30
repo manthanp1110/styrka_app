@@ -34,8 +34,16 @@ export const useAppState = create<AppState>((set, get) => ({
   checkSession: async () => {
     set({ isLoading: true });
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error: sessionError } = await supabase.auth.getSession();
       
+      if (sessionError) {
+        console.warn('[Auth] Stale refresh token encountered, signing out:', sessionError.message);
+        await supabase.auth.signOut();
+        set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
+        return;
+      }
+
+      const session = data?.session;
       if (session?.user) {
         // Fetch role from users table
         const { data: userData, error } = await supabase
@@ -56,16 +64,16 @@ export const useAppState = create<AppState>((set, get) => ({
             isAuthenticated: true,
           });
         } else {
-          // Fallback if role is not found, maybe they are just a user? Log them out for safety.
           await supabase.auth.signOut();
-          set({ isAuthenticated: false });
+          set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
         }
       } else {
-        set({ isAuthenticated: false });
+        set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
       }
     } catch (e) {
       console.error('Session check failed', e);
-      set({ isAuthenticated: false });
+      await supabase.auth.signOut();
+      set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
     } finally {
       set({ isLoading: false });
     }

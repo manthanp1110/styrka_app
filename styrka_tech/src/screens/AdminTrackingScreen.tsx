@@ -8,7 +8,7 @@ import { supabase } from '../config/supabase';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
 import { useSmoothLocation } from '../hooks/useSmoothLocation';
-import MapplsGL, { RestApi } from 'mappls-map-react-native';
+import MapplsApi from '../utils/mapplsApi';
 
 const AnimatedVehicleMarker = ({ latestLocation, selectedEmp }: any) => {
   const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
@@ -77,7 +77,7 @@ const AdminTrackingScreen = () => {
             const originLat = journey.start_lat;
             const originLng = journey.start_lng;
             
-            const res = await RestApi.direction({
+            const res = await MapplsApi.direction({
               origin: `${originLng},${originLat}`,
               destination: `${journey.destination_lng},${journey.destination_lat}`,
               profile: 'driving',

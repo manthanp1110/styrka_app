@@ -4,7 +4,8 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { supabase } from '../config/supabase';
 import { useAppState } from '../store/useAppState';
-import { RestApi } from 'mappls-map-react-native';
+import { MapView, Marker } from '../components/NativeMap';
+import MapplsApi from '../utils/mapplsApi';
 
 const AdminDestinationScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
@@ -38,7 +39,7 @@ const AdminDestinationScreen = () => {
     
     setIsLoading(true);
     try {
-      const res = await RestApi.autoSuggest({ query: text });
+      const res = await MapplsApi.autoSuggest({ query: text });
       
       if (res && res.suggestedLocations) {
         const formattedResults = res.suggestedLocations.map((item: any) => ({
@@ -61,7 +62,7 @@ const AdminDestinationScreen = () => {
     
     try {
       setIsLoading(true);
-      const detailRes = await RestApi.placeDetail({ mapplsPin: place.mapplsPin });
+      const detailRes = await MapplsApi.placeDetail({ mapplsPin: place.mapplsPin });
       if (detailRes && detailRes.latitude && detailRes.longitude) {
         setSelectedPlace({
           address: place.description,

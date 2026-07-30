@@ -15,7 +15,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
-import MapplsGL, { RestApi } from 'mappls-map-react-native';
+import MapplsApi from '../utils/mapplsApi';
 import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -63,7 +63,7 @@ const EmployeeTrackingScreen = () => {
 
   const fetchAddress = async (lat: number, lng: number) => {
     try {
-      const res = await fetchWithTimeout(RestApi.reverseGeocode({ latitude: lat, longitude: lng }), 5000);
+      const res = await fetchWithTimeout(MapplsApi.reverseGeocode({ latitude: lat, longitude: lng }), 5000);
       if (res && res.results && res.results.length > 0) {
         setAddress(res.results[0].formatted_address);
         return;
@@ -91,7 +91,7 @@ const EmployeeTrackingScreen = () => {
 
   const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
     try {
-      const res = await fetchWithTimeout(RestApi.direction({
+      const res = await fetchWithTimeout(MapplsApi.direction({
         origin: `${originLng},${originLat}`,
         destination: `${destLng},${destLat}`,
         profile: 'driving',
@@ -381,7 +381,7 @@ const EmployeeTrackingScreen = () => {
         } else if (assignedDestination.address) {
           try {
             // Use Mappls native geocoding for best accuracy in India
-            const result = await fetchWithTimeout(RestApi.geocode({ address: assignedDestination.address }), 5000);
+            const result = await fetchWithTimeout(MapplsApi.geocode({ address: assignedDestination.address }), 5000);
             
             if (result && result.results && result.results.length > 0) {
               destLat = result.results[0].latitude;

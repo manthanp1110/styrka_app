@@ -1,18 +1,5 @@
-import Constants from 'expo-constants';
 import { supabase } from '../config/supabase';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
-
-export const getApiUrl = (): string => {
-  if (process.env.EXPO_PUBLIC_SOCKET_SERVER_URL) {
-    return process.env.EXPO_PUBLIC_SOCKET_SERVER_URL;
-  }
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    return `http://${ip}:4000`;
-  }
-  return 'http://10.0.2.2:4000';
-};
 
 class LocationUploadService {
   private isProcessing = false;
@@ -29,43 +16,50 @@ class LocationUploadService {
       }
 
       console.log(`[LocationUploadService] Processing queue of size: ${size}`);
-      
+
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      if (!token) {
-        console.warn('[LocationUploadService] No auth token available. Retrying later.');
+      if (!session?.user) {
+        console.warn('[LocationUploadService] No auth session available. Retrying later.');
         this.isProcessing = false;
         return;
       }
-
-      const apiUrl = `${getApiUrl()}/api/location/upload`;
 
       while (size > 0) {
         const batch = await TelemetryQueue.peekAll(100);
         if (batch.length === 0) break;
 
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ locations: batch })
-        });
+        // Map telemetry queue items to Supabase employee_locations schema
+        const recordsToInsert = batch.map((item: any) => ({
+          user_id: session.user.id,
+          employee_id: session.user.id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          raw_latitude: item.latitude,
+          raw_longitude: item.longitude,
+          accuracy: item.accuracy || 0,
+          speed: item.speed || 0,
+          heading: item.heading || 0,
+          altitude: item.altitude || 0,
+          timestamp: item.timestamp || new Date().toISOString(),
+          battery_level: item.batteryLevel || 1.0,
+          network_type: item.networkType || 'unknown',
+          is_moving: item.isMoving !== undefined ? item.isMoving : true,
+          device_id: item.deviceId || 'unknown',
+          sequence_number: item.sequenceNumber || 0,
+          tracking_session_id: item.trackingSessionId || 'unknown',
+          status: 'online',
+        }));
 
-        if (response.ok) {
-          const resJson = await response.json();
-          if (resJson.success) {
-            await TelemetryQueue.dequeueBatch(batch.length);
-            console.log(`[LocationUploadService] Successfully uploaded batch of ${batch.length}`);
-          } else {
-            console.error('[LocationUploadService] Server returned failure:', resJson.reason);
-            break; // Stop and retry later
-          }
+        const { error } = await supabase
+          .from('employee_locations')
+          .insert(recordsToInsert);
+
+        if (!error) {
+          await TelemetryQueue.dequeueBatch(batch.length);
+          console.log(`[LocationUploadService] Successfully uploaded ${batch.length} location records to Supabase`);
         } else {
-          console.error(`[LocationUploadService] Upload failed with status: ${response.status}`);
-          break; // Stop and retry later on network or server error
+          console.error('[LocationUploadService] Supabase insert error:', error.message);
+          break; // Retry later
         }
 
         size = await TelemetryQueue.size();
@@ -80,20 +74,19 @@ class LocationUploadService {
   public async sendHeartbeat(payload: any): Promise<void> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      if (!token) return;
+      if (!session?.user) return;
 
-      const apiUrl = `${getApiUrl()}/api/location/heartbeat`;
-      
-      await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      await supabase
+        .from('employee_presence')
+        .upsert({
+          user_id: session.user.id,
+          employee_id: session.user.id,
+          status: 'online',
+          last_seen: new Date().toISOString(),
+          last_heartbeat: new Date().toISOString(),
+          battery_level: payload?.batteryLevel || 1.0,
+          updated_at: new Date().toISOString(),
+        });
     } catch (e: any) {
       console.error('[LocationUploadService] Heartbeat failed:', e.message);
     }

@@ -9,7 +9,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
-import { disconnectSocket } from '../utils/socket';
+import { unsubscribeAll } from '../utils/realtime';
 
 const EmployeeAttendanceScreen = () => {
   const { logout, user } = useAppState();
@@ -210,8 +210,8 @@ const EmployeeAttendanceScreen = () => {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
       }
 
-      // Disconnect telemetry socket
-      disconnectSocket();
+      // Cleanup Realtime channels
+      unsubscribeAll();
 
       // 2. End Journey in DB
       await supabase

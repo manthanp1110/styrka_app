@@ -17,6 +17,7 @@ import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
 import MapplsApi from '../utils/mapplsApi';
 import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
+import { subscribeToEmployeeLocations, unsubscribeChannel } from '../utils/realtime';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -190,7 +191,21 @@ const EmployeeTrackingScreen = () => {
   };
 
   useEffect(() => {
-    if (user.id) fetchActiveJourney();
+    if (user.id) {
+      fetchActiveJourney();
+
+      const channel = subscribeToEmployeeLocations(user.id, (newPing) => {
+        if (newPing && newPing.latitude && newPing.longitude) {
+          setPings((prev) => [...prev, newPing]);
+          setCurrentLocation({ latitude: newPing.latitude, longitude: newPing.longitude });
+          fetchAddress(newPing.latitude, newPing.longitude);
+        }
+      });
+
+      return () => {
+        unsubscribeChannel(`locations-${user.id}`);
+      };
+    }
   }, [user.id]);
 
   useEffect(() => {

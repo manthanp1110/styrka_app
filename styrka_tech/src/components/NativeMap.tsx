@@ -30,14 +30,16 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
 
   useImperativeHandle(ref, () => ({
     animateToRegion: (targetRegion: any, duration = 1000) => {
-      cameraRef.current?.setCamera({
-        centerCoordinate: [targetRegion.longitude, targetRegion.latitude],
-        zoomLevel: getZoomFromRegion(targetRegion),
-        animationDuration: duration,
-      });
+      if (isNativeMapplsAvailable) {
+        cameraRef.current?.setCamera({
+          centerCoordinate: [targetRegion.longitude, targetRegion.latitude],
+          zoomLevel: getZoomFromRegion(targetRegion),
+          animationDuration: duration,
+        });
+      }
     },
     fitToCoordinates: (coordinates: any[], options: any = {}) => {
-      if (coordinates.length === 0) return;
+      if (coordinates.length === 0 || !isNativeMapplsAvailable) return;
       
       let minLat = 90;
       let maxLat = -90;
@@ -68,6 +70,20 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   const activeRegion = region || initialRegion;
   const centerCoordinate = activeRegion ? [activeRegion.longitude, activeRegion.latitude] : [73.8567, 18.5204];
   const zoomLevel = activeRegion ? getZoomFromRegion(activeRegion) : 12;
+
+  if (!isNativeMapplsAvailable) {
+    return (
+      <View style={[styles.fallbackContainer, style || styles.map]}>
+        <View style={styles.fallbackBadge}>
+          <Text style={styles.fallbackText}>Expo Go Fallback Map</Text>
+          <Text style={styles.fallbackSubtext}>
+            Lat: {centerCoordinate[1].toFixed(4)}, Lng: {centerCoordinate[0].toFixed(4)}
+          </Text>
+        </View>
+        {children}
+      </View>
+    );
+  }
 
   const handlePress = (e: any) => {
     if (onPress) {
@@ -122,6 +138,8 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
 
 export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }: any) => {
   if (!coordinate) return null;
+  if (!isNativeMapplsAvailable) return children || null;
+
   const markerId = id || `marker-${coordinate.latitude}-${coordinate.longitude}`;
   
   return (
@@ -155,7 +173,7 @@ export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }
 };
 
 export const Polyline = ({ coordinates, strokeColor = '#10B981', strokeWidth = 4 }: any) => {
-  if (!coordinates || coordinates.length < 2) return null;
+  if (!coordinates || coordinates.length < 2 || !isNativeMapplsAvailable) return null;
 
   const geojson: any = {
     type: 'Feature',
@@ -184,6 +202,7 @@ export const Polyline = ({ coordinates, strokeColor = '#10B981', strokeWidth = 4
 };
 
 export const Callout = ({ children, ...props }: any) => {
+  if (!isNativeMapplsAvailable) return children || null;
   return (
     <MapplsGL.Callout {...props}>
       {children}
@@ -194,5 +213,34 @@ export const Callout = ({ children, ...props }: any) => {
 const styles = StyleSheet.create({
   map: {
     flex: 1,
+  },
+  fallbackContainer: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  fallbackBadge: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fallbackText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  fallbackSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
   },
 });

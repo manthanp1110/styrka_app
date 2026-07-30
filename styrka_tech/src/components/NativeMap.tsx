@@ -1,11 +1,22 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, UIManager } from 'react-native';
-import MapplsGL from 'mappls-map-react-native';
+import { View, Text, StyleSheet, Dimensions, UIManager, Platform } from 'react-native';
+import { WebView } from 'react-native-webview';
 
-const isNativeMapplsAvailable = 
-  typeof UIManager.getViewManagerConfig === 'function' &&
-  !!UIManager.getViewManagerConfig('RCTMGLMapView') &&
-  !!UIManager.getViewManagerConfig('RCTMGLCamera');
+let MapplsGL: any = null;
+let isNativeMapplsAvailable = false;
+
+try {
+  if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
+    const mapViewConfig = UIManager.getViewManagerConfig('RCTMGLMapView');
+    const cameraConfig = UIManager.getViewManagerConfig('RCTMGLCamera');
+    if (mapViewConfig && cameraConfig) {
+      MapplsGL = require('mappls-map-react-native').default;
+      isNativeMapplsAvailable = true;
+    }
+  }
+} catch (e) {
+  isNativeMapplsAvailable = false;
+}
 
 // Mathematically correct Mercator Zoom-from-Delta calculation
 function getZoomFromRegion(region: any): number {
@@ -13,12 +24,9 @@ function getZoomFromRegion(region: any): number {
   const minZoom = 0;
   const maxZoom = 22;
 
-  if (!region || !region.longitudeDelta || !region.latitudeDelta) return 15; // default fallback
+  if (!region || !region.longitudeDelta || !region.latitudeDelta) return 14;
 
-  // Width zoom calculation
   const zoomLng = Math.log2((360 * width) / (256 * region.longitudeDelta));
-  
-  // Height zoom calculation adjusting for Mercator stretch
   const radLat = (region.latitude * Math.PI) / 180;
   const zoomLat = Math.log2((180 * height * Math.cos(radLat)) / (256 * region.latitudeDelta));
 
@@ -26,28 +34,180 @@ function getZoomFromRegion(region: any): number {
   return Math.min(Math.max(zoom, minZoom), maxZoom);
 }
 
-export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLongPress, children, ...props }: any, ref) => {
+// ──────────────────────────────────────────────
+// Expo Go Interactive WebView Map (Leaflet / OpenStreetMap)
+// ──────────────────────────────────────────────
+const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }: any, ref) => {
+  const webViewRef = useRef<WebView>(null);
+  const activeRegion = region || initialRegion || { latitude: 18.5204, longitude: 73.8567 };
+
+  useImperativeHandle(ref, () => ({
+    animateToRegion: (targetRegion: any) => {
+      const zoom = getZoomFromRegion(targetRegion);
+      const js = `map.setView([${targetRegion.latitude}, ${targetRegion.longitude}], ${Math.round(zoom)});`;
+      webViewRef.current?.injectJavaScript(js);
+    },
+    fitToCoordinates: (coordinates: any[]) => {
+      if (!coordinates || coordinates.length === 0) return;
+      const bounds = coordinates.map(c => `[${c.latitude}, ${c.longitude}]`).join(',');
+      const js = `map.fitBounds([${bounds}], { padding: [40, 40] });`;
+      webViewRef.current?.injectJavaScript(js);
+    }
+  }));
+
+  // Parse markers and polylines from React children
+  const markersData: any[] = [];
+  const polylinesData: any[] = [];
+
+  React.Children.forEach(children, (child) => {
+    if (!child || !React.isValidElement(child)) return;
+    const props: any = child.props || {};
+
+    // Marker
+    if (props.coordinate && props.coordinate.latitude != null) {
+      markersData.push({
+        lat: props.coordinate.latitude,
+        lng: props.coordinate.longitude,
+        title: props.title || '',
+        color: props.pinColor || '#EF4444'
+      });
+    }
+
+    // Polyline
+    if (props.coordinates && Array.isArray(props.coordinates) && props.coordinates.length >= 2) {
+      polylinesData.push({
+        coords: props.coordinates.map((c: any) => [c.latitude, c.longitude]),
+        color: props.strokeColor || '#3B82F6',
+        weight: props.strokeWidth || 5
+      });
+    }
+  });
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; background: #e5e7eb; }
+    .rider-pulse {
+      width: 24px;
+      height: 24px;
+      background: rgba(37, 99, 235, 0.35);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+      animation: pulse 1.6s infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .rider-dot {
+      width: 14px;
+      height: 14px;
+      background: #2563EB;
+      border: 3px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+      70% { transform: scale(1.3); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+    .start-pin {
+      width: 16px; height: 16px; background: #10B981; border: 3px solid #FFF; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .dest-pin {
+      width: 16px; height: 16px; background: #EF4444; border: 3px solid #FFF; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', { zoomControl: false }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.round(getZoomFromRegion(activeRegion))});
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    var markersData = ${JSON.stringify(markersData)};
+    var polylinesData = ${JSON.stringify(polylinesData)};
+
+    // Render Markers
+    markersData.forEach(function(m) {
+      var iconHtml;
+      if (m.color === '#3B82F6' || m.color === '#2563EB' || m.title.includes('Rider') || m.title.includes('Your Location')) {
+        iconHtml = '<div class="rider-pulse"><div class="rider-dot"></div></div>';
+      } else if (m.color === '#10B981' || m.title.includes('Start')) {
+        iconHtml = '<div class="start-pin"></div>';
+      } else {
+        iconHtml = '<div class="dest-pin"></div>';
+      }
+
+      var customIcon = L.divIcon({
+        className: 'custom-map-icon',
+        html: iconHtml,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
+    });
+
+    // Render Polylines
+    polylinesData.forEach(function(p) {
+      if (p.coords && p.coords.length >= 2) {
+        L.polyline(p.coords, { color: p.color, weight: p.weight, opacity: 0.85, lineCap: 'round' }).addTo(map);
+      }
+    });
+
+    if (polylinesData.length > 0 && polylinesData[0].coords.length >= 2) {
+      var bounds = L.latLngBounds(polylinesData[0].coords);
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  </script>
+</body>
+</html>
+  `;
+
+  return (
+    <View style={[styles.map, style]}>
+      <WebView
+        ref={webViewRef}
+        originWhitelist={['*']}
+        source={{ html: htmlContent }}
+        style={{ flex: 1 }}
+        scrollEnabled={false}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+      />
+    </View>
+  );
+});
+
+// ──────────────────────────────────────────────
+// Native Mappls MapView
+// ──────────────────────────────────────────────
+const NativeMapView = forwardRef(({ initialRegion, region, style, onPress, onLongPress, children, ...props }: any, ref) => {
   const cameraRef = useRef<any>(null);
   const mapRef = useRef<any>(null);
 
   useImperativeHandle(ref, () => ({
     animateToRegion: (targetRegion: any, duration = 1000) => {
-      if (isNativeMapplsAvailable) {
-        cameraRef.current?.setCamera({
-          centerCoordinate: [targetRegion.longitude, targetRegion.latitude],
-          zoomLevel: getZoomFromRegion(targetRegion),
-          animationDuration: duration,
-        });
-      }
+      cameraRef.current?.setCamera({
+        centerCoordinate: [targetRegion.longitude, targetRegion.latitude],
+        zoomLevel: getZoomFromRegion(targetRegion),
+        animationDuration: duration,
+      });
     },
     fitToCoordinates: (coordinates: any[], options: any = {}) => {
-      if (coordinates.length === 0 || !isNativeMapplsAvailable) return;
+      if (coordinates.length === 0) return;
       
-      let minLat = 90;
-      let maxLat = -90;
-      let minLng = 180;
-      let maxLng = -180;
-
+      let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
       coordinates.forEach(c => {
         if (c.latitude < minLat) minLat = c.latitude;
         if (c.latitude > maxLat) maxLat = c.latitude;
@@ -57,12 +217,10 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
 
       const ne = [maxLng, maxLat];
       const sw = [minLng, minLat];
-      
       const padding = options.edgePadding || { top: 40, right: 40, bottom: 40, left: 40 };
 
       cameraRef.current?.fitBounds(
-        ne,
-        sw,
+        ne, sw,
         [padding.top, padding.right, padding.bottom, padding.left],
         options.duration || 1000
       );
@@ -72,20 +230,6 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   const activeRegion = region || initialRegion;
   const centerCoordinate = activeRegion ? [activeRegion.longitude, activeRegion.latitude] : [73.8567, 18.5204];
   const zoomLevel = activeRegion ? getZoomFromRegion(activeRegion) : 12;
-
-  if (!isNativeMapplsAvailable) {
-    return (
-      <View style={[styles.fallbackContainer, style || styles.map]}>
-        <View style={styles.fallbackBadge}>
-          <Text style={styles.fallbackText}>Expo Go Fallback Map</Text>
-          <Text style={styles.fallbackSubtext}>
-            Lat: {centerCoordinate[1].toFixed(4)}, Lng: {centerCoordinate[0].toFixed(4)}
-          </Text>
-        </View>
-        {children}
-      </View>
-    );
-  }
 
   const handlePress = (e: any) => {
     if (onPress) {
@@ -103,28 +247,11 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
     }
   };
 
-  const handleLongPress = (e: any) => {
-    if (onLongPress) {
-      const geometry = e.geometry || e.nativeEvent?.geometry;
-      if (geometry && geometry.coordinates) {
-        onLongPress({
-          nativeEvent: {
-            coordinate: {
-              latitude: geometry.coordinates[1],
-              longitude: geometry.coordinates[0],
-            }
-          }
-        });
-      }
-    }
-  };
-
   return (
     <MapplsGL.MapView
       ref={mapRef}
       style={style || styles.map}
       onPress={handlePress}
-      onLongPress={handleLongPress}
       attributionEnabled={false}
       logoEnabled={false}
     >
@@ -138,19 +265,24 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   );
 });
 
+// ──────────────────────────────────────────────
+// Exported MapView — auto-selects native or WebView map
+// ──────────────────────────────────────────────
+export const MapView = forwardRef((props: any, ref: any) => {
+  if (isNativeMapplsAvailable) {
+    return <NativeMapView ref={ref} {...props} />;
+  }
+  return <ExpoGoWebViewMap ref={ref} {...props} />;
+});
+
+// ──────────────────────────────────────────────
+// Marker
+// ──────────────────────────────────────────────
 export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...props }: any) => {
   if (!coordinate) return null;
 
   if (!isNativeMapplsAvailable) {
-    return (
-      <View style={{ marginVertical: 4, alignItems: 'center', flexDirection: 'row' }}>
-        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: pinColor || '#EF4444', marginRight: 6 }} />
-        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#1F2937' }}>
-          {title ? `${title}: ` : ''}{coordinate.latitude?.toFixed(4)}, {coordinate.longitude?.toFixed(4)}
-        </Text>
-        {children}
-      </View>
-    );
+    return children || null;
   }
 
   const markerId = id || `marker-${coordinate.latitude}-${coordinate.longitude}`;
@@ -167,17 +299,11 @@ export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...
       ) : (
         <View style={{ alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ 
-            width: 16, 
-            height: 16, 
-            borderRadius: 8, 
+            width: 16, height: 16, borderRadius: 8, 
             backgroundColor: pinColor || '#EF4444', 
-            borderWidth: 2, 
-            borderColor: 'white',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 3,
-            elevation: 4
+            borderWidth: 2, borderColor: 'white',
+            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3, shadowRadius: 3, elevation: 4
           }} />
         </View>
       )}
@@ -185,17 +311,14 @@ export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...
   );
 };
 
+// ──────────────────────────────────────────────
+// Polyline
+// ──────────────────────────────────────────────
 export const Polyline = ({ coordinates, strokeColor = '#3B82F6', strokeWidth = 4 }: any) => {
   if (!coordinates || coordinates.length < 2) return null;
 
   if (!isNativeMapplsAvailable) {
-    return (
-      <View style={{ marginVertical: 6, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#EFF6FF', borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE', width: '100%' }}>
-        <Text style={{ fontSize: 11, fontWeight: 'bold', color: strokeColor }}>
-          🛣️ Route Polyline ({coordinates.length} points plotted)
-        </Text>
-      </View>
-    );
+    return null;
   }
 
   const geojson: any = {
@@ -224,6 +347,9 @@ export const Polyline = ({ coordinates, strokeColor = '#3B82F6', strokeWidth = 4
   );
 };
 
+// ──────────────────────────────────────────────
+// Callout
+// ──────────────────────────────────────────────
 export const Callout = ({ children, ...props }: any) => {
   if (!isNativeMapplsAvailable) return children || null;
   return (
@@ -236,34 +362,5 @@ export const Callout = ({ children, ...props }: any) => {
 const styles = StyleSheet.create({
   map: {
     flex: 1,
-  },
-  fallbackContainer: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  fallbackBadge: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  fallbackText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#374151',
-  },
-  fallbackSubtext: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
   },
 });

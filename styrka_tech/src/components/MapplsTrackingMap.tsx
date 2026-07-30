@@ -74,7 +74,7 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
     const originPointStr = `${origin.longitude},${origin.latitude}`;
     const destinationPointStr = `${destination.longitude},${destination.latitude}`;
 
-    const isWidgetAvailable = MapplsTracking && MapplsTracking.MapplsTrackingWidget && !hasError;
+    const isWidgetAvailable = !!(MapplsTracking as any)?.MapplsTrackingWidget && !hasError;
 
     if (!isWidgetAvailable) {
       return (

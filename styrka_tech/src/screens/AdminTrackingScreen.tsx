@@ -27,20 +27,21 @@ const AnimatedVehicleMarker = ({ latestLocation, selectedEmp }: any) => {
         latitude: animatedLoc.latitude,
         longitude: animatedLoc.longitude,
       }}
-      title={`${empName} (Rider)`}
       anchor={{ x: 0.5, y: 0.5 }}
       style={{ zIndex: 2 }}
     >
       <View style={{ alignItems: 'center' }}>
-        {/* Username Label */}
-        <View style={{ backgroundColor: 'white', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginBottom: 3, borderWidth: 1, borderColor: '#10B981', flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, elevation: 3 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 4 }} />
-          <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 11 }}>{empName}</Text>
+        {/* Rider Name Tag */}
+        <View style={{ backgroundColor: '#0F4C3A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginBottom: 3, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, elevation: 4 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 5 }} />
+          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 11 }}>{empName}</Text>
         </View>
         
-        {/* Rider Icon / Blue Dot Marker */}
-        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#3B82F6', borderWidth: 3, borderColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 5 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: 'white' }} />
+        {/* Pulsing Blue Dot Rider Pointer (Uber / Google Maps Style) */}
+        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(59, 130, 246, 0.25)', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', borderWidth: 3, borderColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 3, elevation: 6 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
+          </View>
         </View>
       </View>
     </Marker>

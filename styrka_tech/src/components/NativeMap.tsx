@@ -5,6 +5,8 @@ import { WebView } from 'react-native-webview';
 let MapplsGL: any = null;
 let isNativeMapplsAvailable = false;
 
+const MAPPLS_KEY = process.env.EXPO_PUBLIC_MAPPLS_API_KEY || '28b2df366fa28c4d538d96c1b5cf32fb';
+
 // Strictly set isNativeMapplsAvailable to false in JS bundle unless native Mappls native views exist
 try {
   if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
@@ -131,10 +133,19 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
   <script>
     var map = L.map('map', { zoomControl: false }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.round(getZoomFromRegion(activeRegion))});
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    var mapplsTileLayer = L.tileLayer('https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/tile/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+      attribution: '&copy; Mappls (MapmyIndia)'
+    });
+
+    mapplsTileLayer.on('tileerror', function() {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+    });
+
+    mapplsTileLayer.addTo(map);
 
     var markersData = ${JSON.stringify(markersData)};
     var polylinesData = ${JSON.stringify(polylinesData)};

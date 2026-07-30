@@ -5,6 +5,7 @@ import MapplsTracking from 'mappls-tracking-react-native';
 export interface MapplsTrackingMapProps {
   origin: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number };
+  routeCoordinates?: any[];
   style?: StyleProp<ViewStyle>;
   onSegmentComplete?: (event: any) => void;
   onTrackingEvent?: (eventName: string, eventValue: any) => void;
@@ -50,15 +51,17 @@ const layerStyle = {
   } as any,
 };
 
-import { MapView, Marker } from './NativeMap';
+import { MapView, Marker, Polyline } from './NativeMap';
 
 export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTrackingMapProps>(
-  ({ origin, destination, style, onSegmentComplete, onTrackingEvent }, ref) => {
+  ({ origin, destination, routeCoordinates = [], style, onSegmentComplete, onTrackingEvent }, ref) => {
     const trackingWidgetRef = useRef<any>(null);
     const [hasError, setHasError] = React.useState(false);
+    const [currentCoord, setCurrentCoord] = React.useState<{ latitude: number; longitude: number } | null>(null);
 
     useImperativeHandle(ref, () => ({
       updateLocation: (coord: { latitude: number; longitude: number }) => {
+        setCurrentCoord(coord);
         if (trackingWidgetRef.current && typeof trackingWidgetRef.current.startTracking === 'function') {
           try {
             trackingWidgetRef.current.startTracking({
@@ -77,6 +80,7 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
     const isWidgetAvailable = !!(MapplsTracking as any)?.MapplsTrackingWidget && !hasError;
 
     if (!isWidgetAvailable) {
+      const activePolyline = routeCoordinates.length > 0 ? routeCoordinates : [origin, destination];
       return (
         <View style={[styles.container, style]}>
           <MapView
@@ -90,6 +94,10 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
           >
             <Marker coordinate={origin} title="Start" pinColor="green" />
             <Marker coordinate={destination} title="Destination" pinColor="red" />
+            {currentCoord && (
+              <Marker coordinate={currentCoord} title="Current Location" pinColor="blue" />
+            )}
+            <Polyline coordinates={activePolyline} strokeWidth={5} strokeColor="#3B82F6" />
           </MapView>
         </View>
       );

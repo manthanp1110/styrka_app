@@ -205,9 +205,11 @@ const EmployeeAttendanceScreen = () => {
     setIsSubmitting(true);
     try {
       // 1. Stop background tracking
-      const hasTask = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-      if (hasTask) {
-        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+      if (Platform.OS !== 'web') {
+        const hasTask = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+        if (hasTask) {
+          await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+        }
       }
 
       // Cleanup Realtime channels

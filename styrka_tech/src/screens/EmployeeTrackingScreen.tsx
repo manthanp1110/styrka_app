@@ -234,8 +234,10 @@ const EmployeeTrackingScreen = () => {
 
   useEffect(() => {
     return () => {
-      if (locationSubscription) {
-        locationSubscription.remove();
+      if (locationSubscription && typeof (locationSubscription as any).remove === 'function') {
+        try {
+          (locationSubscription as any).remove();
+        } catch (e) {}
       }
     };
   }, [locationSubscription]);
@@ -348,18 +350,20 @@ const EmployeeTrackingScreen = () => {
         }, 10000);
       }
 
-      const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-      if (!isBackgroundRunning) {
-        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
-          showsBackgroundLocationIndicator: true,
-          pausesUpdatesAutomatically: false,
-          foregroundService: {
-            notificationTitle: "Styrka Tracking Active",
-            notificationBody: "Your location is being tracked."
-          }
-        }).catch(e => console.log(e));
+      if (Platform.OS !== 'web') {
+        const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+        if (!isBackgroundRunning) {
+          await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 10,
+            showsBackgroundLocationIndicator: true,
+            pausesUpdatesAutomatically: false,
+            foregroundService: {
+              notificationTitle: "Styrka Tracking Active",
+              notificationBody: "Your location is being tracked."
+            }
+          }).catch(e => console.log(e));
+        }
       }
     } catch (e) {
       console.log('Error setting up tracking', e);

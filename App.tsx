@@ -6,15 +6,17 @@ import { ThemeColors } from './styrka_tech/src/theme/theme';
 import { StatusBar } from 'expo-status-bar';
 import './styrka_tech/src/tasks/locationTask';
 
-import MapplsGL from 'mappls-map-react-native';
-
-
-const mapplsAny = MapplsGL as any;
-if (typeof mapplsAny.setMapSDKKey === 'function') {
-  mapplsAny.setMapSDKKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY);
-  mapplsAny.setRestAPIKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY);
-  mapplsAny.setAtlasClientId(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID);
-  mapplsAny.setAtlasClientSecret(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET);
+try {
+  const MapplsGL = require('mappls-map-react-native').default;
+  const mapplsAny = MapplsGL as any;
+  if (mapplsAny && typeof mapplsAny.setMapSDKKey === 'function') {
+    mapplsAny.setMapSDKKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY);
+    mapplsAny.setRestAPIKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY);
+    mapplsAny.setAtlasClientId(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID);
+    mapplsAny.setAtlasClientSecret(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET);
+  }
+} catch (e) {
+  console.log('[App] Mappls native SDK initialization skipped (Expo Go mode)');
 }
 
 export default function App() {

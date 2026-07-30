@@ -1,12 +1,17 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, UIManager, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 let MapplsGL: any = null;
 let isNativeMapplsAvailable = false;
 
+const isExpoGo = 
+  Constants.appOwnership === 'expo' || 
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 try {
-  if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
+  if (!isExpoGo && Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
     const mapViewConfig = UIManager.getViewManagerConfig('RCTMGLMapView');
     const cameraConfig = UIManager.getViewManagerConfig('RCTMGLCamera');
     if (mapViewConfig && cameraConfig) {

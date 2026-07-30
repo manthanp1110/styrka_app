@@ -7,11 +7,10 @@ import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
-import { getSocket, disconnectSocket } from '../utils/socket';
 import { useSmoothLocation } from '../hooks/useSmoothLocation';
 import MapplsGL, { RestApi } from 'mappls-map-react-native';
 
-const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, styles }: any) => {
+const AnimatedVehicleMarker = ({ latestLocation, selectedEmp }: any) => {
   const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
   const isOffline = latestLocation.status === 'offline';
   
@@ -28,111 +27,22 @@ const AnimatedVehicleMarker = ({ latestLocation, startLocation, selectedEmp, sty
         latitude: animatedLoc.latitude,
         longitude: animatedLoc.longitude,
       }}
+      title={`${empName} (Rider)`}
       anchor={{ x: 0.5, y: 0.5 }}
       style={{ zIndex: 2 }}
     >
-      <View style={{ alignItems: 'center', width: 200 }}>
-        {/* Username Bubble */}
-        <View style={{ backgroundColor: 'white', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, marginBottom: 4, borderWidth: 1, borderColor: '#1F473A', flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4, maxWidth: 160 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 6 }} />
-          <Text style={{ color: '#1F2937', fontWeight: 'bold', fontSize: 13 }} numberOfLines={1} ellipsizeMode="tail">{empName}</Text>
+      <View style={{ alignItems: 'center' }}>
+        {/* Username Label */}
+        <View style={{ backgroundColor: 'white', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginBottom: 3, borderWidth: 1, borderColor: '#10B981', flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, elevation: 3 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 4 }} />
+          <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 11 }}>{empName}</Text>
         </View>
         
-        {/* Motorcycle Image with dynamic heading-based rotation */}
-        <Image 
-          source={require('../../../assets/motorcycle.png')}
-          style={{ 
-            width: 45, 
-            height: 45, 
-            resizeMode: 'contain', 
-            transform: [{ rotate: `${animatedLoc.heading + 180}deg` }] 
-          }}
-        />
-      </View>
-      <Callout tooltip>
-        <View style={{ width: 240, backgroundColor: 'white', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 }}>
-          {/* Top Section */}
-          <View style={{ backgroundColor: '#215647', padding: 15, flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#477A6D', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-              <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>{empName.charAt(0).toUpperCase()}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>{empName}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isOffline ? '#9CA3AF' : '#10B981', marginRight: 6 }} />
-                <Text style={{ color: isOffline ? '#D1D5DB' : '#A7F3D0', fontSize: 12 }}>
-                  {isOffline ? 'Offline (Stopped)' : 'Online (Active)'}
-                </Text>
-              </View>
-            </View>
-          </View>
-          
-          {/* Bottom Section */}
-          <View style={{ padding: 15 }}>
-            {latestLocation.current_road && (
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 0.5 }}>
-                  <Feather name="map-pin" size={14} color="#10B981" style={{ marginRight: 8 }} />
-                  <Text style={{ color: '#4B5563', fontSize: 13 }}>Road</Text>
-                </View>
-                <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500', flex: 0.5, textAlign: 'right' }} numberOfLines={1} ellipsizeMode="tail">
-                  {latestLocation.current_road}
-                </Text>
-              </View>
-            )}
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="zap" size={14} color="#F59E0B" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 13 }}>Speed</Text>
-              </View>
-              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
-                {latestLocation.speed != null ? `${(latestLocation.speed * 3.6).toFixed(1)} km/h` : 'N/A'}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="target" size={14} color="#10B981" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 13 }}>Accuracy</Text>
-              </View>
-              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
-                {latestLocation.accuracy ? `±${Math.round(latestLocation.accuracy)}m` : 'N/A'}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="battery" size={14} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 13 }}>Battery</Text>
-              </View>
-              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
-                {latestLocation.battery_level != null ? `${Math.round(latestLocation.battery_level * 100)}%` : 'N/A'}
-              </Text>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="wifi" size={14} color="#6B7280" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 13 }}>Network</Text>
-              </View>
-              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500', textTransform: 'capitalize' }}>
-                {latestLocation.network_type || 'Unknown'}
-              </Text>
-            </View>
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="clock" size={14} color="#6B7280" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#4B5563', fontSize: 13 }}>Last Update</Text>
-              </View>
-              <Text style={{ color: '#1F2937', fontSize: 13, fontWeight: '500' }}>
-                {new Date(latestLocation.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).toLowerCase()}
-              </Text>
-            </View>
-          </View>
+        {/* Rider Icon / Blue Dot Marker */}
+        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#3B82F6', borderWidth: 3, borderColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 5 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: 'white' }} />
         </View>
-      </Callout>
+      </View>
     </Marker>
   );
 };
@@ -270,80 +180,62 @@ const AdminTrackingScreen = () => {
     
     let isMounted = true;
 
-    const setupSocket = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token || !isMounted) return;
+    // Subscriptions array to manage cleanup
+    const subscriptions: any[] = [];
 
-        const socket = getSocket(session.access_token);
-        if (socket) {
-          socket.on('location:batch_update', (batch: any[]) => {
-            setActiveJourneys(current => {
-              const updated = { ...current };
-              let hasChanged = false;
-              
-              batch.forEach(newLocation => {
-                const empId = newLocation.employee_id;
-                if (updated[empId]) {
-                  const journey = updated[empId];
-                  
-                  const normalizedLoc = {
-                    user_id: empId,
-                    latitude: Number(newLocation.latitude),
-                    longitude: Number(newLocation.longitude),
-                    status: newLocation.status || 'online',
-                    timestamp: newLocation.timestamp,
-                    accuracy: newLocation.accuracy,
-                    speed: newLocation.speed,
-                    heading: newLocation.heading,
-                  };
-
-                  updated[empId] = {
-                    ...journey,
-                    locationHistory: [...(journey.locationHistory || []), normalizedLoc],
-                    latestLocation: normalizedLoc
-                  };
-                  hasChanged = true;
-                }
-              });
-              return hasChanged ? updated : current;
-            });
-          });
-
-          socket.on('employee:status_change', ({ employee_id, status }: any) => {
-            setActiveJourneys(current => {
-              if (!current[employee_id]) return current;
-              return {
-                ...current,
-                [employee_id]: {
-                  ...current[employee_id],
-                  latestLocation: {
-                    ...(current[employee_id].latestLocation || {}),
-                    status: status,
-                  }
-                }
-              };
-            });
-          });
-        }
-      } catch (err) {
-        console.error('[Admin Socket Setup Error]', err);
-      }
-    };
-
-    setupSocket();
-
+    // 1. Subscribe to Live Journeys
     const journeysSubscription = supabase
       .channel('live-journeys')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'journeys' }, () => {
         fetchTrackingData();
       })
       .subscribe();
+      
+    subscriptions.push(journeysSubscription);
+
+    // 2. Subscribe to Employee Live Locations
+    const locationsSubscription = supabase
+      .channel('live-locations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_live_locations' }, (payload: any) => {
+        if (!isMounted) return;
+        
+        const newLocation = payload.new;
+        if (!newLocation || !newLocation.employee_id) return;
+        
+        setActiveJourneys(current => {
+          const empId = newLocation.employee_id;
+          if (!current[empId]) return current;
+          
+          const journey = current[empId];
+          
+          const normalizedLoc = {
+            user_id: empId,
+            latitude: Number(newLocation.latitude || newLocation.snapped_latitude || newLocation.raw_latitude),
+            longitude: Number(newLocation.longitude || newLocation.snapped_longitude || newLocation.raw_longitude),
+            status: newLocation.status || 'online',
+            timestamp: newLocation.updated_at,
+            accuracy: newLocation.accuracy,
+            speed: newLocation.speed,
+            heading: newLocation.heading,
+          };
+
+          return {
+            ...current,
+            [empId]: {
+              ...journey,
+              locationHistory: [...(journey.locationHistory || []), normalizedLoc],
+              latestLocation: normalizedLoc
+            }
+          };
+        });
+      })
+      .subscribe();
+      
+    subscriptions.push(locationsSubscription);
 
     return () => {
       isMounted = false;
-      disconnectSocket();
-      supabase.removeChannel(journeysSubscription);
+      subscriptions.forEach(sub => supabase.removeChannel(sub));
     };
   }, []);
 
@@ -579,11 +471,20 @@ const AdminTrackingScreen = () => {
                 />
               )}
 
-              {currentRouteCoords.length > 0 && (
+              {/* Destination Route Polyline */}
+              {selectedJourney.start_lat != null && selectedJourney.destination_lat != null && (
                 <Polyline
-                  coordinates={currentRouteCoords}
+                  coordinates={
+                    currentRouteCoords.length > 0
+                      ? currentRouteCoords
+                      : [
+                          { latitude: Number(selectedJourney.start_lat), longitude: Number(selectedJourney.start_lng) },
+                          { latitude: Number(selectedJourney.latestLocation?.latitude || selectedJourney.start_lat), longitude: Number(selectedJourney.latestLocation?.longitude || selectedJourney.start_lng) },
+                          { latitude: Number(selectedJourney.destination_lat), longitude: Number(selectedJourney.destination_lng) }
+                        ]
+                  }
                   strokeWidth={6}
-                  strokeColor="#1D4ED8"
+                  strokeColor="#3B82F6"
                 />
               )}
               

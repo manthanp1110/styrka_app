@@ -138,9 +138,20 @@ export const MapView = forwardRef(({ initialRegion, region, style, onPress, onLo
   );
 });
 
-export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }: any) => {
+export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...props }: any) => {
   if (!coordinate) return null;
-  if (!isNativeMapplsAvailable) return children || null;
+
+  if (!isNativeMapplsAvailable) {
+    return (
+      <View style={{ marginVertical: 4, alignItems: 'center', flexDirection: 'row' }}>
+        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: pinColor || '#EF4444', marginRight: 6 }} />
+        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#1F2937' }}>
+          {title ? `${title}: ` : ''}{coordinate.latitude?.toFixed(4)}, {coordinate.longitude?.toFixed(4)}
+        </Text>
+        {children}
+      </View>
+    );
+  }
 
   const markerId = id || `marker-${coordinate.latitude}-${coordinate.longitude}`;
   
@@ -174,8 +185,18 @@ export const Marker = ({ coordinate, onPress, children, pinColor, id, ...props }
   );
 };
 
-export const Polyline = ({ coordinates, strokeColor = '#10B981', strokeWidth = 4 }: any) => {
-  if (!coordinates || coordinates.length < 2 || !isNativeMapplsAvailable) return null;
+export const Polyline = ({ coordinates, strokeColor = '#3B82F6', strokeWidth = 4 }: any) => {
+  if (!coordinates || coordinates.length < 2) return null;
+
+  if (!isNativeMapplsAvailable) {
+    return (
+      <View style={{ marginVertical: 6, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#EFF6FF', borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE', width: '100%' }}>
+        <Text style={{ fontSize: 11, fontWeight: 'bold', color: strokeColor }}>
+          🛣️ Route Polyline ({coordinates.length} points plotted)
+        </Text>
+      </View>
+    );
+  }
 
   const geojson: any = {
     type: 'Feature',

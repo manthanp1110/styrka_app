@@ -8,7 +8,7 @@ import { MapView, Marker, Polyline } from '../components/NativeMap';
 import * as Location from 'expo-location';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
 import { decodePolyline } from '../utils/mapsUtils';
-import { getSocket, disconnectSocket } from '../utils/socket';
+
 import * as Battery from 'expo-battery';
 import * as IntentLauncher from 'expo-intent-launcher';
 import NetInfo from '@react-native-community/netinfo';
@@ -16,6 +16,7 @@ import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
 import MapplsGL, { RestApi } from 'mappls-map-react-native';
+import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -35,6 +36,7 @@ const EmployeeTrackingScreen = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const mapRef = useRef<any>(null);
+  const trackingMapRef = useRef<MapplsTrackingMapRef>(null);
   
   const [activeJourney, setActiveJourney] = useState<any>(null);
   const [pings, setPings] = useState<any[]>([]);
@@ -263,13 +265,7 @@ const EmployeeTrackingScreen = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const socket = getSocket(token);
 
-      if (socket) {
-        socket.on('connect', () => {
-          console.log('[Socket] Connected / Reconnected.');
-        });
-      }
 
       const sub = await Location.watchPositionAsync(
         {
@@ -282,6 +278,7 @@ const EmployeeTrackingScreen = () => {
           const timestamp = new Date(loc.timestamp).toISOString();
           
           setCurrentLocation({ latitude: newLat, longitude: newLng });
+          trackingMapRef.current?.updateLocation({ latitude: newLat, longitude: newLng });
           
           let batteryLevel = 1.0;
           try { batteryLevel = await Battery.getBatteryLevelAsync(); } catch (e) {}
@@ -455,7 +452,7 @@ const EmployeeTrackingScreen = () => {
         heartbeatTimerRef.current = null;
       }
 
-      disconnectSocket();
+
       setActiveJourney(null);
       setTrackingSessionId(null);
       setPings([]);
@@ -506,6 +503,21 @@ const EmployeeTrackingScreen = () => {
             <ActivityIndicator size="large" color="#10B981" />
             <Text style={{ marginTop: 10, color: 'gray' }}>Loading Map...</Text>
           </View>
+        ) : activeJourney ? (
+          <MapplsTrackingMap 
+            ref={trackingMapRef}
+            style={styles.map}
+            origin={{ latitude: Number(activeJourney.start_lat), longitude: Number(activeJourney.start_lng) }}
+            destination={{ latitude: Number(activeJourney.destination_lat), longitude: Number(activeJourney.destination_lng) }}
+            onSegmentComplete={(event: any) => {
+              if (event && event.distance != null) {
+                setDistance(event.distance / 1000);
+              }
+              if (event && event.duration != null) {
+                setDuration(event.duration / 60);
+              }
+            }}
+          />
         ) : (
           <MapView 
             ref={mapRef}
@@ -513,29 +525,7 @@ const EmployeeTrackingScreen = () => {
             initialRegion={initialRegion}
             showsUserLocation={true}
             showsMyLocationButton={true}
-          >
-            {activeJourney && (
-              <>
-                <Marker 
-                  coordinate={{ latitude: Number(activeJourney.start_lat), longitude: Number(activeJourney.start_lng) }}
-                  title="Start Location"
-                  pinColor="green"
-                />
-                <Marker 
-                  coordinate={{ latitude: Number(activeJourney.destination_lat), longitude: Number(activeJourney.destination_lng) }}
-                  title="Destination"
-                  pinColor="red"
-                />
-                {routeCoordinates.length > 0 && (
-                  <Polyline
-                    coordinates={routeCoordinates}
-                    strokeWidth={5}
-                    strokeColor="#3B82F6"
-                  />
-                )}
-              </>
-            )}
-          </MapView>
+          />
         )}
 
         <View style={styles.overlayCard}>

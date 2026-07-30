@@ -46,10 +46,10 @@ const withMapplsOlf = (config) => {
         if (!contents.includes('$MAPPLS_MAPS.post_install(installer)')) {
           contents = contents.replace(
             /post_install do \|installer\|/,
-            `post_install do |installer|\n    $MAPPLS_MAPS.post_install(installer)`
+            `post_install do |installer|\n    $MAPPLS_MAPS.post_install(installer)\n    $MAPPLS_TRACKING_WIDGET.post_install(installer)`
           );
           fs.writeFileSync(file, contents);
-          console.log(`[Mappls Config] Added post_install hook to Podfile`);
+          console.log(`[Mappls Config] Added post_install hooks to Podfile`);
         }
       }
       return config;

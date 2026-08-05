@@ -336,16 +336,9 @@ class MapErrorBoundary extends React.Component<any, { hasError: boolean }> {
 }
 
 // ──────────────────────────────────────────────
-// Exported MapView — auto-selects native or WebView map with error boundary
+// Exported MapView — uses Leaflet WebView Map with Mappls Tiles across Expo Go & Standalone APK
 // ──────────────────────────────────────────────
 export const MapView = forwardRef((props: any, ref: any) => {
-  if (isNativeMapplsAvailable && MapplsGL) {
-    return (
-      <MapErrorBoundary {...props}>
-        <NativeMapView ref={ref} {...props} />
-      </MapErrorBoundary>
-    );
-  }
   return <ExpoGoWebViewMap ref={ref} {...props} />;
 });
 
@@ -353,84 +346,21 @@ export const MapView = forwardRef((props: any, ref: any) => {
 // Marker
 // ──────────────────────────────────────────────
 export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...props }: any) => {
-  if (!coordinate) return null;
-
-  if (!isNativeMapplsAvailable || !MapplsGL) {
-    return children || null;
-  }
-
-  const markerId = id || `marker-${coordinate.latitude}-${coordinate.longitude}`;
-  
-  return (
-    <MapplsGL.PointAnnotation
-      id={markerId}
-      coordinate={[coordinate.longitude, coordinate.latitude]}
-      onSelected={onPress}
-      {...props}
-    >
-      {children ? (
-        <View>{children}</View>
-      ) : (
-        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ 
-            width: 16, height: 16, borderRadius: 8, 
-            backgroundColor: pinColor || '#EF4444', 
-            borderWidth: 2, borderColor: 'white',
-            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3, shadowRadius: 3, elevation: 4
-          }} />
-        </View>
-      )}
-    </MapplsGL.PointAnnotation>
-  );
+  return children || null;
 };
 
 // ──────────────────────────────────────────────
 // Polyline
 // ──────────────────────────────────────────────
-export const Polyline = ({ coordinates, strokeColor = '#3B82F6', strokeWidth = 4 }: any) => {
-  if (!coordinates || coordinates.length < 2) return null;
-
-  if (!isNativeMapplsAvailable || !MapplsGL) {
-    return null;
-  }
-
-  const geojson: any = {
-    type: 'Feature',
-    geometry: {
-      type: 'LineString',
-      coordinates: coordinates.map((c: any) => [c.longitude, c.latitude]),
-    },
-  };
-
-  const sourceId = `polyline-source-${coordinates[0].latitude}-${coordinates[0].longitude}`;
-  const layerId = `polyline-layer-${coordinates[0].latitude}-${coordinates[0].longitude}`;
-
-  return (
-    <MapplsGL.ShapeSource id={sourceId} shape={geojson}>
-      <MapplsGL.LineLayer
-        id={layerId}
-        style={{
-          lineColor: strokeColor,
-          lineWidth: strokeWidth,
-          lineCap: 'round',
-          lineJoin: 'round',
-        }}
-      />
-    </MapplsGL.ShapeSource>
-  );
+export const Polyline = ({ coordinates, strokeColor, strokeWidth, ...props }: any) => {
+  return null;
 };
 
 // ──────────────────────────────────────────────
 // Callout
 // ──────────────────────────────────────────────
 export const Callout = ({ children, ...props }: any) => {
-  if (!isNativeMapplsAvailable || !MapplsGL) return children || null;
-  return (
-    <MapplsGL.Callout {...props}>
-      {children}
-    </MapplsGL.Callout>
-  );
+  return children || null;
 };
 
 const styles = StyleSheet.create({

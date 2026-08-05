@@ -246,9 +246,17 @@ const AdminTrackingScreen = () => {
     if (attendance.punch_out_time) return { label: 'Punched Out', color: '#6B7280', canTrack: false };
     
     const journey = activeJourneys[empId];
-    if (journey) return { label: 'Tracking Active', color: '#10B981', canTrack: true };
+    if (journey) {
+      if (journey.status === 'arrived') {
+        return { label: 'Arrived', color: '#3B82F6', canTrack: true };
+      }
+      if (journey.status === 'visiting') {
+        return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true };
+      }
+      return { label: 'On Route', color: '#10B981', canTrack: true };
+    }
     
-    return { label: 'Punched In (No Journey)', color: '#F59E0B', canTrack: false };
+    return { label: 'Available / Waiting', color: '#F59E0B', canTrack: false };
   };
 
   const filteredEmployees = employees.filter(emp => 

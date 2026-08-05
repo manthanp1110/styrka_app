@@ -220,14 +220,22 @@ const EmployeeTrackingScreen = () => {
   }, [activeJourney, currentLocation]);
 
   useEffect(() => {
-    if (activeJourney && currentLocation && !isProcessing) {
+    if (activeJourney && currentLocation && !isProcessing && activeJourney.status === 'active') {
       const dist = getDistanceFromLatLonInKm(
         currentLocation.latitude, currentLocation.longitude,
         activeJourney.destination_lat, activeJourney.destination_lng
       );
       if (dist < 0.1) {
-        alert("You have reached your destination! Tracking has automatically stopped.");
-        endJourney();
+        const markArrived = async () => {
+          try {
+            await supabase.from('journeys').update({ status: 'arrived' }).eq('id', activeJourney.id);
+            setActiveJourney({ ...activeJourney, status: 'arrived' });
+            Alert.alert("Arrival Detected", "You have arrived at your destination! You can now start your visit and complete your task.");
+          } catch (e) {
+            console.log('Error setting arrived status:', e);
+          }
+        };
+        markArrived();
       }
     }
   }, [currentLocation, activeJourney, isProcessing]);
@@ -446,6 +454,7 @@ const EmployeeTrackingScreen = () => {
     if (!activeJourney) return;
     setIsProcessing(true);
     try {
+      // 1. Update journey status to completed
       const { error } = await supabase.from('journeys').update({
         status: 'completed',
         ended_at: new Date().toISOString()
@@ -453,33 +462,43 @@ const EmployeeTrackingScreen = () => {
       
       if (error) throw error;
       
+      // 2. If associated with a task, mark task as completed
+      const taskId = route.params?.selectedTask?.id;
+      if (taskId) {
+        await supabase.from('tasks').update({
+          status: 'Completed'
+        }).eq('id', taskId);
+      }
+
       if (route.params?.assignedDestination?.id) {
         await supabase.from('assigned_destinations').update({
           status: 'completed'
         }).eq('id', route.params.assignedDestination.id);
       }
       
+      // 3. Stop location watcher
       if (locationSubscription) {
-        locationSubscription.remove();
+        try { locationSubscription.remove(); } catch (e) {}
         setLocationSubscription(null);
       }
       
-      await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log(e));
+      // 4. STOP BACKGROUND GPS TRACKING
+      if (Platform.OS !== 'web') {
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log('Stop bg location task error:', e));
+      }
 
       if (heartbeatTimerRef.current) {
         clearInterval(heartbeatTimerRef.current);
         heartbeatTimerRef.current = null;
       }
 
-
       setActiveJourney(null);
       setTrackingSessionId(null);
       setPings([]);
       setRouteCoordinates([]);
       setAddress("Locating...");
-      alert("Journey completed successfully.");
+      alert("Task & Journey completed successfully. Location tracking has stopped.");
       
-      // Auto go back so they can pick a new destination easily
       navigation.goBack();
     } catch (e: any) {
       alert("Failed to end journey: " + e.message);

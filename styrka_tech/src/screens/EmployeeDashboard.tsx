@@ -220,12 +220,21 @@ const EmployeeDashboard = () => {
                     </View>
                     <Text className="text-gray-500 text-sm mb-3">{task.description}</Text>
                     {task.status !== 'Completed' && (
-                      <TouchableOpacity 
-                        onPress={() => updateTaskStatus(task.id, 'Completed')}
-                        className="bg-emerald-50 border border-emerald-200 py-2 rounded-lg items-center"
-                      >
-                        <Text className="text-emerald-700 font-bold text-xs">Mark as Completed</Text>
-                      </TouchableOpacity>
+                      <View className="flex-row gap-2">
+                        <TouchableOpacity 
+                          onPress={() => navigation.navigate('LiveTracking', { selectedTask: task })}
+                          className="flex-1 bg-[#10B981] py-2.5 rounded-lg flex-row items-center justify-center"
+                        >
+                          <Feather name="navigation" size={14} color="white" className="mr-1.5" />
+                          <Text className="text-white font-bold text-xs">Start Journey</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => updateTaskStatus(task.id, 'Completed')}
+                          className="px-3 bg-emerald-50 border border-emerald-200 py-2.5 rounded-lg items-center justify-center"
+                        >
+                          <Text className="text-emerald-700 font-bold text-xs">Complete</Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </Animated.View>
                 ))

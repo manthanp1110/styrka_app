@@ -157,20 +157,7 @@ const EmployeeAttendanceScreen = () => {
         throw new Error("Failed to upload odometer photo. Make sure the 'odometer-photos' bucket exists and is public. Details: " + uploadE.message);
       }
 
-      // 1. Ask for background location permissions
-      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      
-      if (fgStatus !== 'granted' || bgStatus !== 'granted') {
-        alert("Background Location permission is required for shift tracking.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 2. Get initial location
-      const initialLocation = await Location.getCurrentPositionAsync({});
-
-      // 3. Insert Attendance
+      // Insert Attendance Record (No GPS tracking started here)
       const { data: attendanceData, error } = await supabase.from('daily_attendance').insert([
         {
           user_id: user.id,
@@ -204,25 +191,7 @@ const EmployeeAttendanceScreen = () => {
 
     setIsSubmitting(true);
     try {
-      // 1. Stop background tracking
-      if (Platform.OS !== 'web') {
-        const hasTask = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-        if (hasTask) {
-          await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-        }
-      }
-
-      // Cleanup Realtime channels
-      unsubscribeAll();
-
-      // 2. End Journey in DB
-      await supabase
-        .from('journeys')
-        .update({ status: 'completed', ended_at: new Date().toISOString() })
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      // 3. Complete Attendance
+      // Complete Attendance Record (Purely attendance, GPS tracking is managed per-journey)
       const { error } = await supabase
         .from('daily_attendance')
         .update({
@@ -238,7 +207,7 @@ const EmployeeAttendanceScreen = () => {
         .eq('id', attendanceRecord.id);
 
       if (error) throw error;
-      alert("Punched Out Successfully! Tracking stopped.");
+      alert("Punched Out Successfully!");
       fetchTodayAttendance();
     } catch (e: any) {
       alert("Error: " + e.message);

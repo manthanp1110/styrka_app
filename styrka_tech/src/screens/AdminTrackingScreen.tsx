@@ -463,6 +463,12 @@ const AdminTrackingScreen = () => {
             >
               {selectedJourney.latestLocation && selectedJourney.latestLocation.latitude != null && (
                 <AnimatedVehicleMarker
+                  coordinate={{
+                    latitude: Number(selectedJourney.latestLocation.latitude),
+                    longitude: Number(selectedJourney.latestLocation.longitude)
+                  }}
+                  pinColor="#3B82F6"
+                  title={selectedEmp?.name || selectedEmp?.first_name || 'Rider'}
                   latestLocation={selectedJourney.latestLocation}
                   startLocation={{ latitude: selectedJourney.start_lat, longitude: selectedJourney.start_lng }}
                   selectedEmp={selectedEmp}

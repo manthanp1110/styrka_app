@@ -65,15 +65,27 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
 
   React.Children.forEach(children, (child) => {
     if (!child || !React.isValidElement(child)) return;
-    const props: any = child.props || {};
+    let props: any = child.props || {};
+
+    // Unpack wrapper components like AnimatedVehicleMarker
+    if (!props.coordinate && props.latestLocation && props.latestLocation.latitude != null) {
+      props = {
+        coordinate: {
+          latitude: Number(props.latestLocation.latitude),
+          longitude: Number(props.latestLocation.longitude)
+        },
+        pinColor: '#3B82F6',
+        title: props.selectedEmp?.name || props.selectedEmp?.first_name || 'Rider'
+      };
+    }
 
     // Marker
     if (props.coordinate && props.coordinate.latitude != null) {
       markersData.push({
-        lat: props.coordinate.latitude,
-        lng: props.coordinate.longitude,
-        title: props.title || '',
-        color: props.pinColor || '#EF4444'
+        lat: Number(props.coordinate.latitude),
+        lng: Number(props.coordinate.longitude),
+        title: props.title || 'Rider',
+        color: props.pinColor || '#3B82F6'
       });
     }
 
@@ -96,9 +108,30 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; background: #e5e7eb; }
+    .custom-map-icon {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .rider-name-tag {
+      position: absolute;
+      top: -24px;
+      background: #0F4C3A;
+      color: white;
+      font-weight: bold;
+      font-size: 10px;
+      font-family: sans-serif;
+      padding: 2px 7px;
+      border-radius: 8px;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
     .rider-pulse {
-      width: 24px;
-      height: 24px;
+      width: 28px;
+      height: 28px;
       background: rgba(37, 99, 235, 0.35);
       border-radius: 50%;
       box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
@@ -153,9 +186,10 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
     // Render Markers
     markersData.forEach(function(m) {
       var iconHtml;
-      if (m.color === '#3B82F6' || m.color === '#2563EB' || m.title.includes('Rider') || m.title.includes('Your Location')) {
-        iconHtml = '<div class="rider-pulse"><div class="rider-dot"></div></div>';
-      } else if (m.color === '#10B981' || m.title.includes('Start')) {
+      var titleText = m.title || 'Rider';
+      if (m.color === '#3B82F6' || m.color === '#2563EB' || titleText.toLowerCase().includes('rider') || titleText.toLowerCase().includes('location') || titleText.toLowerCase().includes('employee')) {
+        iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="rider-dot"></div></div>';
+      } else if (m.color === '#10B981' || titleText.toLowerCase().includes('start')) {
         iconHtml = '<div class="start-pin"></div>';
       } else {
         iconHtml = '<div class="dest-pin"></div>';
@@ -164,8 +198,8 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
       var customIcon = L.divIcon({
         className: 'custom-map-icon',
         html: iconHtml,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
       });
 
       L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);

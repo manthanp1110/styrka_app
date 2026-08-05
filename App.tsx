@@ -9,18 +9,21 @@ import './styrka_tech/src/tasks/locationTask';
 import { UIManager, Platform } from 'react-native';
 
 try {
-  if (Platform.OS !== 'web') {
-    const MapplsGL = require('mappls-map-react-native').default;
-    if (MapplsGL && typeof MapplsGL.setMapSDKKey === 'function') {
-      MapplsGL.setMapSDKKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY || '28b2df366fa28c4d538d96c1b5cf32fb');
-      MapplsGL.setRestAPIKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY || '28b2df366fa28c4d538d96c1b5cf32fb');
-      if (process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID) {
-        MapplsGL.setAtlasClientId(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID);
+  if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
+    const mapViewConfig = UIManager.getViewManagerConfig('RCTMGLMapView');
+    if (mapViewConfig) {
+      const MapplsGL = require('mappls-map-react-native').default;
+      if (MapplsGL && typeof MapplsGL.setMapSDKKey === 'function') {
+        MapplsGL.setMapSDKKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_MAP_SDK_KEY || '28b2df366fa28c4d538d96c1b5cf32fb');
+        MapplsGL.setRestAPIKey(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_REST_API_KEY || '28b2df366fa28c4d538d96c1b5cf32fb');
+        if (process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID) {
+          MapplsGL.setAtlasClientId(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_ID);
+        }
+        if (process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET) {
+          MapplsGL.setAtlasClientSecret(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET);
+        }
+        console.log('[App] Mappls native SDK initialized successfully');
       }
-      if (process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET) {
-        MapplsGL.setAtlasClientSecret(process.env.EXPO_PUBLIC_MAPPLS_ATLAS_CLIENT_SECRET);
-      }
-      console.log('[App] Mappls native SDK initialized successfully');
     }
   }
 } catch (e) {

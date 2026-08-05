@@ -13,7 +13,7 @@ try {
     const mapViewConfig = UIManager.getViewManagerConfig('RCTMGLMapView');
     const cameraConfig = UIManager.getViewManagerConfig('RCTMGLCamera');
     // Verify view manager configs are valid objects with native commands
-    if (mapViewConfig && cameraConfig && (mapViewConfig as any).Commands) {
+    if (mapViewConfig && cameraConfig) {
       MapplsGL = require('mappls-map-react-native').default;
       isNativeMapplsAvailable = true;
     }

@@ -3,15 +3,19 @@ const fs = require('fs');
 const path = require('path');
 
 const withMapplsOlf = (config) => {
-  return withDangerousMod(config, [
+  config = withDangerousMod(config, [
     'android',
     async (config) => {
       const projectRoot = config.modRequest.projectRoot;
       const androidAppDir = path.join(projectRoot, 'android', 'app');
+      const androidAssetsDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'assets');
 
-      // Ensure the android/app directory exists (it should during prebuild)
+      // Ensure directory structures exist
       if (!fs.existsSync(androidAppDir)) {
         fs.mkdirSync(androidAppDir, { recursive: true });
+      }
+      if (!fs.existsSync(androidAssetsDir)) {
+        fs.mkdirSync(androidAssetsDir, { recursive: true });
       }
 
       // Find .olf and .conf files in projectRoot
@@ -20,6 +24,7 @@ const withMapplsOlf = (config) => {
       const confFile = files.find(f => f.endsWith('.a.conf'));
 
       if (olfFile && confFile) {
+        // Copy to android/app
         fs.copyFileSync(
           path.join(projectRoot, olfFile),
           path.join(androidAppDir, olfFile)
@@ -28,7 +33,16 @@ const withMapplsOlf = (config) => {
           path.join(projectRoot, confFile),
           path.join(androidAppDir, confFile)
         );
-        console.log(`[Mappls Config] Copied ${olfFile} and ${confFile} to android/app`);
+        // Copy to android/app/src/main/assets
+        fs.copyFileSync(
+          path.join(projectRoot, olfFile),
+          path.join(androidAssetsDir, olfFile)
+        );
+        fs.copyFileSync(
+          path.join(projectRoot, confFile),
+          path.join(androidAssetsDir, confFile)
+        );
+        console.log(`[Mappls Config] Copied ${olfFile} and ${confFile} to android/app and android/app/src/main/assets`);
       } else {
         console.warn(`[Mappls Config] Warning: .a.olf or .a.conf file not found in project root!`);
       }

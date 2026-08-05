@@ -1,10 +1,18 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle, Platform, UIManager } from 'react-native';
 let MapplsTracking: any = null;
+let isNativeWidgetAvailable = false;
+
 try {
-  MapplsTracking = require('mappls-tracking-react-native');
+  if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
+    const config = UIManager.getViewManagerConfig('MapplsTrackingWidget') || UIManager.getViewManagerConfig('RCTMGLMapView');
+    if (config) {
+      MapplsTracking = require('mappls-tracking-react-native');
+      isNativeWidgetAvailable = !!MapplsTracking?.MapplsTrackingWidget;
+    }
+  }
 } catch (e) {
-  MapplsTracking = null;
+  isNativeWidgetAvailable = false;
 }
 
 export interface MapplsTrackingMapProps {
@@ -82,7 +90,7 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
     const originPointStr = `${origin.longitude},${origin.latitude}`;
     const destinationPointStr = `${destination.longitude},${destination.latitude}`;
 
-    const isWidgetAvailable = !!(MapplsTracking as any)?.MapplsTrackingWidget && !hasError;
+    const isWidgetAvailable = isNativeWidgetAvailable && !hasError;
 
     if (!isWidgetAvailable) {
       const activePolyline = routeCoordinates.length > 0 ? routeCoordinates : [origin, destination];

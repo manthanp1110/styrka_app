@@ -59,13 +59,19 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
     }
   }));
 
-  // Parse markers and polylines from React children
+  // Parse markers and polylines recursively from React children
   const markersData: any[] = [];
   const polylinesData: any[] = [];
 
-  React.Children.forEach(children, (child) => {
+  const processChild = (child: any) => {
     if (!child || !React.isValidElement(child)) return;
     let props: any = child.props || {};
+
+    // Handle React.Fragment or components wrapping children
+    if (child.type === React.Fragment && props.children) {
+      React.Children.toArray(props.children).forEach(processChild);
+      return;
+    }
 
     // Unpack wrapper components like AnimatedVehicleMarker
     if (!props.coordinate && props.latestLocation && props.latestLocation.latitude != null) {
@@ -80,24 +86,54 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
     }
 
     // Marker
-    if (props.coordinate && props.coordinate.latitude != null) {
-      markersData.push({
-        lat: Number(props.coordinate.latitude),
-        lng: Number(props.coordinate.longitude),
-        title: props.title || 'Rider',
-        color: props.pinColor || '#3B82F6'
-      });
+    if (props.coordinate) {
+      const lat = Number(props.coordinate.latitude ?? props.coordinate.lat);
+      const lng = Number(props.coordinate.longitude ?? props.coordinate.lng);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        markersData.push({
+          lat,
+          lng,
+          title: props.title || 'Rider',
+          color: props.pinColor || '#3B82F6'
+        });
+      }
     }
 
     // Polyline
     if (props.coordinates && Array.isArray(props.coordinates) && props.coordinates.length >= 2) {
-      polylinesData.push({
-        coords: props.coordinates.map((c: any) => [c.latitude, c.longitude]),
-        color: props.strokeColor || '#3B82F6',
-        weight: props.strokeWidth || 5
-      });
+      const validCoords = props.coordinates
+        .map((c: any) => {
+          if (!c) return null;
+          const lat = Number(c.latitude ?? c.lat ?? (Array.isArray(c) ? c[0] : null));
+          const lng = Number(c.longitude ?? c.lng ?? (Array.isArray(c) ? c[1] : null));
+          if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+            return [lat, lng];
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      if (validCoords.length >= 2) {
+        polylinesData.push({
+          coords: validCoords,
+          color: props.strokeColor || '#3B82F6',
+          weight: props.strokeWidth || 5
+        });
+      }
     }
-  });
+  };
+
+  React.Children.toArray(children).forEach(processChild);
+
+  const markersJson = JSON.stringify(markersData);
+  const polylinesJson = JSON.stringify(polylinesData);
+
+  React.useEffect(() => {
+    if (webViewRef.current) {
+      const js = `if (window.renderData) { window.renderData(${markersJson}, ${polylinesJson}); } true;`;
+      webViewRef.current.injectJavaScript(js);
+    }
+  }, [markersJson, polylinesJson]);
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -180,42 +216,52 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
 
     mapplsTileLayer.addTo(map);
 
-    var markersData = ${JSON.stringify(markersData)};
-    var polylinesData = ${JSON.stringify(polylinesData)};
+    var dataGroup = L.layerGroup().addTo(map);
 
-    // Render Markers
-    markersData.forEach(function(m) {
-      var iconHtml;
-      var titleText = m.title || 'Rider';
-      if (m.color === '#3B82F6' || m.color === '#2563EB' || titleText.toLowerCase().includes('rider') || titleText.toLowerCase().includes('location') || titleText.toLowerCase().includes('employee')) {
-        iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="rider-dot"></div></div>';
-      } else if (m.color === '#10B981' || titleText.toLowerCase().includes('start')) {
-        iconHtml = '<div class="start-pin"></div>';
-      } else {
-        iconHtml = '<div class="dest-pin"></div>';
-      }
+    window.renderData = function(markersData, polylinesData) {
+      dataGroup.clearLayers();
 
-      var customIcon = L.divIcon({
-        className: 'custom-map-icon',
-        html: iconHtml,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+      // Render Markers
+      markersData.forEach(function(m) {
+        var iconHtml;
+        var titleText = m.title || 'Rider';
+        if (m.color === '#3B82F6' || m.color === '#2563EB' || titleText.toLowerCase().includes('rider') || titleText.toLowerCase().includes('location') || titleText.toLowerCase().includes('employee')) {
+          iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="rider-dot"></div></div>';
+        } else if (m.color === '#10B981' || titleText.toLowerCase().includes('start')) {
+          iconHtml = '<div class="start-pin"></div>';
+        } else {
+          iconHtml = '<div class="dest-pin"></div>';
+        }
+
+        var customIcon = L.divIcon({
+          className: 'custom-map-icon',
+          html: iconHtml,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+
+        L.marker([m.lat, m.lng], { icon: customIcon }).addTo(dataGroup);
       });
 
-      L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
-    });
+      // Render Polylines
+      var allBounds = [];
+      polylinesData.forEach(function(p) {
+        if (p.coords && p.coords.length >= 2) {
+          var poly = L.polyline(p.coords, { color: p.color, weight: p.weight, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }).addTo(dataGroup);
+          allBounds.push(poly.getBounds());
+        }
+      });
 
-    // Render Polylines
-    polylinesData.forEach(function(p) {
-      if (p.coords && p.coords.length >= 2) {
-        L.polyline(p.coords, { color: p.color, weight: p.weight, opacity: 0.85, lineCap: 'round' }).addTo(map);
+      if (allBounds.length > 0) {
+        var combinedBounds = allBounds[0];
+        for (var i = 1; i < allBounds.length; i++) {
+          combinedBounds.extend(allBounds[i]);
+        }
+        map.fitBounds(combinedBounds, { padding: [40, 40] });
       }
-    });
+    };
 
-    if (polylinesData.length > 0 && polylinesData[0].coords.length >= 2) {
-      var bounds = L.latLngBounds(polylinesData[0].coords);
-      map.fitBounds(bounds, { padding: [40, 40] });
-    }
+    window.renderData(${markersJson}, ${polylinesJson});
   </script>
 </body>
 </html>
@@ -231,6 +277,11 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
         scrollEnabled={false}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        onLoadEnd={() => {
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript(`if (window.renderData) { window.renderData(${markersJson}, ${polylinesJson}); } true;`);
+          }
+        }}
       />
     </View>
   );

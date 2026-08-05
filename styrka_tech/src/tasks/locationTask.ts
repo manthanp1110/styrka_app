@@ -7,6 +7,8 @@ import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export const LOCATION_TASK_NAME = 'background-location-task';
 let backgroundSequenceNumber = 1;
 
@@ -23,25 +25,28 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
+        let userId = session?.user?.id;
+        if (!userId) {
+          userId = (await AsyncStorage.getItem('active_tracking_user_id')) || undefined;
+        }
+
+        if (userId) {
           const timestamp = new Date(loc.timestamp || Date.now()).toISOString();
           
-          // Fetch the active journey to retrieve trackingSessionId
-          const { data: journey, error: journeyError } = await supabase
-            .from('journeys')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (journeyError) {
-             console.log('[Background Task] No active journey found or error fetching journey.', journeyError.message);
+          let journeyId = await AsyncStorage.getItem('active_journey_id');
+          if (!journeyId) {
+            const { data: journey } = await supabase
+              .from('journeys')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('status', 'active')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (journey) journeyId = journey.id;
           }
 
-          if (journey) {
+          if (journeyId) {
             let batteryLevel = 1.0;
             try {
               batteryLevel = await Battery.getBatteryLevelAsync();
@@ -70,7 +75,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
               networkType,
               isMoving,
               deviceId,
-              trackingSessionId: journey.id,
+              trackingSessionId: journeyId,
               sequenceNumber: seq,
             };
 

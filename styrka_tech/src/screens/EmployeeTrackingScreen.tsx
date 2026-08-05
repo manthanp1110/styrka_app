@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator, StyleSheet, Platform, Alert, PermissionsAndroid } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
@@ -381,6 +382,12 @@ const EmployeeTrackingScreen = () => {
   const startJourney = async () => {
     setIsProcessing(true);
     try {
+      if (Platform.OS === 'android' && (Platform.Version as number) >= 33) {
+        try {
+          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        } catch (e) {}
+      }
+
       let { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
       if (fgStatus !== 'granted') {
         alert('Permission to access location was denied');
@@ -389,7 +396,25 @@ const EmployeeTrackingScreen = () => {
       }
       
       let { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus === 'granted') checkBatteryOptimization();
+      if (bgStatus === 'granted') {
+        checkBatteryOptimization();
+      } else {
+        Alert.alert(
+          "Background Location Required",
+          "For live tracking to work when your phone screen is off or app is in background, please set Location Permission to 'Allow all the time' in system settings.",
+          [
+            { text: "Later", style: "cancel" },
+            { 
+              text: "Open Settings", 
+              onPress: async () => {
+                await IntentLauncher.startActivityAsync(
+                  IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS
+                );
+              } 
+            }
+          ]
+        );
+      }
 
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const startLat = location.coords.latitude;
@@ -437,6 +462,10 @@ const EmployeeTrackingScreen = () => {
       }]).select().single();
       
       if (error) throw error;
+
+      await AsyncStorage.setItem('active_tracking_user_id', user.id);
+      await AsyncStorage.setItem('active_journey_id', data.id);
+
       setTrackingSessionId(data.id);
       sequenceNumberRef.current = 1;
       setActiveJourney(data);
@@ -462,6 +491,9 @@ const EmployeeTrackingScreen = () => {
       
       if (error) throw error;
       
+      await AsyncStorage.removeItem('active_tracking_user_id');
+      await AsyncStorage.removeItem('active_journey_id');
+
       // 2. If associated with a task, mark task as completed
       const taskId = route.params?.selectedTask?.id;
       if (taskId) {

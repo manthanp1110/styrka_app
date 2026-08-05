@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class LocationUploadService {
   private isProcessing = false;
@@ -18,7 +19,12 @@ class LocationUploadService {
       console.log(`[LocationUploadService] Processing queue of size: ${size}`);
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
+      let userId = session?.user?.id;
+      if (!userId) {
+        userId = (await AsyncStorage.getItem('active_tracking_user_id')) || undefined;
+      }
+
+      if (!userId) {
         console.warn('[LocationUploadService] No auth session available. Retrying later.');
         this.isProcessing = false;
         return;
@@ -31,7 +37,7 @@ class LocationUploadService {
         // 1. Upsert the latest location point to employee_locations (1 row per user)
         const latestItem = batch[batch.length - 1];
         const latestRecord = {
-          user_id: session.user.id,
+          user_id: userId,
           latitude: latestItem.latitude,
           longitude: latestItem.longitude,
           status: 'online',
@@ -46,7 +52,7 @@ class LocationUploadService {
         // 2. Also insert historical coordinates into locations table if present
         try {
           const historyRecords = batch.map((item: any) => ({
-            user_id: session.user.id,
+            user_id: userId,
             latitude: item.latitude,
             longitude: item.longitude,
             created_at: item.timestamp || new Date().toISOString(),

@@ -40,7 +40,7 @@ class LocationUploadService {
 
         const { error } = await supabase
           .from('employee_locations')
-          .insert(recordsToInsert);
+          .upsert(recordsToInsert, { onConflict: 'user_id' });
 
         if (!error) {
           await TelemetryQueue.dequeueBatch(batch.length);

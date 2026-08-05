@@ -28,25 +28,39 @@ class LocationUploadService {
         const batch = await TelemetryQueue.peekAll(100);
         if (batch.length === 0) break;
 
-        // Map telemetry queue items to Supabase employee_locations schema (matching existing columns)
-        const recordsToInsert = batch.map((item: any) => ({
+        // 1. Upsert the latest location point to employee_locations (1 row per user)
+        const latestItem = batch[batch.length - 1];
+        const latestRecord = {
           user_id: session.user.id,
-          latitude: item.latitude,
-          longitude: item.longitude,
+          latitude: latestItem.latitude,
+          longitude: latestItem.longitude,
           status: 'online',
-          timestamp: item.timestamp || new Date().toISOString(),
+          timestamp: latestItem.timestamp || new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }));
+        };
 
-        const { error } = await supabase
+        const { error: liveError } = await supabase
           .from('employee_locations')
-          .upsert(recordsToInsert, { onConflict: 'user_id' });
+          .upsert(latestRecord, { onConflict: 'user_id' });
 
-        if (!error) {
+        // 2. Also insert historical coordinates into locations table if present
+        try {
+          const historyRecords = batch.map((item: any) => ({
+            user_id: session.user.id,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            created_at: item.timestamp || new Date().toISOString(),
+          }));
+          await supabase.from('locations').insert(historyRecords);
+        } catch (e) {
+          // ignore history insert errors if table is absent
+        }
+
+        if (!liveError) {
           await TelemetryQueue.dequeueBatch(batch.length);
           console.log(`[LocationUploadService] Successfully uploaded ${batch.length} location records to Supabase`);
         } else {
-          console.error('[LocationUploadService] Supabase insert error:', error.message);
+          console.error('[LocationUploadService] Supabase insert error:', liveError.message);
           break; // Retry later
         }
 

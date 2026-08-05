@@ -37,7 +37,7 @@ const AnimatedVehicleMarker = ({ latestLocation, selectedEmp }: any) => {
           <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 11 }}>{empName}</Text>
         </View>
         
-        {/* Pulsing Blue Dot Rider Pointer (Uber / Google Maps Style) */}
+        {/* Pulsing Blue Dot Rider Pointer */}
         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(59, 130, 246, 0.25)', alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#2563EB', borderWidth: 3, borderColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 3, elevation: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />

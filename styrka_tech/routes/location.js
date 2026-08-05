@@ -37,9 +37,8 @@ router.post('/upload', express.json(), async (req, res) => {
       return res.status(400).json({ success: false, reason: 'No locations provided.' });
     }
 
-    // Access activeEmployees from app instance (which is passed from socketHandler)
+    // Access activeEmployees from app instance
     const activeEmployees = req.app.get('activeEmployees');
-    const io = req.app.get('io');
     
     let processedCount = 0;
     
@@ -68,7 +67,7 @@ router.post('/upload', express.json(), async (req, res) => {
         continue;
       }
 
-      // We maintain the cache to ensure we correctly throttle DB writes across REST and Socket
+      // We maintain the cache to ensure we correctly throttle DB writes
       const cache = activeEmployees.get(userId) || {
         lastWriteLat: 0,
         lastWriteLng: 0,
@@ -96,12 +95,6 @@ router.post('/upload', express.json(), async (req, res) => {
       // Transition presence status to online
       if (cache.status !== 'online') {
         cache.status = 'online';
-        if (io) {
-          io.to('admin-room').emit('employee:status_change', {
-            employee_id: userId,
-            status: 'online',
-          });
-        }
         
         // Asynchronously update presence, no need to await for telemetry ingestion
         supabase.from('employee_live_locations')
@@ -161,11 +154,6 @@ router.post('/upload', express.json(), async (req, res) => {
         tracking_session_id: trackingSessionId || 'unknown',
         status: 'online'
       };
-
-      // Broadcast coordinates immediately to connected Admin Dashboards
-      if (io) {
-        io.to('admin-room').emit('location:batch_update', [telemetry]);
-      }
 
       cache.latestLoc = telemetry;
 
@@ -254,7 +242,6 @@ router.post('/heartbeat', express.json(), async (req, res) => {
     const { deviceId, trackingSessionId, sequenceNumber, networkType, batteryLevel } = req.body;
     
     const activeEmployees = req.app.get('activeEmployees');
-    const io = req.app.get('io');
     
     const cache = activeEmployees.get(userId);
     if (cache) {
@@ -266,9 +253,6 @@ router.post('/heartbeat', express.json(), async (req, res) => {
       
       cache.offlineTimer = setTimeout(async () => {
         cache.status = 'offline';
-        if (io) {
-          io.to('admin-room').emit('employee:status_change', { employee_id: userId, status: 'offline' });
-        }
         await Promise.all([
           supabase.from('employee_live_locations').update({ status: 'offline', updated_at: new Date().toISOString() }).eq('employee_id', userId),
           supabase.from('employee_presence').upsert({

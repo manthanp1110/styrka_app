@@ -20,12 +20,8 @@ function recordMetric(key, val = 1) {
 }
 
 router.get('/health', (req, res) => {
-  const io = req.app.get('io');
   const activeEmployees = req.app.get('activeEmployees');
 
-  // Count active sockets
-  const connectedSocketsCount = io ? io.engine.clientsCount : 0;
-  
   // Count active employees in cache
   const activeEmployeesCount = activeEmployees ? activeEmployees.size : 0;
 
@@ -33,7 +29,6 @@ router.get('/health', (req, res) => {
     status: 'UP',
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    connectedSockets: connectedSocketsCount,
     activeEmployees: activeEmployeesCount,
     performanceMetrics: {
       validationFailures: metrics.validationFailures,

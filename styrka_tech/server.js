@@ -3,33 +3,17 @@
  */
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
 
 const config = require('./config');
-const authMiddleware = require('./middleware/auth');
 const healthRoutes = require('./routes/health');
-const socketHandler = require('./socket/handler');
 
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-  pingInterval: 10000,
-  pingTimeout: 5000,
-});
+// Active employee tracking cache
+const activeEmployees = new Map();
 
-// Configure Socket Auth handshakes
-io.use(authMiddleware);
-
-// Initialize Socket event handlers and capture the cache
-const activeEmployees = socketHandler(io);
-
-// Expose io and activeEmployees references on app instance for diagnostics health route
-app.set('io', io);
+// Expose activeEmployees reference on app instance
 app.set('activeEmployees', activeEmployees);
 
 // Bind Root / Landing Route

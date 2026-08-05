@@ -18,7 +18,6 @@ module.exports = {
   MAX_WRITE_INTERVAL_SECONDS: Number(process.env.MAX_WRITE_INTERVAL_SECONDS) || 20, // seconds
   OFFLINE_TIMEOUT_SECONDS: Number(process.env.OFFLINE_TIMEOUT_SECONDS) || 5, // seconds
   HEARTBEAT_INTERVAL_SECONDS: Number(process.env.HEARTBEAT_INTERVAL_SECONDS) || 10, // seconds
-  SOCKET_ACK_TIMEOUT_MS: Number(process.env.SOCKET_ACK_TIMEOUT_MS) || 2000, // ms
   OSRM_TIMEOUT_MS: Number(process.env.OSRM_TIMEOUT_MS) || 3000, // ms
   MAX_PACKET_SIZE_KB: Number(process.env.MAX_PACKET_SIZE_KB) || 10, // KB
   ROUTE_BUFFER_METERS: Number(process.env.ROUTE_BUFFER_METERS) || 30, // meters

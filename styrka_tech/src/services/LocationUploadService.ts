@@ -28,26 +28,14 @@ class LocationUploadService {
         const batch = await TelemetryQueue.peekAll(100);
         if (batch.length === 0) break;
 
-        // Map telemetry queue items to Supabase employee_locations schema
+        // Map telemetry queue items to Supabase employee_locations schema (matching existing columns)
         const recordsToInsert = batch.map((item: any) => ({
           user_id: session.user.id,
-          employee_id: session.user.id,
           latitude: item.latitude,
           longitude: item.longitude,
-          raw_latitude: item.latitude,
-          raw_longitude: item.longitude,
-          accuracy: item.accuracy || 0,
-          speed: item.speed || 0,
-          heading: item.heading || 0,
-          altitude: item.altitude || 0,
-          timestamp: item.timestamp || new Date().toISOString(),
-          battery_level: item.batteryLevel || 1.0,
-          network_type: item.networkType || 'unknown',
-          is_moving: item.isMoving !== undefined ? item.isMoving : true,
-          device_id: item.deviceId || 'unknown',
-          sequence_number: item.sequenceNumber || 0,
-          tracking_session_id: item.trackingSessionId || 'unknown',
           status: 'online',
+          timestamp: item.timestamp || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }));
 
         const { error } = await supabase

@@ -3,17 +3,12 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// Fallback to prevent synchronous crash if env vars are missing
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("WARNING: Supabase Environment Variables are missing! Check your .env file or build configuration.");
-}
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://fwjlrkbycppuajtiblue.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amxya2J5Y3BwdWFqdGlibHVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTIyOTcsImV4cCI6MjA5MDcyODI5N30.ikkGPOD29szpLg5AlJcWTheA7_7pj_r3Nm0cj81ck0M';
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder', 
+  supabaseUrl, 
+  supabaseAnonKey, 
   {
     auth: {
       storage: AsyncStorage,

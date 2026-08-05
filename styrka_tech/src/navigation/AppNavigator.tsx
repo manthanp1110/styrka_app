@@ -230,11 +230,24 @@ const EmployeeTabs = () => {
   );
 };
 
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 const AppNavigator = () => {
   const { user, isAuthenticated, isLoading, checkSession } = useAppState();
 
   useEffect(() => {
-    checkSession();
+    const initSession = async () => {
+      try {
+        await checkSession();
+      } catch (e) {
+        console.error('Initial session check error:', e);
+      } finally {
+        await SplashScreen.hideAsync().catch(() => {});
+      }
+    };
+    initSession();
   }, [checkSession]);
 
   if (isLoading) {

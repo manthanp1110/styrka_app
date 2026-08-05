@@ -238,16 +238,24 @@ const AppNavigator = () => {
   const { user, isAuthenticated, isLoading, checkSession } = useAppState();
 
   useEffect(() => {
+    // Safety timer to force hide native splash screen after 1.5 seconds maximum
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1500);
+
     const initSession = async () => {
       try {
         await checkSession();
       } catch (e) {
         console.error('Initial session check error:', e);
       } finally {
+        clearTimeout(timer);
         await SplashScreen.hideAsync().catch(() => {});
       }
     };
     initSession();
+
+    return () => clearTimeout(timer);
   }, [checkSession]);
 
   if (isLoading) {

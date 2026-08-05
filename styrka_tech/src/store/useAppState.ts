@@ -38,8 +38,8 @@ export const useAppState = create<AppState>((set, get) => ({
       
       if (sessionError) {
         console.warn('[Auth] Stale refresh token encountered, signing out:', sessionError.message);
-        await supabase.auth.signOut();
-        set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
+        await supabase.auth.signOut().catch(() => {});
+        set({ isAuthenticated: false, user: { id: null, name: null, role: null }, isLoading: false });
         return;
       }
 

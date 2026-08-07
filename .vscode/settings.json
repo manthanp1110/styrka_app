@@ -1,3 +1,13 @@
 {
-  "css.lint.unknownAtRules": "ignore"
+  "css.lint.unknownAtRules": "ignore",
+  "mssql.enableLinting": false,
+  "files.associations": {
+    "*.sql": "postgres"
+  },
+  "java.project.exclusion": [
+    "**/node_modules/**"
+  ],
+  "java.import.exclusions": [
+    "**/node_modules/**"
+  ]
 }

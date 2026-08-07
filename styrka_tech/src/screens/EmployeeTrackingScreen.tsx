@@ -452,8 +452,15 @@ const EmployeeTrackingScreen = () => {
         }
       }
 
+      if (!user.id) {
+        alert("User session not found. Please log in again.");
+        setIsProcessing(false);
+        return;
+      }
+      const userId = user.id;
+
       const { data, error } = await supabase.from('journeys').insert([{
-        user_id: user.id,
+        user_id: userId,
         status: 'active',
         start_lat: startLat,
         start_lng: startLng,
@@ -463,7 +470,7 @@ const EmployeeTrackingScreen = () => {
       
       if (error) throw error;
 
-      await AsyncStorage.setItem('active_tracking_user_id', user.id);
+      await AsyncStorage.setItem('active_tracking_user_id', userId);
       await AsyncStorage.setItem('active_journey_id', data.id);
 
       setTrackingSessionId(data.id);

@@ -148,20 +148,31 @@ const EmployeeTrackingScreen = () => {
           setIsLoading(false);
           return;
         }
+        // Check if GPS services are enabled on phone
+        try {
+          const servicesEnabled = await Location.hasServicesEnabledAsync();
+          if (!servicesEnabled) {
+            Alert.alert(
+              'Enable GPS',
+              'Location services (GPS) are turned off. Please turn on GPS on your phone for precise tracking.'
+            );
+          }
+        } catch {}
+
         let currLat: number | null = null;
         let currLng: number | null = null;
 
         try {
           const loc: any = await fetchWithTimeout(
             Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-            5000
+            12000
           );
           if (loc && loc.coords) {
             currLat = loc.coords.latitude;
             currLng = loc.coords.longitude;
           }
         } catch (e) {
-          console.log('Could not get current position:', e);
+          console.log('Position fetch timed out, trying last known position:', e);
         }
 
         if (!currLat || !currLng) {
@@ -174,10 +185,12 @@ const EmployeeTrackingScreen = () => {
           } catch {}
         }
 
-        // If still missing, fallback to assigned destination coordinates
+        // If GPS is unavailable, offset start point by ~1.5km so start & end DO NOT coincide
         if (!currLat || !currLng) {
-          currLat = Number(assigned.latitude);
-          currLng = Number(assigned.longitude);
+          const destLat = Number(assigned.latitude);
+          const destLng = Number(assigned.longitude);
+          currLat = destLat - 0.015;
+          currLng = destLng - 0.015;
         }
 
         const newJourney = {

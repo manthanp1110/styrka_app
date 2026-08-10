@@ -78,13 +78,20 @@ const AdminTrackingScreen = () => {
   const [currentRouteCoords, setCurrentRouteCoords] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!selectedEmployeeId && employees.length > 0) {
+      // Auto-select first employee so Admin opens directly to live map & polyline
+      setSelectedEmployeeId(employees[0].id);
+    }
+  }, [employees]);
+
+  useEffect(() => {
     if (selectedEmployeeId && activeJourneys[selectedEmployeeId]) {
       const journey = activeJourneys[selectedEmployeeId];
       if (journey.destination_lat && journey.destination_lng) {
         const fetchRoute = async () => {
           try {
-            const originLat = journey.start_lat;
-            const originLng = journey.start_lng;
+            const originLat = journey.latestLocation?.latitude || journey.start_lat;
+            const originLng = journey.latestLocation?.longitude || journey.start_lng;
             
             const res = await MapplsApi.direction({
               origin: `${originLng},${originLat}`,
@@ -94,7 +101,7 @@ const AdminTrackingScreen = () => {
               geometries: 'polyline'
             });
             
-            if (res && res.routes && res.routes.length > 0) {
+            if (res && res.routes && res.routes.length > 0 && res.routes[0].geometry) {
               const decodedCoords = decodePolyline(res.routes[0].geometry);
               setCurrentRouteCoords(decodedCoords);
             }
@@ -107,7 +114,9 @@ const AdminTrackingScreen = () => {
     } else {
       setCurrentRouteCoords([]);
     }
-  }, [selectedEmployeeId]);
+  }, [selectedEmployeeId, selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.latitude : null, selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.longitude : null]);
+
+
 
   const fetchTrackingData = async () => {
     setIsRefreshing(true);

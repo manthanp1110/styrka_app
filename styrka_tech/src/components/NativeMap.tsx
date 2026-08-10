@@ -146,8 +146,8 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       z-index: 1000;
     }
     .rider-pulse {
-      width: 28px;
-      height: 28px;
+      width: 36px;
+      height: 36px;
       background: rgba(37, 99, 235, 0.35);
       border-radius: 50%;
       box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
@@ -156,13 +156,16 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       align-items: center;
       justify-content: center;
     }
-    .rider-dot {
-      width: 14px;
-      height: 14px;
+    .navigation-arrow-symbol {
+      width: 24px;
+      height: 24px;
       background: #2563EB;
-      border: 3px solid #FFFFFF;
+      border: 2px solid #FFFFFF;
       border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     @keyframes pulse {
       0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
@@ -205,7 +208,7 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
         var iconHtml;
         var titleText = m.title || 'Rider';
         if (m.color === '#3B82F6' || m.color === '#2563EB' || titleText.toLowerCase().includes('rider') || titleText.toLowerCase().includes('location') || titleText.toLowerCase().includes('employee')) {
-          iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="rider-dot"></div></div>';
+          iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="navigation-arrow-symbol"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFFFFF"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg></div></div>';
         } else if (m.color === '#10B981' || titleText.toLowerCase().includes('start')) {
           iconHtml = '<div class="start-pin"></div>';
         } else {
@@ -215,12 +218,13 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
         var customIcon = L.divIcon({
           className: 'custom-map-icon',
           html: iconHtml,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
         });
 
         L.marker([m.lat, m.lng], { icon: customIcon }).addTo(dataGroup);
       });
+
 
       // Render Polylines
       var allBounds = [];

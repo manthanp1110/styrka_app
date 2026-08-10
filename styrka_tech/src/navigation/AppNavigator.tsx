@@ -15,8 +15,6 @@ import EmployeeTrackingScreen from '../screens/EmployeeTrackingScreen';
 
 const Tab = createBottomTabNavigator();
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
-
 const HeaderRightLogout = () => {
   const { logout } = useAppState();
   return (
@@ -100,30 +98,16 @@ const AppNavigator = () => {
   const { user, isAuthenticated, isLoading, checkSession } = useAppState();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, 1500);
-
-    const initSession = async () => {
-      try {
-        await checkSession();
-      } catch (e) {
-        console.error('Initial session check error:', e);
-      } finally {
-        clearTimeout(timer);
-        await SplashScreen.hideAsync().catch(() => {});
-      }
-    };
-    initSession();
-
-    return () => clearTimeout(timer);
-  }, [checkSession]);
+    // Hide splash screen immediately on mount so APK never freezes on native splash screen
+    SplashScreen.hideAsync().catch(() => {});
+    checkSession();
+  }, []);
 
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F4C3A' }}>
         <ActivityIndicator size="large" color="#F59E0B" />
-        <Text style={{ color: 'white', marginTop: 15, fontWeight: 'bold' }}>Loading Live Tracking App...</Text>
+        <Text style={{ color: 'white', marginTop: 15, fontWeight: 'bold' }}>Loading App...</Text>
       </View>
     );
   }

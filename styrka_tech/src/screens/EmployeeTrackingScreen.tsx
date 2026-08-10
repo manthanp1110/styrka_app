@@ -162,32 +162,47 @@ const EmployeeTrackingScreen = () => {
         let currLat: number | null = null;
         let currLng: number | null = null;
 
-        // 1. Try instant last known location from device GPS cache
-        try {
-          const lastLoc = await Location.getLastKnownPositionAsync();
-          if (lastLoc && lastLoc.coords) {
-            currLat = lastLoc.coords.latitude;
-            currLng = lastLoc.coords.longitude;
-          }
-        } catch (e) {
-          console.log('Last known position error:', e);
-        }
-
-        // 2. Query fresh GPS position
+        // Tier 1: Query balanced GPS / network position (works indoors & outdoors)
         try {
           const loc: any = await fetchWithTimeout(
-            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest }),
-            6000
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+            8000
           );
           if (loc && loc.coords) {
             currLat = loc.coords.latitude;
             currLng = loc.coords.longitude;
           }
         } catch (e) {
-          console.log('High accuracy GPS fetch error:', e);
+          console.log('Balanced GPS fetch error:', e);
         }
 
-        // 3. Fallback offset if device has no GPS fix yet
+        // Tier 2: Try Low accuracy if Balanced timed out
+        if (!currLat || !currLng) {
+          try {
+            const loc: any = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+            if (loc && loc.coords) {
+              currLat = loc.coords.latitude;
+              currLng = loc.coords.longitude;
+            }
+          } catch (e) {
+            console.log('Low accuracy GPS fetch error:', e);
+          }
+        }
+
+        // Tier 3: Try last known cached position
+        if (!currLat || !currLng) {
+          try {
+            const lastLoc = await Location.getLastKnownPositionAsync();
+            if (lastLoc && lastLoc.coords) {
+              currLat = lastLoc.coords.latitude;
+              currLng = lastLoc.coords.longitude;
+            }
+          } catch (e) {
+            console.log('Last known position error:', e);
+          }
+        }
+
+        // Tier 4: Fallback offset if device GPS fix is still pending
         if (!currLat || !currLng) {
           const destLat = Number(assigned.latitude);
           const destLng = Number(assigned.longitude);

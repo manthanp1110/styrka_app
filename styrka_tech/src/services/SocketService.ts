@@ -104,6 +104,7 @@ class SocketService {
     destination_lat?: number;
     destination_lng?: number;
     destination_address?: string;
+    status?: 'online' | 'offline';
   }) {
     if (this.socket) {
       this.socket.emit('update_location', payload);

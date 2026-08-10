@@ -331,16 +331,23 @@ const AdminTrackingScreen = () => {
   const getEmployeeStatus = (empId: string) => {
     const journey = activeJourneys[empId];
     if (journey) {
+      const isOffline = !journey.latestLocation
+        || journey.latestLocation.status === 'offline'
+        || (journey.latestLocation.timestamp && Date.now() - new Date(journey.latestLocation.timestamp).getTime() > 5 * 60 * 1000);
+
+      if (isOffline) {
+        return { label: 'Tracking Interrupted / Offline', color: '#9CA3AF', canTrack: false, isOffline: true };
+      }
       if (journey.status === 'arrived') {
-        return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true };
+        return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true, isOffline: false };
       }
       if (journey.status === 'visiting') {
-        return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true };
+        return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true, isOffline: false };
       }
-      return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true };
+      return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
     }
     
-    return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: true };
+    return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: false, isOffline: true };
   };
 
   const filteredEmployees = employees.filter(emp => 
@@ -566,15 +573,14 @@ const AdminTrackingScreen = () => {
                 />
               )}
 
-              {/* Destination Route Polyline */}
-              {selectedJourney.start_lat != null && selectedJourney.destination_lat != null && (
+              {/* Destination Route Polyline — only draw when rider is live & online */}
+              {selectedJourney.latestLocation && selectedJourney.latestLocation.status !== 'offline' && selectedJourney.destination_lat != null && (
                 <Polyline
                   coordinates={
                     currentRouteCoords.length > 0
                       ? currentRouteCoords
                       : [
-                          { latitude: Number(selectedJourney.start_lat), longitude: Number(selectedJourney.start_lng) },
-                          { latitude: Number(selectedJourney.latestLocation?.latitude || selectedJourney.start_lat), longitude: Number(selectedJourney.latestLocation?.longitude || selectedJourney.start_lng) },
+                          { latitude: Number(selectedJourney.latestLocation.latitude), longitude: Number(selectedJourney.latestLocation.longitude) },
                           { latitude: Number(selectedJourney.destination_lat), longitude: Number(selectedJourney.destination_lng) }
                         ]
                   }

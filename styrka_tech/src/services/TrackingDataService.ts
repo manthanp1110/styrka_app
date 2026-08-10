@@ -348,6 +348,7 @@ export class TrackingDataService {
     destination_lat?: number;
     destination_lng?: number;
     destination_address?: string;
+    status?: 'online' | 'offline';
   }): Promise<void> {
     const timestamp = new Date().toISOString();
     try {
@@ -361,7 +362,7 @@ export class TrackingDataService {
         longitude: location.longitude,
         heading: location.heading || 0,
         speed: location.speed || 0,
-        status: 'online',
+        status: location.status || 'online',
         timestamp,
         updated_at: timestamp,
         destination_lat: location.destination_lat ?? locMap[location.userId]?.destination_lat ?? null,
@@ -379,7 +380,7 @@ export class TrackingDataService {
           longitude: location.longitude,
           heading: location.heading || 0,
           speed: location.speed || 0,
-          status: 'online',
+          status: location.status || 'online',
           updated_at: timestamp,
         };
         // Include destination fields if provided

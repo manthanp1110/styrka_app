@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import { TrackingDataService } from '../services/TrackingDataService';
+import SocketService from '../services/SocketService';
 
 export type UserRole = 'admin' | 'employee' | null;
 
@@ -81,6 +84,28 @@ export const useAppState = create<AppState>((set, get) => ({
 
   logout: async () => {
     try {
+      const userId = get().user.id || (await AsyncStorage.getItem('active_tracking_user_id'));
+
+      // 1. Stop background GPS location task
+      try {
+        const isTaskStarted = await Location.hasStartedLocationUpdatesAsync('background-location-task');
+        if (isTaskStarted) {
+          await Location.stopLocationUpdatesAsync('background-location-task');
+        }
+      } catch (e) {}
+
+      // 2. Notify Supabase & WebSocket that employee has gone offline
+      if (userId) {
+        await TrackingDataService.updateLiveLocation({
+          userId,
+          latitude: 0,
+          longitude: 0,
+          status: 'offline',
+        }).catch(() => {});
+        SocketService.updateLocation({ userId, latitude: 0, longitude: 0, status: 'offline' });
+      }
+
+      // 3. Clear local storage keys
       await AsyncStorage.removeItem(AUTH_KEY);
       await AsyncStorage.removeItem('active_tracking_user_id');
       await AsyncStorage.removeItem('active_journey');

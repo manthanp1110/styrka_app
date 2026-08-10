@@ -680,7 +680,7 @@ const EmployeeTrackingScreen = () => {
           <MapplsTrackingMap 
             ref={trackingMapRef}
             style={styles.map}
-            origin={{ latitude: Number(activeJourney.start_lat), longitude: Number(activeJourney.start_lng) }}
+            origin={currentLocation || { latitude: Number(activeJourney.start_lat), longitude: Number(activeJourney.start_lng) }}
             destination={{ latitude: Number(activeJourney.destination_lat), longitude: Number(activeJourney.destination_lng) }}
             routeCoordinates={routeCoordinates}
             onSegmentComplete={(event: any) => {

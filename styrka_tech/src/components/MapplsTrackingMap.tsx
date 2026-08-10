@@ -25,24 +25,22 @@ export const MapplsTrackingMap = forwardRef<MapplsTrackingMapRef, MapplsTracking
       },
     }));
 
-    const activePolyline = routeCoordinates.length > 0 ? routeCoordinates : [origin, destination];
+    const displayOrigin = currentCoord || origin;
+    const activePolyline = routeCoordinates.length > 0 ? routeCoordinates : [displayOrigin, destination];
 
     return (
       <View style={[styles.container, style]}>
         <MapView
           style={styles.container}
-          initialRegion={{
-            latitude: origin.latitude,
-            longitude: origin.longitude,
+          region={{
+            latitude: displayOrigin.latitude,
+            longitude: displayOrigin.longitude,
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
           }}
         >
-          <Marker coordinate={origin} title="Start" pinColor="green" />
+          <Marker coordinate={displayOrigin} title="My Current Location" pinColor="green" />
           <Marker coordinate={destination} title="Destination" pinColor="red" />
-          {currentCoord && (
-            <Marker coordinate={currentCoord} title="Current Location" pinColor="blue" />
-          )}
           <Polyline coordinates={activePolyline} strokeWidth={5} strokeColor="#3B82F6" />
         </MapView>
       </View>

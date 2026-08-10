@@ -201,23 +201,40 @@ const EmployeeTrackingScreen = () => {
         // Run fresh high-accuracy GPS & address fetch asynchronously in background
         (async () => {
           try {
-            const freshLoc: any = await fetchWithTimeout(
-              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-              4000
-            );
+            let freshLoc: any = null;
+            try {
+              freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            } catch (e) {
+              try {
+                freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+              } catch (e2) {}
+            }
+
             if (freshLoc && freshLoc.coords) {
               const freshLat = freshLoc.coords.latitude;
               const freshLng = freshLoc.coords.longitude;
+
               setCurrentLocation({ latitude: freshLat, longitude: freshLng });
               fetchRoute(freshLat, freshLng, Number(assigned.latitude), Number(assigned.longitude));
               fetchAddress(freshLat, freshLng);
+
+              const realJourney = {
+                ...newJourney,
+                start_lat: freshLat,
+                start_lng: freshLng,
+              };
+              setActiveJourney(realJourney);
+              AsyncStorage.setItem('active_journey', JSON.stringify(realJourney));
+
               TrackingDataService.updateLiveLocation({
                 userId: user.id || 'emp_1',
                 latitude: freshLat,
                 longitude: freshLng,
               });
             }
-          } catch (e) {}
+          } catch (e) {
+            console.log('[EmployeeTrackingScreen] Background GPS resolution error:', e);
+          }
         })();
 
         AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));

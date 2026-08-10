@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../config/supabase';
 
 export interface User {
   id: string;
@@ -46,21 +47,54 @@ const DESTINATIONS_KEY = '@styrka_destinations';
 const LOCATIONS_KEY = '@styrka_live_locations';
 
 export class TrackingDataService {
-  // Get list of employees
-  static getEmployees(): User[] {
-    return DEFAULT_EMPLOYEES;
+  // Get list of employees from Supabase profiles table
+  static async getEmployees(): Promise<User[]> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email, role')
+        .eq('role', 'employee');
+      if (error || !data || data.length === 0) {
+        return DEFAULT_EMPLOYEES;
+      }
+      return data.map((p: any) => ({
+        id: p.id,
+        name: p.name || p.email,
+        email: p.email,
+        role: 'employee' as const,
+      }));
+    } catch {
+      return DEFAULT_EMPLOYEES;
+    }
   }
 
-  // Get user by email or ID
-  static getUser(emailOrId: string): User | null {
+  // Get user by email or ID from Supabase
+  static async getUser(emailOrId: string): Promise<User | null> {
+    try {
+      const cleanStr = emailOrId.trim().toLowerCase();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email, role')
+        .or(`email.eq.${cleanStr},id.eq.${emailOrId}`)
+        .limit(1)
+        .single();
+      if (!error && data) {
+        return {
+          id: data.id,
+          name: data.name || data.email,
+          email: data.email,
+          role: data.role as 'admin' | 'employee',
+        };
+      }
+    } catch {}
+    // Fallback: check local defaults
     const cleanStr = emailOrId.trim().toLowerCase();
     if (cleanStr.includes('admin') || cleanStr === DEFAULT_ADMIN.id) {
       return DEFAULT_ADMIN;
     }
-    const found = DEFAULT_EMPLOYEES.find(
-      (e) => e.email.toLowerCase() === cleanStr || e.id === cleanStr || e.name.toLowerCase().includes(cleanStr)
-    );
-    return found || DEFAULT_EMPLOYEES[0];
+    return DEFAULT_EMPLOYEES.find(
+      (e) => e.email.toLowerCase() === cleanStr || e.id === cleanStr
+    ) || DEFAULT_EMPLOYEES[0];
   }
 
   // Assign a new destination

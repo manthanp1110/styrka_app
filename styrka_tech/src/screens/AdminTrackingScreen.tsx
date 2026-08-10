@@ -87,14 +87,20 @@ const AdminTrackingScreen = () => {
   useEffect(() => {
     if (selectedEmployeeId && activeJourneys[selectedEmployeeId]) {
       const journey = activeJourneys[selectedEmployeeId];
-      if (journey.destination_lat != null && journey.destination_lng != null && journey.latestLocation?.latitude != null && journey.latestLocation?.longitude != null) {
+      if (journey.destination_lat != null && journey.destination_lng != null) {
         const fetchRoute = async () => {
           try {
-            const originLat = Number(journey.latestLocation.latitude);
-            const originLng = Number(journey.latestLocation.longitude);
+            const originLat = journey.latestLocation?.latitude != null
+              ? Number(journey.latestLocation.latitude)
+              : Number(journey.start_lat);
+            const originLng = journey.latestLocation?.longitude != null
+              ? Number(journey.latestLocation.longitude)
+              : Number(journey.start_lng);
             const destLat = Number(journey.destination_lat);
             const destLng = Number(journey.destination_lng);
-            
+
+            if (!originLat || !originLng || !destLat || !destLng) return;
+
             const res = await MapplsApi.direction({
               origin: `${originLng},${originLat}`,
               destination: `${destLng},${destLat}`,
@@ -102,10 +108,16 @@ const AdminTrackingScreen = () => {
               overview: 'full',
               geometries: 'polyline'
             });
-            
+
             if (res && res.routes && res.routes.length > 0 && res.routes[0].geometry) {
               const decodedCoords = decodePolyline(res.routes[0].geometry);
               setCurrentRouteCoords(decodedCoords);
+            } else {
+              // Fallback: straight line
+              setCurrentRouteCoords([
+                { latitude: originLat, longitude: originLng },
+                { latitude: destLat, longitude: destLng },
+              ]);
             }
           } catch (e) {
             console.log('Mappls routing error', e);
@@ -122,12 +134,13 @@ const AdminTrackingScreen = () => {
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.longitude : null,
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lat : null,
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lng : null,
+    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.start_lat : null,
   ]);
 
   const fetchTrackingData = async () => {
     setIsRefreshing(true);
     try {
-      const usersData = TrackingDataService.getEmployees();
+      const usersData = await TrackingDataService.getEmployees();
       const allLocations = await TrackingDataService.getAllLiveLocations();
       const allDestinations = await TrackingDataService.getAllDestinations();
 

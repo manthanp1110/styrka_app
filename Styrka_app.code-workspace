@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "C:/Users/LENOVO/Downloads/mappls-react-native-sdk-main"
+		},
+		{
+			"path": "C:/Users/LENOVO/Downloads/app1785087457522i1448970855 (1)"
+		}
+	],
+	"settings": {
+		"mssql.enableLinting": false,
+		"files.associations": {
+			"*.sql": "postgres"
+		}
+	}
+}

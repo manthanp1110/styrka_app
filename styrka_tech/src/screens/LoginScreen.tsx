@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAppState } from '../store/useAppState';
-import { TrackingDataService } from '../services/TrackingDataService';
+import { supabase } from '../config/supabase';
 
 const LoginScreen = () => {
   const { setSession } = useAppState();
@@ -10,22 +10,40 @@ const LoginScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const signInWithSupabase = async (loginEmail: string, loginPassword: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
+    });
+    if (error || !data.user) {
+      throw new Error(error?.message || 'Invalid credentials');
+    }
+    // Fetch profile (name + role) from profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, name, role, email')
+      .eq('id', data.user.id)
+      .single();
+    const name = profile?.name || data.user.email?.split('@')[0] || 'User';
+    const role: 'admin' | 'employee' = (profile?.role === 'admin') ? 'admin' : 'employee';
+    const userId = data.user.id;
+    const userEmail = profile?.email || data.user.email || '';
+    await setSession(userId, role, name, userEmail);
+  };
+
   const handleLogin = async () => {
     if (!email) {
-      setErrorMsg('Please enter an email address or username.');
+      setErrorMsg('Please enter an email address.');
       return;
     }
-
+    if (!password) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
     setIsLoading(true);
     setErrorMsg('');
-
     try {
-      const user = TrackingDataService.getUser(email);
-      if (user) {
-        await setSession(user.id, user.role, user.name, user.email);
-      } else {
-        setErrorMsg('User not found. Try admin@styrka.com or rahul@styrka.com');
-      }
+      await signInWithSupabase(email, password);
     } catch (e: any) {
       setErrorMsg(e.message || 'An unexpected error occurred.');
     } finally {
@@ -37,13 +55,17 @@ const LoginScreen = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      if (role === 'admin') {
-        const user = TrackingDataService.getUser('admin@styrka.com')!;
-        await setSession(user.id, user.role, user.name, user.email);
-      } else {
-        const user = TrackingDataService.getUser('rahul@styrka.com')!;
-        await setSession(user.id, user.role, user.name, user.email);
+      // Fetch all profiles and pick first one matching the role
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, name, role, email')
+        .eq('role', role)
+        .limit(1);
+      if (error || !profiles || profiles.length === 0) {
+        throw new Error(`No ${role} account found in Supabase. Check your profiles table.`);
       }
+      const profile = profiles[0];
+      await setSession(profile.id, role, profile.name || profile.email || role, profile.email || '');
     } catch (e: any) {
       setErrorMsg(e.message || 'Failed to sign in.');
     } finally {

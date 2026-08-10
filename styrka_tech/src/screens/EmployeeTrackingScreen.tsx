@@ -137,13 +137,26 @@ const EmployeeTrackingScreen = () => {
     try {
       const assigned = route.params?.assignedDestination;
       if (assigned) {
+        // Request location permission before fetching current position
+        let { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+        if (fgStatus !== 'granted') {
+          Alert.alert(
+            'Location Permission Required',
+            'Please grant location permission to start your journey.',
+            [{ text: 'OK' }]
+          );
+          setIsLoading(false);
+          return;
+        }
         let currLat = 28.6139;
         let currLng = 77.2090;
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
           currLat = loc.coords.latitude;
           currLng = loc.coords.longitude;
-        } catch (e) {}
+        } catch (e) {
+          console.log('Could not get current position:', e);
+        }
 
         const newJourney = {
           id: `j_${user.id || 'emp_1'}`,
@@ -502,6 +515,7 @@ const EmployeeTrackingScreen = () => {
       setTrackingSessionId(journeyData.id);
       sequenceNumberRef.current = 1;
       setActiveJourney(journeyData);
+      fetchRoute(startLat, startLng, destLat, destLng);
       
       await setupTracking(journeyData.id);
       alert("Journey started! Tracking is active.");

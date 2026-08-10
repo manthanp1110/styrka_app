@@ -9,7 +9,7 @@
     "@react-native-community/netinfo": "11.4.1",
     "@react-navigation/bottom-tabs": "^7.18.8",
     "@react-navigation/native": "^7.3.8",
-    "@supabase/supabase-js": "^2.110.2",
+    "@supabase/supabase-js": "^2.112.2",
     "@turf/turf": "^7.3.5",
     "abort-controller": "^3.0.0",
     "accepts": "^2.0.0",

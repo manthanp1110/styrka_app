@@ -87,15 +87,17 @@ const AdminTrackingScreen = () => {
   useEffect(() => {
     if (selectedEmployeeId && activeJourneys[selectedEmployeeId]) {
       const journey = activeJourneys[selectedEmployeeId];
-      if (journey.destination_lat && journey.destination_lng) {
+      if (journey.destination_lat != null && journey.destination_lng != null && journey.latestLocation?.latitude != null && journey.latestLocation?.longitude != null) {
         const fetchRoute = async () => {
           try {
-            const originLat = journey.latestLocation?.latitude || journey.start_lat;
-            const originLng = journey.latestLocation?.longitude || journey.start_lng;
+            const originLat = Number(journey.latestLocation.latitude);
+            const originLng = Number(journey.latestLocation.longitude);
+            const destLat = Number(journey.destination_lat);
+            const destLng = Number(journey.destination_lng);
             
             const res = await MapplsApi.direction({
               origin: `${originLng},${originLat}`,
-              destination: `${journey.destination_lng},${journey.destination_lat}`,
+              destination: `${destLng},${destLat}`,
               profile: 'driving',
               overview: 'full',
               geometries: 'polyline'
@@ -114,9 +116,13 @@ const AdminTrackingScreen = () => {
     } else {
       setCurrentRouteCoords([]);
     }
-  }, [selectedEmployeeId, selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.latitude : null, selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.longitude : null]);
-
-
+  }, [
+    selectedEmployeeId,
+    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.latitude : null,
+    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.longitude : null,
+    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lat : null,
+    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lng : null,
+  ]);
 
   const fetchTrackingData = async () => {
     setIsRefreshing(true);
@@ -131,21 +137,28 @@ const AdminTrackingScreen = () => {
         const dest = allDestinations.find((d) => d.employee_id === emp.id && d.status !== 'completed');
 
         if (loc || dest) {
-          const latestPing = loc || {
-            latitude: dest?.latitude || 28.6139,
-            longitude: dest?.longitude || 77.2090,
+          const latestPing = loc ? {
+            latitude: Number(loc.latitude),
+            longitude: Number(loc.longitude),
+            heading: Number(loc.heading || 0),
+            speed: Number(loc.speed || 0),
+            status: loc.status || 'online',
+            timestamp: loc.timestamp || new Date().toISOString(),
+          } : (dest ? {
+            latitude: Number(dest.latitude),
+            longitude: Number(dest.longitude),
             status: 'online',
             timestamp: new Date().toISOString(),
-          };
+          } : null);
 
           journeyMap[emp.id] = {
             id: `j_${emp.id}`,
             user_id: emp.id,
-            start_lat: 28.6139,
-            start_lng: 77.2090,
-            destination_lat: dest?.latitude || 28.6139,
-            destination_lng: dest?.longitude || 77.2090,
-            locationHistory: [latestPing],
+            start_lat: latestPing ? latestPing.latitude : (dest ? Number(dest.latitude) : 28.6139),
+            start_lng: latestPing ? latestPing.longitude : (dest ? Number(dest.longitude) : 77.2090),
+            destination_lat: dest ? Number(dest.latitude) : null,
+            destination_lng: dest ? Number(dest.longitude) : null,
+            locationHistory: latestPing ? [latestPing] : [],
             latestLocation: latestPing,
             address: dest?.address || 'Assigned location',
           };

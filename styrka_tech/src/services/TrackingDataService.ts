@@ -49,6 +49,12 @@ const DEFAULT_ADMINS: User[] = [
     email: 'dagadepravin55@gmail.com',
     role: 'admin',
   },
+  {
+    id: 'admin_3',
+    name: 'Rustum Sayyed',
+    email: 'rustumsayyed905@gmail.com',
+    role: 'admin',
+  },
 ];
 const DEFAULT_ADMIN = DEFAULT_ADMINS[0];
 

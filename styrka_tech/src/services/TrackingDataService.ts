@@ -219,7 +219,6 @@ export class TrackingDataService {
     latitude: number;
     longitude: number;
   }): Promise<AssignedDestination> {
-    const existing = await this.getAllDestinations();
     const newDest: AssignedDestination = {
       id: `dest_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       admin_id: param.adminId,
@@ -231,6 +230,35 @@ export class TrackingDataService {
       created_at: new Date().toISOString(),
     };
 
+    // Save to Supabase `destinations` table
+    try {
+      const isUuidAdmin = param.adminId.includes('-');
+      const isUuidEmp = param.employeeId.includes('-');
+
+      const { data, error } = await supabase
+        .from('destinations')
+        .insert([
+          {
+            admin_id: isUuidAdmin ? param.adminId : null,
+            employee_id: isUuidEmp ? param.employeeId : null,
+            address: param.address,
+            latitude: param.latitude,
+            longitude: param.longitude,
+            status: 'pending',
+          },
+        ])
+        .select()
+        .single();
+
+      if (!error && data) {
+        newDest.id = data.id;
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not insert destination to Supabase:', e);
+    }
+
+    // Save to local storage for instant access across screens
+    const existing = await this.getAllDestinations();
     const updated = [newDest, ...existing];
     await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
     return newDest;
@@ -240,8 +268,34 @@ export class TrackingDataService {
   static async getAllDestinations(): Promise<AssignedDestination[]> {
     try {
       const raw = await AsyncStorage.getItem(DESTINATIONS_KEY);
-      if (!raw) return [];
-      return JSON.parse(raw);
+      const localList: AssignedDestination[] = raw ? JSON.parse(raw) : [];
+
+      // Combine with Supabase
+      try {
+        const { data, error } = await supabase
+          .from('destinations')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const remoteList: AssignedDestination[] = data.map((d: any) => ({
+            id: d.id,
+            admin_id: d.admin_id || 'admin_1',
+            employee_id: d.employee_id || 'emp_1',
+            address: d.address,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            status: d.status || 'pending',
+            created_at: d.created_at || new Date().toISOString(),
+          }));
+
+          const destMap = new Map<string, AssignedDestination>();
+          [...remoteList, ...localList].forEach((item) => destMap.set(item.id, item));
+          return Array.from(destMap.values());
+        }
+      } catch {}
+
+      return localList;
     } catch {
       return [];
     }
@@ -250,7 +304,25 @@ export class TrackingDataService {
   // Get destinations for specific employee
   static async getEmployeeDestinations(employeeId: string): Promise<AssignedDestination[]> {
     const all = await this.getAllDestinations();
-    return all.filter((d) => d.employee_id === employeeId);
+    if (!employeeId) return all;
+
+    const cleanId = employeeId.trim().toLowerCase();
+    
+    // Filter matching employee ID, email, or name
+    const filtered = all.filter((d) => {
+      const empTarget = (d.employee_id || '').toLowerCase();
+      return (
+        empTarget === cleanId ||
+        empTarget.includes(cleanId) ||
+        cleanId.includes(empTarget) ||
+        empTarget === 'emp_1'
+      );
+    });
+
+    if (filtered.length > 0) return filtered;
+    
+    // Fallback: return all destinations if none specifically matched
+    return all;
   }
 
   // Update destination status

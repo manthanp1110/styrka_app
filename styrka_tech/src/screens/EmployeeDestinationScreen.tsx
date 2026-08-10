@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, SafeAreaView, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, SafeAreaView, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
@@ -13,44 +13,53 @@ const EmployeeDestinationScreen = () => {
   
   const [destinations, setDestinations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDestinations = useCallback(async () => {
+    try {
+      const empIdentifier = user.id || user.email || 'emp_1';
+      let data = await TrackingDataService.getEmployeeDestinations(empIdentifier);
+      if (!data || data.length === 0) {
+        data = await TrackingDataService.getAllDestinations();
+      }
+      setDestinations(data);
+    } catch (e) {
+      console.error('[EmployeeDestinationScreen] Error fetching destinations:', e);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [user.id, user.email]);
 
   useEffect(() => {
     fetchDestinations();
 
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      fetchDestinations();
+    });
+
     SocketService.connect(user.id || 'emp_1', 'employee');
-    const handleNewDestination = (newDest: any) => {
+    const handleNewDestination = () => {
       fetchDestinations();
     };
 
     SocketService.on('destination_assigned', handleNewDestination);
 
     return () => {
+      unsubscribe?.();
       SocketService.off('destination_assigned', handleNewDestination);
     };
-  }, [user.id]);
+  }, [fetchDestinations, navigation, user.id]);
 
-  const fetchDestinations = async () => {
-    try {
-      setIsLoading(true);
-      let data = await TrackingDataService.getEmployeeDestinations(user.id || 'emp_1');
-      if (!data || data.length === 0) {
-        data = await TrackingDataService.getAllDestinations();
-      }
-      setDestinations(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchDestinations();
   };
-
-
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>
       <View className="bg-[#0F4C3A] flex-row items-center px-4 py-4 z-10">
         <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }} className="mr-3 p-1">
-
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
         <Text className="text-white font-bold text-lg">My Destinations</Text>
@@ -59,16 +68,20 @@ const EmployeeDestinationScreen = () => {
       <View style={{ flex: 1, backgroundColor: '#F4F7FB', padding: 20 }}>
         {isLoading ? (
           <ActivityIndicator size="large" color="#0F4C3A" style={{ marginTop: 50 }} />
-        ) : destinations.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Feather name="map" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No destinations assigned</Text>
-          </View>
         ) : (
           <FlatList
             data={destinations}
             keyExtractor={item => item.id}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0F4C3A']} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Feather name="map" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyText}>No destinations assigned</Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>

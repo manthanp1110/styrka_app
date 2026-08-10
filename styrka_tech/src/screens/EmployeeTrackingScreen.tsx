@@ -236,14 +236,12 @@ const EmployeeTrackingScreen = () => {
         };
 
         const initialLoc = await getDeviceLocation();
-        const startLat = initialLoc ? initialLoc.latitude : Number(assigned.latitude);
-        const startLng = initialLoc ? initialLoc.longitude : Number(assigned.longitude);
 
-        const newJourney = {
+        const newJourney: any = {
           id: `j_${user.id || 'emp_1'}`,
           user_id: user.id || 'emp_1',
-          start_lat: startLat,
-          start_lng: startLng,
+          start_lat: initialLoc ? initialLoc.latitude : (Number(assigned.latitude) - 0.015),
+          start_lng: initialLoc ? initialLoc.longitude : (Number(assigned.longitude) - 0.015),
           destination_lat: Number(assigned.latitude),
           destination_lng: Number(assigned.longitude),
           address: assigned.address,
@@ -254,6 +252,16 @@ const EmployeeTrackingScreen = () => {
         setActiveJourney(newJourney);
         if (initialLoc) {
           setCurrentLocation(initialLoc);
+          fetchRoute(initialLoc.latitude, initialLoc.longitude, Number(assigned.latitude), Number(assigned.longitude));
+          fetchAddress(initialLoc.latitude, initialLoc.longitude);
+        } else {
+          // Provide initial 1.5km offset so markers DO NOT coincide while waiting for GPS lock
+          const initialOffset = {
+            latitude: Number(assigned.latitude) - 0.015,
+            longitude: Number(assigned.longitude) - 0.015,
+          };
+          setCurrentLocation(initialOffset);
+          fetchRoute(initialOffset.latitude, initialOffset.longitude, Number(assigned.latitude), Number(assigned.longitude));
         }
         setIsLoading(false);
 
@@ -289,7 +297,7 @@ const EmployeeTrackingScreen = () => {
         AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
         SocketService.connect(user.id || 'emp_1', 'employee');
         setupTracking(newJourney.id);
-        fetchRoute(startLat, startLng, Number(assigned.latitude), Number(assigned.longitude));
+        fetchRoute(Number(newJourney.start_lat), Number(newJourney.start_lng), Number(assigned.latitude), Number(assigned.longitude));
         return;
       }
 

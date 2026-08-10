@@ -169,12 +169,7 @@ const AdminTrackingScreen = () => {
             speed: Number(loc.speed || 0),
             status: loc.status || 'online',
             timestamp: loc.timestamp || new Date().toISOString(),
-          } : (dest ? {
-            latitude: Number(dest.latitude),
-            longitude: Number(dest.longitude),
-            status: 'online',
-            timestamp: new Date().toISOString(),
-          } : null);
+          } : null;
 
           journeyMap[emp.id] = {
             id: `j_${emp.id}`,

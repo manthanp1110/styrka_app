@@ -135,6 +135,55 @@ const EmployeeTrackingScreen = () => {
   const fetchActiveJourney = async () => {
     setIsLoading(true);
     try {
+      const assigned = route.params?.assignedDestination;
+      if (assigned) {
+        let currLat = 28.6139;
+        let currLng = 77.2090;
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          currLat = loc.coords.latitude;
+          currLng = loc.coords.longitude;
+        } catch (e) {}
+
+        const newJourney = {
+          id: `j_${user.id || 'emp_1'}`,
+          user_id: user.id || 'emp_1',
+          start_lat: currLat,
+          start_lng: currLng,
+          destination_lat: Number(assigned.latitude),
+          destination_lng: Number(assigned.longitude),
+          address: assigned.address,
+          status: 'active',
+          created_at: new Date().toISOString(),
+        };
+
+        await AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
+        await TrackingDataService.updateLiveLocation({
+          userId: user.id || 'emp_1',
+          latitude: currLat,
+          longitude: currLng,
+        });
+
+
+        SocketService.connect(user.id || 'emp_1', 'employee');
+        SocketService.updateLocation({
+          userId: user.id || 'emp_1',
+          latitude: currLat,
+          longitude: currLng,
+        });
+        SocketService.emitJourneyStatus({
+          journeyId: newJourney.id,
+          userId: user.id || 'emp_1',
+          status: 'started',
+        });
+
+        setActiveJourney(newJourney);
+        setCurrentLocation({ latitude: currLat, longitude: currLng });
+        setupTracking(newJourney.id);
+        fetchRoute(currLat, currLng, Number(assigned.latitude), Number(assigned.longitude));
+        return;
+      }
+
       const raw = await AsyncStorage.getItem('active_journey');
       if (raw) {
         const journey = JSON.parse(raw);
@@ -168,7 +217,8 @@ const EmployeeTrackingScreen = () => {
     if (user.id) {
       fetchActiveJourney();
     }
-  }, [user.id]);
+  }, [user.id, route.params?.assignedDestination]);
+
 
   useEffect(() => {
     if (activeJourney && currentLocation && activeJourney.destination_lat && activeJourney.destination_lng) {

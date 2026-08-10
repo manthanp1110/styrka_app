@@ -194,37 +194,33 @@ const AdminTrackingScreen = () => {
 
     SocketService.on('employee_location_changed', handleLocationChange);
     SocketService.on('destination_assigned', fetchTrackingData);
+    SocketService.on('journey_status_changed', fetchTrackingData);
 
     const interval = setInterval(() => {
       fetchTrackingData();
-    }, 5000);
+    }, 4000);
 
     return () => {
       clearInterval(interval);
       SocketService.off('employee_location_changed', handleLocationChange);
       SocketService.off('destination_assigned', fetchTrackingData);
+      SocketService.off('journey_status_changed', fetchTrackingData);
     };
   }, []);
 
-
-
   const getEmployeeStatus = (empId: string) => {
-    const attendance = dailyAttendance[empId];
-    if (!attendance) return { label: 'Not Punched In', color: '#9CA3AF', canTrack: false };
-    if (attendance.punch_out_time) return { label: 'Punched Out', color: '#6B7280', canTrack: false };
-    
     const journey = activeJourneys[empId];
     if (journey) {
       if (journey.status === 'arrived') {
-        return { label: 'Arrived', color: '#3B82F6', canTrack: true };
+        return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true };
       }
       if (journey.status === 'visiting') {
         return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true };
       }
-      return { label: 'On Route', color: '#10B981', canTrack: true };
+      return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true };
     }
     
-    return { label: 'Available / Waiting', color: '#F59E0B', canTrack: false };
+    return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: true };
   };
 
   const filteredEmployees = employees.filter(emp => 
@@ -232,13 +228,9 @@ const AdminTrackingScreen = () => {
   );
 
   const handleEmployeePress = (empId: string) => {
-    const status = getEmployeeStatus(empId);
-    if (status.canTrack) {
-      setSelectedEmployeeId(empId);
-    } else {
-      Alert.alert("Location Not Available", `This employee is currently ${status.label}. Live tracking is only available during active journeys.`);
-    }
+    setSelectedEmployeeId(empId);
   };
+
 
   const selectedJourney = selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null;
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId) : null;

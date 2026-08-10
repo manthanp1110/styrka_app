@@ -5,6 +5,8 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
 import { TrackingDataService } from '../services/TrackingDataService';
 
+import SocketService from '../services/SocketService';
+
 const EmployeeDestinationScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
   const { user } = useAppState();
@@ -14,6 +16,17 @@ const EmployeeDestinationScreen = () => {
 
   useEffect(() => {
     fetchDestinations();
+
+    SocketService.connect(user.id || 'emp_1', 'employee');
+    const handleNewDestination = (newDest: any) => {
+      fetchDestinations();
+    };
+
+    SocketService.on('destination_assigned', handleNewDestination);
+
+    return () => {
+      SocketService.off('destination_assigned', handleNewDestination);
+    };
   }, [user.id]);
 
   const fetchDestinations = async () => {
@@ -21,7 +34,6 @@ const EmployeeDestinationScreen = () => {
       setIsLoading(true);
       let data = await TrackingDataService.getEmployeeDestinations(user.id || 'emp_1');
       if (!data || data.length === 0) {
-        // Fallback to all destinations if user ID is general
         data = await TrackingDataService.getAllDestinations();
       }
       setDestinations(data);
@@ -31,6 +43,7 @@ const EmployeeDestinationScreen = () => {
       setIsLoading(false);
     }
   };
+
 
 
   return (

@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView, TextInput, Alert, Image } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
+
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+
 import { useAppState } from '../store/useAppState';
+
 import { TrackingDataService } from '../services/TrackingDataService';
+import SocketService from '../services/SocketService';
+
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
+
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
 import { useSmoothLocation } from '../hooks/useSmoothLocation';
 import MapplsApi from '../utils/mapplsApi';
@@ -148,12 +155,57 @@ const AdminTrackingScreen = () => {
 
   useEffect(() => {
     fetchTrackingData();
+
+    SocketService.connect(user.id || 'admin_1', 'admin');
+
+    const handleLocationChange = (loc: any) => {
+      if (loc && loc.employee_id) {
+        setActiveJourneys((prev) => {
+          const empId = loc.employee_id;
+          const currentJourney = prev[empId];
+          const updatedPing = {
+            user_id: empId,
+            latitude: Number(loc.latitude),
+            longitude: Number(loc.longitude),
+            heading: Number(loc.heading || 0),
+            speed: Number(loc.speed || 0),
+            status: 'online',
+            timestamp: loc.timestamp || new Date().toISOString(),
+          };
+
+          return {
+            ...prev,
+            [empId]: {
+              ...(currentJourney || {
+                id: `j_${empId}`,
+                user_id: empId,
+                start_lat: Number(loc.latitude),
+                start_lng: Number(loc.longitude),
+              }),
+              latestLocation: updatedPing,
+              locationHistory: currentJourney?.locationHistory
+                ? [...currentJourney.locationHistory, updatedPing]
+                : [updatedPing],
+            },
+          };
+        });
+      }
+    };
+
+    SocketService.on('employee_location_changed', handleLocationChange);
+    SocketService.on('destination_assigned', fetchTrackingData);
+
     const interval = setInterval(() => {
       fetchTrackingData();
-    }, 4000);
+    }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      SocketService.off('employee_location_changed', handleLocationChange);
+      SocketService.off('destination_assigned', fetchTrackingData);
+    };
   }, []);
+
 
 
   const getEmployeeStatus = (empId: string) => {

@@ -19,7 +19,8 @@ import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
 import MapplsApi from '../utils/mapplsApi';
 import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
-import { subscribeToEmployeeLocations, unsubscribeChannel } from '../utils/realtime';
+import SocketService from '../services/SocketService';
+
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -74,23 +75,9 @@ const EmployeeTrackingScreen = () => {
     } catch (e) {
       console.log('Mappls reverse geocoding error:', e);
     }
-    
-    // Fallback to nominatim if native fails or times out
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-        headers: { 'User-Agent': `StyrkaApp-${Date.now()}/1.0` }
-      });
-      const data = await res.json();
-      if (data.display_name) {
-        setAddress(data.display_name.split(',')[0]);
-      } else {
-        setAddress('Address not found');
-      }
-    } catch (e) {
-      console.log('Fallback geocoding error', e);
-      setAddress('Address unavailable');
-    }
+    setAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   };
+
 
   const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
     try {
@@ -265,9 +252,7 @@ const EmployeeTrackingScreen = () => {
   
   const setupTracking = async (journeyId: string) => {
     try {
-      const token = 'local_session';
-
-
+      SocketService.connect(user.id || 'emp_1', 'employee');
 
       const sub = await Location.watchPositionAsync(
         {
@@ -281,6 +266,15 @@ const EmployeeTrackingScreen = () => {
           
           setCurrentLocation({ latitude: newLat, longitude: newLng });
           trackingMapRef.current?.updateLocation({ latitude: newLat, longitude: newLng });
+
+          // Emit live location via Socket.io
+          SocketService.updateLocation({
+            userId: user.id || 'emp_1',
+            latitude: newLat,
+            longitude: newLng,
+            heading: loc.coords.heading || 0,
+            speed: loc.coords.speed || 0,
+          });
           
           let batteryLevel = 1.0;
           try { batteryLevel = await Battery.getBatteryLevelAsync(); } catch (e) {}
@@ -311,6 +305,7 @@ const EmployeeTrackingScreen = () => {
 
           await TelemetryQueue.enqueue(payload);
           lastTelemetrySentTimeRef.current = Date.now();
+
           processQueue();
         }
       );

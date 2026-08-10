@@ -4,7 +4,10 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
 import { TrackingDataService } from '../services/TrackingDataService';
+
+import SocketService from '../services/SocketService';
 import { MapView, Marker } from '../components/NativeMap';
+
 import MapplsApi from '../utils/mapplsApi';
 
 const AdminDestinationScreen = () => {
@@ -103,9 +106,19 @@ const AdminDestinationScreen = () => {
     
     setIsAssigning(true);
     try {
-      await TrackingDataService.assignDestination({
+      const created = await TrackingDataService.assignDestination({
         adminId: user.id || 'admin_1',
         employeeId: selectedEmployee.id,
+        address: selectedPlace.address,
+        latitude: selectedPlace.latitude,
+        longitude: selectedPlace.longitude,
+      });
+
+      // Emit real-time Socket.io event
+      SocketService.assignDestination({
+        destination_id: created.id,
+        admin_id: user.id || 'admin_1',
+        employee_id: selectedEmployee.id,
         address: selectedPlace.address,
         latitude: selectedPlace.latitude,
         longitude: selectedPlace.longitude,
@@ -121,6 +134,7 @@ const AdminDestinationScreen = () => {
       setIsAssigning(false);
     }
   };
+
 
 
   return (

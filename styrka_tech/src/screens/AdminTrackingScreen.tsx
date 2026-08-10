@@ -176,6 +176,37 @@ const AdminTrackingScreen = () => {
       const allLocations = await TrackingDataService.getAllLiveLocations();
       const allDestinations = await TrackingDataService.getAllDestinations();
 
+  // Helper: Resolve journey using emp.id -> emp.email -> live_locations.user_id -> null
+  const resolveEmployeeJourney = (emp: any, journeysMap: Record<string, any>) => {
+    if (!emp) return null;
+    // 1. Check emp.id
+    if (emp.id && journeysMap[emp.id]) {
+      return journeysMap[emp.id];
+    }
+    // 2. Check emp.email
+    if (emp.email && journeysMap[emp.email]) {
+      return journeysMap[emp.email];
+    }
+    // 3. Search values for user_id matching emp.id or emp.email
+    const match = Object.values(journeysMap).find((j: any) => {
+      const locUserId = j.latestLocation?.user_id || j.user_id;
+      if (!locUserId) return false;
+      return (
+        locUserId === emp.id ||
+        (emp.email && locUserId === emp.email) ||
+        (emp.id && String(locUserId).toLowerCase() === String(emp.id).toLowerCase()) ||
+        (emp.email && String(locUserId).toLowerCase() === String(emp.email).toLowerCase())
+      );
+    });
+    return match || null;
+  };
+
+  const fetchTrackingData = async () => {
+    try {
+      const usersData = await TrackingDataService.getEmployees();
+      const allLocations = await TrackingDataService.getAllLiveLocations();
+      const allDestinations = await TrackingDataService.getAllDestinations();
+
       const journeyMap: any = {};
       for (const emp of usersData) {
         const loc = allLocations[emp.id]
@@ -192,7 +223,7 @@ const AdminTrackingScreen = () => {
         const dest = allDestinations.find((d) => (d.employee_id === emp.id || (emp.email && d.employee_id === emp.email)) && d.status !== 'completed');
 
         // Prevent older database poll from overwriting newer live Socket.IO pings
-        const existingJourney = activeJourneys[emp.id];
+        const existingJourney = activeJourneys[emp.id] || (emp.email ? activeJourneys[emp.email] : null);
         const existingTime = existingJourney?.latestLocation?.timestamp
           ? new Date(existingJourney.latestLocation.timestamp).getTime()
           : 0;
@@ -200,11 +231,14 @@ const AdminTrackingScreen = () => {
 
         if (existingTime > fetchedTime && existingJourney?.latestLocation) {
           journeyMap[emp.id] = existingJourney;
+          if (emp.email) journeyMap[emp.email] = existingJourney;
+          if (loc?.user_id) journeyMap[loc.user_id] = existingJourney;
           continue;
         }
 
         if (loc || dest) {
           const latestPing = loc ? {
+            user_id: loc.user_id || emp.id,
             latitude: Number(loc.latitude),
             longitude: Number(loc.longitude),
             heading: Number(loc.heading || 0),
@@ -222,7 +256,7 @@ const AdminTrackingScreen = () => {
             || (loc as any)?.destination_address
             || 'Custom destination';
 
-          journeyMap[emp.id] = {
+          const journeyObj = {
             id: `j_${emp.id}`,
             user_id: emp.id,
             start_lat: latestPing ? latestPing.latitude : (destLat || 28.6139),
@@ -233,6 +267,10 @@ const AdminTrackingScreen = () => {
             latestLocation: latestPing,
             address: destAddress,
           };
+
+          journeyMap[emp.id] = journeyObj;
+          if (emp.email) journeyMap[emp.email] = journeyObj;
+          if (loc?.user_id) journeyMap[loc.user_id] = journeyObj;
         }
       }
 
@@ -252,15 +290,17 @@ const AdminTrackingScreen = () => {
     SocketService.connect(user.id || 'admin_1', 'admin');
 
     const handleLocationChange = (loc: any) => {
-      if (loc && loc.employee_id) {
+      const incomingId = loc?.employee_id || loc?.user_id;
+      if (loc && incomingId) {
         // Resolve incoming employee_id to matched employee in state
         const matched = employees.find(
-          (e) => e.id === loc.employee_id || e.email === loc.employee_id || (e.name && e.name.toLowerCase() === loc.employee_id.toLowerCase())
+          (e) => e.id === incomingId || (e.email && e.email.toLowerCase() === String(incomingId).toLowerCase()) || (e.name && e.name.toLowerCase() === String(incomingId).toLowerCase())
         );
-        const empId = matched ? matched.id : loc.employee_id;
+        const primaryEmpId = matched ? matched.id : incomingId;
+        const empEmail = matched?.email;
 
         setActiveJourneys((prev) => {
-          const currentJourney = prev[empId];
+          const currentJourney = prev[primaryEmpId] || (empEmail ? prev[empEmail] : null) || prev[incomingId];
 
           const incomingTimestamp = loc.timestamp || new Date().toISOString();
           const incomingTime = new Date(incomingTimestamp).getTime();
@@ -270,17 +310,17 @@ const AdminTrackingScreen = () => {
 
           // Ignore out-of-order stale location broadcasts
           if (existingTime > 0 && incomingTime < existingTime) {
-            console.warn(`[Socket.IO AUDIT] Discarded out-of-order ping for ${empId}: incoming ${incomingTime} < existing ${existingTime}`);
+            console.warn(`[Socket.IO AUDIT] Discarded out-of-order ping for ${primaryEmpId}: incoming ${incomingTime} < existing ${existingTime}`);
             return prev;
           }
 
           const updatedPing = {
-            user_id: empId,
+            user_id: primaryEmpId,
             latitude: Number(loc.latitude),
             longitude: Number(loc.longitude),
             heading: Number(loc.heading || 0),
             speed: Number(loc.speed || 0),
-            status: 'online',
+            status: loc.status || 'online',
             timestamp: incomingTimestamp,
           };
 
@@ -289,25 +329,29 @@ const AdminTrackingScreen = () => {
           const incomingDestLng = loc.destination_lng != null ? Number(loc.destination_lng) : null;
           const incomingDestAddr = loc.destination_address || null;
 
-          return {
-            ...prev,
-            [empId]: {
-              ...(currentJourney || {
-                id: `j_${empId}`,
-                user_id: empId,
-                start_lat: Number(loc.latitude),
-                start_lng: Number(loc.longitude),
-              }),
-              // Update destination if new data arrives (custom journey started)
-              ...(incomingDestLat != null ? { destination_lat: incomingDestLat } : {}),
-              ...(incomingDestLng != null ? { destination_lng: incomingDestLng } : {}),
-              ...(incomingDestAddr != null ? { address: incomingDestAddr } : {}),
-              latestLocation: updatedPing,
-              locationHistory: currentJourney?.locationHistory
-                ? [...currentJourney.locationHistory, updatedPing]
-                : [updatedPing],
-            },
+          const updatedJourney = {
+            ...(currentJourney || {
+              id: `j_${primaryEmpId}`,
+              user_id: primaryEmpId,
+              start_lat: Number(loc.latitude),
+              start_lng: Number(loc.longitude),
+            }),
+            ...(incomingDestLat != null ? { destination_lat: incomingDestLat } : {}),
+            ...(incomingDestLng != null ? { destination_lng: incomingDestLng } : {}),
+            ...(incomingDestAddr != null ? { address: incomingDestAddr } : {}),
+            latestLocation: updatedPing,
+            locationHistory: currentJourney?.locationHistory
+              ? [...currentJourney.locationHistory, updatedPing]
+              : [updatedPing],
           };
+
+          const nextMap = {
+            ...prev,
+            [primaryEmpId]: updatedJourney,
+          };
+          if (empEmail) nextMap[empEmail] = updatedJourney;
+          if (incomingId) nextMap[incomingId] = updatedJourney;
+          return nextMap;
         });
       }
     };
@@ -329,7 +373,9 @@ const AdminTrackingScreen = () => {
   }, []);
 
   const getEmployeeStatus = (empId: string) => {
-    const journey = activeJourneys[empId];
+    const emp = employees.find(e => e.id === empId || e.email === empId);
+    const journey = emp ? resolveEmployeeJourney(emp, activeJourneys) : activeJourneys[empId];
+
     if (journey) {
       const isOffline = !journey.latestLocation
         || journey.latestLocation.status === 'offline'
@@ -358,9 +404,16 @@ const AdminTrackingScreen = () => {
     setSelectedEmployeeId(empId);
   };
 
+  const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
+  const selectedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
 
-  const selectedJourney = selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null;
-  const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId) : null;
+  if (selectedEmp) {
+    console.log(`[ADMIN_MATCH] employee.id = ${selectedEmp.id}`);
+    console.log(`[ADMIN_MATCH] employee.email = ${selectedEmp.email}`);
+    console.log(`[ADMIN_MATCH] location.user_id = ${selectedJourney?.latestLocation?.user_id || selectedJourney?.user_id}`);
+    console.log(`[ADMIN_MATCH] resolvedJourneyKey = ${selectedJourney ? 'MATCHED' : 'NULL'}`);
+    console.log(`[ADMIN_MATCH] latestLocation =`, selectedJourney?.latestLocation);
+  }
 
   const initialRegion = {
     latitude: 18.5204, // Default

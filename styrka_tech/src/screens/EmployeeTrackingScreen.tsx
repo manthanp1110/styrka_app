@@ -166,20 +166,46 @@ const EmployeeTrackingScreen = () => {
           }
         } catch {}
 
-        let currLat: number | null = null;
-        let currLng: number | null = null;
+        // Robust multi-tier location retriever
+        const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+          // Attempt 1: High accuracy GPS satellite chip
+          try {
+            const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 5000);
+            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
+              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            }
+          } catch (e) {}
 
-        // Instant check: read fast last known location from OS cache (< 200ms)
-        try {
-          const lastLoc = await Location.getLastKnownPositionAsync();
-          if (lastLoc && lastLoc.coords) {
-            currLat = lastLoc.coords.latitude;
-            currLng = lastLoc.coords.longitude;
-          }
-        } catch (e) {}
+          // Attempt 2: Balanced Network / Cell Tower / Wi-Fi
+          try {
+            const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 5000);
+            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
+              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            }
+          } catch (e) {}
 
-        const finalLat: number = currLat ?? (Number(assigned.latitude) - 0.015);
-        const finalLng: number = currLng ?? (Number(assigned.longitude) - 0.015);
+          // Attempt 3: OS default without accuracy constraints
+          try {
+            const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({}), 5000);
+            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
+              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            }
+          } catch (e) {}
+
+          // Attempt 4: Last known OS cached position
+          try {
+            const lastLoc = await Location.getLastKnownPositionAsync();
+            if (lastLoc && lastLoc.coords && lastLoc.coords.latitude && lastLoc.coords.longitude) {
+              return { latitude: lastLoc.coords.latitude, longitude: lastLoc.coords.longitude };
+            }
+          } catch (e) {}
+
+          return null;
+        };
+
+        const initialLoc = await getDeviceLocation();
+        const finalLat: number = initialLoc ? initialLoc.latitude : (Number(assigned.latitude) - 0.015);
+        const finalLng: number = initialLoc ? initialLoc.longitude : (Number(assigned.longitude) - 0.015);
 
         const newJourney = {
           id: `j_${user.id || 'emp_1'}`,
@@ -193,47 +219,37 @@ const EmployeeTrackingScreen = () => {
           created_at: new Date().toISOString(),
         };
 
-        // Render map INSTANTLY without blocking UI
+        // Render map INSTANTLY
         setActiveJourney(newJourney);
         setCurrentLocation({ latitude: finalLat, longitude: finalLng });
         setIsLoading(false);
 
-        // Run fresh high-accuracy GPS & address fetch asynchronously in background
+        // Asynchronously re-verify GPS position in background
         (async () => {
-          try {
-            let freshLoc: any = null;
-            try {
-              freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            } catch (e) {
-              try {
-                freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-              } catch (e2) {}
-            }
+          const fresh = await getDeviceLocation();
+          if (fresh) {
+            setCurrentLocation({ latitude: fresh.latitude, longitude: fresh.longitude });
+            fetchRoute(fresh.latitude, fresh.longitude, Number(assigned.latitude), Number(assigned.longitude));
+            fetchAddress(fresh.latitude, fresh.longitude);
 
-            if (freshLoc && freshLoc.coords) {
-              const freshLat = freshLoc.coords.latitude;
-              const freshLng = freshLoc.coords.longitude;
+            const realJourney = {
+              ...newJourney,
+              start_lat: fresh.latitude,
+              start_lng: fresh.longitude,
+            };
+            setActiveJourney(realJourney);
+            AsyncStorage.setItem('active_journey', JSON.stringify(realJourney));
 
-              setCurrentLocation({ latitude: freshLat, longitude: freshLng });
-              fetchRoute(freshLat, freshLng, Number(assigned.latitude), Number(assigned.longitude));
-              fetchAddress(freshLat, freshLng);
-
-              const realJourney = {
-                ...newJourney,
-                start_lat: freshLat,
-                start_lng: freshLng,
-              };
-              setActiveJourney(realJourney);
-              AsyncStorage.setItem('active_journey', JSON.stringify(realJourney));
-
-              TrackingDataService.updateLiveLocation({
-                userId: user.id || 'emp_1',
-                latitude: freshLat,
-                longitude: freshLng,
-              });
-            }
-          } catch (e) {
-            console.log('[EmployeeTrackingScreen] Background GPS resolution error:', e);
+            TrackingDataService.updateLiveLocation({
+              userId: user.id || 'emp_1',
+              latitude: fresh.latitude,
+              longitude: fresh.longitude,
+            });
+          } else {
+            Alert.alert(
+              "GPS Unavailable",
+              "Could not fetch phone GPS location. Please ensure GPS / Location Services are turned ON in your phone's quick settings bar."
+            );
           }
         })();
 

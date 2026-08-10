@@ -9,6 +9,7 @@ import SocketService from '../services/SocketService';
 import { MapView, Marker } from '../components/NativeMap';
 
 import MapplsApi from '../utils/mapplsApi';
+import { isWithinMaharashtra } from '../utils/mapsUtils';
 
 const AdminDestinationScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
@@ -78,19 +79,23 @@ const AdminDestinationScreen = () => {
         }
       }
 
-      if (!lat || !lng) {
-        const geoRes = await MapplsApi.geocode({ address: place.description });
-        if (geoRes && geoRes.results && geoRes.results.length > 0) {
-          lat = geoRes.results[0].latitude;
-          lng = geoRes.results[0].longitude;
-        }
-      }
-
       if (lat && lng) {
+        const numLat = Number(lat);
+        const numLng = Number(lng);
+
+        if (!isWithinMaharashtra(numLat, numLng)) {
+          Alert.alert(
+            "Location Restricted",
+            "This app is restricted strictly to Maharashtra state. Please select a destination within Maharashtra."
+          );
+          setSelectedPlace(null);
+          return;
+        }
+
         setSelectedPlace({
           address: place.description,
-          latitude: Number(lat),
-          longitude: Number(lng)
+          latitude: numLat,
+          longitude: numLng
         });
       } else {
         Alert.alert("Location Warning", "Could not resolve exact GPS coordinates for this place. Please select a more specific location.");
@@ -106,6 +111,13 @@ const AdminDestinationScreen = () => {
   const assignDestination = async () => {
     if (!selectedEmployee) return Alert.alert("Error", "Please select an employee");
     if (!selectedPlace) return Alert.alert("Error", "Please select a destination");
+
+    if (!isWithinMaharashtra(selectedPlace.latitude, selectedPlace.longitude)) {
+      return Alert.alert(
+        "Location Restricted",
+        "Destinations can only be assigned within Maharashtra state."
+      );
+    }
     
     setIsAssigning(true);
     try {

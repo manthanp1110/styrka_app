@@ -40,3 +40,30 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
   var d = R * c; // Distance in km
   return d;
 }
+
+// ──────────────────────────────────────────────
+// Maharashtra State Map Restriction Bounds
+// ──────────────────────────────────────────────
+export const MAHARASHTRA_BOUNDS = {
+  minLat: 15.60,
+  maxLat: 22.03,
+  minLng: 72.65,
+  maxLng: 80.90,
+  centerLat: 19.7515,
+  centerLng: 75.7139,
+};
+
+export function isWithinMaharashtra(lat: number, lng: number): boolean {
+  return (
+    lat >= MAHARASHTRA_BOUNDS.minLat &&
+    lat <= MAHARASHTRA_BOUNDS.maxLat &&
+    lng >= MAHARASHTRA_BOUNDS.minLng &&
+    lng <= MAHARASHTRA_BOUNDS.maxLng
+  );
+}
+
+export function clampToMaharashtra(lat: number, lng: number): { latitude: number; longitude: number } {
+  const clampedLat = Math.min(Math.max(lat, MAHARASHTRA_BOUNDS.minLat), MAHARASHTRA_BOUNDS.maxLat);
+  const clampedLng = Math.min(Math.max(lng, MAHARASHTRA_BOUNDS.minLng), MAHARASHTRA_BOUNDS.maxLng);
+  return { latitude: clampedLat, longitude: clampedLng };
+}

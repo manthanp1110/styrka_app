@@ -54,44 +54,61 @@ export const MapplsApi = {
 
 
   /**
-   * Address AutoSuggest / Search
+   * Address AutoSuggest / Search (Restricted to Maharashtra State)
    */
   autoSuggest: async (params: { query: string }) => {
     if (!params.query || params.query.trim().length < 2) {
       return { suggestedLocations: [] };
     }
 
+    const searchQuery = params.query.toLowerCase().includes('maharashtra') 
+      ? params.query 
+      : `${params.query}, Maharashtra`;
+
     // 1. Try Mappls AutoSuggest API
     try {
-      const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/autosuggest?query=${encodeURIComponent(params.query)}`;
+      const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/autosuggest?query=${encodeURIComponent(searchQuery)}&filter=bounds:15.60,72.65;22.03,80.90`;
       const res = await fetch(url);
       const text = await res.text();
       if (text) {
         const data = JSON.parse(text);
         if (data && data.suggestedLocations && data.suggestedLocations.length > 0) {
-          return data;
+          // Filter results strictly within Maharashtra
+          const filtered = data.suggestedLocations.filter((item: any) => {
+            const addr = (item.placeAddress || item.placeName || '').toLowerCase();
+            return addr.includes('maharashtra') || addr.includes('pune') || addr.includes('mumbai') || addr.includes('nagpur') || addr.includes('nashik') || addr.includes('kolhapur');
+          });
+          return { suggestedLocations: filtered.length > 0 ? filtered : data.suggestedLocations };
         }
       }
     } catch (e) {
       console.log('[MapplsApi] Mappls autoSuggest error, using Nominatim fallback:', e);
     }
 
-    // 2. Nominatim / OpenStreetMap Search Fallback
+    // 2. Nominatim / OpenStreetMap Search Fallback (Bounded to Maharashtra)
     try {
-      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(params.query)}&format=json&addressdetails=1&limit=8`;
+      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10&viewbox=72.65,22.03,80.90,15.60&bounded=1`;
       const nomRes = await fetch(nomUrl, {
         headers: { 'User-Agent': 'StyrkaApp/1.0' }
       });
       const nomData = await nomRes.json();
 
       if (Array.isArray(nomData) && nomData.length > 0) {
-        const suggestedLocations = nomData.map((item: any) => ({
-          mapplsPin: `${item.lat},${item.lon}`,
-          placeName: item.display_name.split(',')[0],
-          placeAddress: item.display_name,
-          latitude: parseFloat(item.lat),
-          longitude: parseFloat(item.lon)
-        }));
+        const suggestedLocations = nomData
+          .filter((item: any) => {
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            const isMHCoords = lat >= 15.60 && lat <= 22.03 && lon >= 72.65 && lon <= 80.90;
+            const isMHAddress = (item.display_name || '').toLowerCase().includes('maharashtra');
+            return isMHCoords || isMHAddress;
+          })
+          .map((item: any) => ({
+            mapplsPin: `${item.lat},${item.lon}`,
+            placeName: item.display_name.split(',')[0],
+            placeAddress: item.display_name,
+            latitude: parseFloat(item.lat),
+            longitude: parseFloat(item.lon)
+          }));
         return { suggestedLocations };
       }
     } catch (e) {
@@ -162,11 +179,15 @@ export const MapplsApi = {
   },
 
   /**
-   * Geocode (Address to Lat/Lng)
+   * Geocode (Address to Lat/Lng - Restricted to Maharashtra State)
    */
   geocode: async (params: { address: string }) => {
+    const geoQuery = params.address.toLowerCase().includes('maharashtra')
+      ? params.address
+      : `${params.address}, Maharashtra`;
+
     try {
-      const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/geocode?address=${encodeURIComponent(params.address)}`;
+      const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/geocode?address=${encodeURIComponent(geoQuery)}`;
       const res = await fetch(url);
       const text = await res.text();
       if (text) {
@@ -177,9 +198,9 @@ export const MapplsApi = {
       console.log('[MapplsApi] Mappls geocode error, using Nominatim fallback');
     }
 
-    // Fallback to Nominatim
+    // Fallback to Nominatim bounded to Maharashtra
     try {
-      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(params.address)}&format=json&limit=1`;
+      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(geoQuery)}&format=json&limit=1&viewbox=72.65,22.03,80.90,15.60&bounded=1`;
       const nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'StyrkaApp/1.0' } });
       const nomData = await nomRes.json();
       if (Array.isArray(nomData) && nomData.length > 0) {

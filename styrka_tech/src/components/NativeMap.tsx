@@ -183,16 +183,32 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
 <body>
   <div id="map"></div>
   <script>
-    var map = L.map('map', { zoomControl: false }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.round(getZoomFromRegion(activeRegion))});
+    // Strict Maharashtra State Bounding Box (South-West: [15.60, 72.65], North-East: [22.03, 80.90])
+    var maharashtraBounds = L.latLngBounds(
+      L.latLng(15.60, 72.65),
+      L.latLng(22.03, 80.90)
+    );
+
+    var map = L.map('map', { 
+      zoomControl: false,
+      maxBounds: maharashtraBounds,
+      maxBoundsViscosity: 1.0,
+      minZoom: 6,
+      maxZoom: 19
+    }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.max(6, Math.round(getZoomFromRegion(activeRegion)))});
     
     var primaryTile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      minZoom: 6,
       maxZoom: 19,
+      bounds: maharashtraBounds,
       attribution: '&copy; Styrka Maps'
     });
 
     primaryTile.on('tileerror', function() {
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
+        minZoom: 6,
+        maxZoom: 19,
+        bounds: maharashtraBounds
       }).addTo(map);
     });
 

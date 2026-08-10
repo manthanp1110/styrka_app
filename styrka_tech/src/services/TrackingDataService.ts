@@ -146,7 +146,7 @@ export class TrackingDataService {
     }
 
     const newEmp: User = {
-      id: createdId,
+      id: createdId || `emp_${Date.now()}`,
       name: cleanName,
       email: cleanEmail,
       role: 'employee',

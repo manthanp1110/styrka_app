@@ -608,6 +608,8 @@ const EmployeeTrackingScreen = () => {
       }
       const userId = user.id || 'emp_1';
 
+      const destAddress = assignedDestination?.address || 'Custom destination';
+
       const journeyData = {
         id: `journey_${Date.now()}`,
         user_id: userId,
@@ -616,6 +618,7 @@ const EmployeeTrackingScreen = () => {
         start_lng: finalStartLng,
         destination_lat: destLat,
         destination_lng: destLng,
+        address: destAddress,
         created_at: new Date().toISOString(),
       };
 
@@ -627,8 +630,31 @@ const EmployeeTrackingScreen = () => {
         await TrackingDataService.updateDestinationStatus(route.params.assignedDestination.id, 'in_progress');
       }
 
+      // Send initial live location WITH destination to Supabase so admin can see polyline
+      await TrackingDataService.updateLiveLocation({
+        userId,
+        latitude: finalStartLat,
+        longitude: finalStartLng,
+        destination_lat: destLat,
+        destination_lng: destLng,
+        destination_address: destAddress,
+      });
+
+      // Also emit via Socket.IO so admin gets immediate update
+      SocketService.updateLocation({
+        userId,
+        latitude: finalStartLat,
+        longitude: finalStartLng,
+        heading: 0,
+        speed: 0,
+        destination_lat: destLat,
+        destination_lng: destLng,
+        destination_address: destAddress,
+      });
+
       setTrackingSessionId(journeyData.id);
       sequenceNumberRef.current = 1;
+      activeJourneyRef.current = journeyData;
       setActiveJourney(journeyData);
       fetchRoute(finalStartLat, finalStartLng, destLat, destLng);
       

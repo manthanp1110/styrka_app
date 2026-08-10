@@ -66,6 +66,9 @@ class SocketService {
     longitude: number;
     heading?: number;
     speed?: number;
+    destination_lat?: number;
+    destination_lng?: number;
+    destination_address?: string;
   }) {
     if (this.socket) {
       this.socket.emit('update_location', payload);

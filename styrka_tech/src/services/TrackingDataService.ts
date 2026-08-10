@@ -28,6 +28,9 @@ export interface LiveLocation {
   status: 'online' | 'offline';
   timestamp: string;
   updated_at: string;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
+  destination_address?: string | null;
 }
 
 const DEFAULT_EMPLOYEES: User[] = [
@@ -335,19 +338,22 @@ export class TrackingDataService {
     await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
   }
 
-  // Update live location for an employee
+  // Update live location for an employee (includes optional destination for admin visibility)
   static async updateLiveLocation(location: {
     userId: string;
     latitude: number;
     longitude: number;
     heading?: number;
     speed?: number;
+    destination_lat?: number;
+    destination_lng?: number;
+    destination_address?: string;
   }): Promise<void> {
     const timestamp = new Date().toISOString();
     try {
       // 1. Local storage cache
       const raw = await AsyncStorage.getItem(LOCATIONS_KEY);
-      let locMap: Record<string, LiveLocation> = raw ? JSON.parse(raw) : {};
+      let locMap: Record<string, any> = raw ? JSON.parse(raw) : {};
 
       locMap[location.userId] = {
         user_id: location.userId,
@@ -358,25 +364,32 @@ export class TrackingDataService {
         status: 'online',
         timestamp,
         updated_at: timestamp,
+        destination_lat: location.destination_lat ?? locMap[location.userId]?.destination_lat ?? null,
+        destination_lng: location.destination_lng ?? locMap[location.userId]?.destination_lng ?? null,
+        destination_address: location.destination_address ?? locMap[location.userId]?.destination_address ?? null,
       };
 
       await AsyncStorage.setItem(LOCATIONS_KEY, JSON.stringify(locMap));
 
       // 2. Remote Supabase `public.live_locations` table upsert
       try {
+        const upsertData: any = {
+          user_id: String(location.userId),
+          latitude: location.latitude,
+          longitude: location.longitude,
+          heading: location.heading || 0,
+          speed: location.speed || 0,
+          status: 'online',
+          updated_at: timestamp,
+        };
+        // Include destination fields if provided
+        if (location.destination_lat != null) upsertData.destination_lat = location.destination_lat;
+        if (location.destination_lng != null) upsertData.destination_lng = location.destination_lng;
+        if (location.destination_address != null) upsertData.destination_address = location.destination_address;
+
         await supabase
           .from('live_locations')
-          .upsert([
-            {
-              user_id: String(location.userId),
-              latitude: location.latitude,
-              longitude: location.longitude,
-              heading: location.heading || 0,
-              speed: location.speed || 0,
-              status: 'online',
-              updated_at: timestamp,
-            },
-          ], { onConflict: 'user_id' });
+          .upsert([upsertData], { onConflict: 'user_id' });
       } catch (err) {
         console.warn('[TrackingDataService] Supabase live_locations upsert error:', err);
       }
@@ -449,6 +462,9 @@ export class TrackingDataService {
             status: row.status || 'online',
             timestamp: row.updated_at || new Date().toISOString(),
             updated_at: row.updated_at || new Date().toISOString(),
+            destination_lat: row.destination_lat != null ? Number(row.destination_lat) : null,
+            destination_lng: row.destination_lng != null ? Number(row.destination_lng) : null,
+            destination_address: row.destination_address || null,
           };
         });
       }

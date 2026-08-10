@@ -203,16 +203,25 @@ const AdminTrackingScreen = () => {
             timestamp: loc.timestamp || new Date().toISOString(),
           } : null;
 
+          // Destination priority: admin-assigned dest > live_locations dest (custom journey) > null
+          const destLat = dest ? Number(dest.latitude)
+            : (loc?.destination_lat != null ? Number(loc.destination_lat) : null);
+          const destLng = dest ? Number(dest.longitude)
+            : (loc?.destination_lng != null ? Number(loc.destination_lng) : null);
+          const destAddress = dest?.address
+            || (loc as any)?.destination_address
+            || 'Custom destination';
+
           journeyMap[emp.id] = {
             id: `j_${emp.id}`,
             user_id: emp.id,
-            start_lat: latestPing ? latestPing.latitude : (dest ? Number(dest.latitude) : 28.6139),
-            start_lng: latestPing ? latestPing.longitude : (dest ? Number(dest.longitude) : 77.2090),
-            destination_lat: dest ? Number(dest.latitude) : null,
-            destination_lng: dest ? Number(dest.longitude) : null,
+            start_lat: latestPing ? latestPing.latitude : (destLat || 28.6139),
+            start_lng: latestPing ? latestPing.longitude : (destLng || 77.2090),
+            destination_lat: destLat,
+            destination_lng: destLng,
             locationHistory: latestPing ? [latestPing] : [],
             latestLocation: latestPing,
-            address: dest?.address || 'Assigned location',
+            address: destAddress,
           };
         }
       }
@@ -260,6 +269,11 @@ const AdminTrackingScreen = () => {
             timestamp: incomingTimestamp,
           };
 
+          // Pick up destination data from Socket.IO pings (for custom journeys)
+          const incomingDestLat = loc.destination_lat != null ? Number(loc.destination_lat) : null;
+          const incomingDestLng = loc.destination_lng != null ? Number(loc.destination_lng) : null;
+          const incomingDestAddr = loc.destination_address || null;
+
           return {
             ...prev,
             [empId]: {
@@ -269,6 +283,10 @@ const AdminTrackingScreen = () => {
                 start_lat: Number(loc.latitude),
                 start_lng: Number(loc.longitude),
               }),
+              // Update destination if new data arrives (custom journey started)
+              ...(incomingDestLat != null ? { destination_lat: incomingDestLat } : {}),
+              ...(incomingDestLng != null ? { destination_lng: incomingDestLng } : {}),
+              ...(incomingDestAddr != null ? { address: incomingDestAddr } : {}),
               latestLocation: updatedPing,
               locationHistory: currentJourney?.locationHistory
                 ? [...currentJourney.locationHistory, updatedPing]

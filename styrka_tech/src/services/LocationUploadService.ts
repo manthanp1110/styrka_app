@@ -24,6 +24,19 @@ class LocationUploadService {
         return;
       }
 
+      const rawJourney = await AsyncStorage.getItem('active_journey');
+      let destLat: number | undefined = undefined;
+      let destLng: number | undefined = undefined;
+      let destAddr: string | undefined = undefined;
+      if (rawJourney) {
+        try {
+          const j = JSON.parse(rawJourney);
+          if (j.destination_lat != null) destLat = Number(j.destination_lat);
+          if (j.destination_lng != null) destLng = Number(j.destination_lng);
+          if (j.address) destAddr = j.address;
+        } catch (e) {}
+      }
+
       while (size > 0) {
         const batch = await TelemetryQueue.peekAll(100);
         if (batch.length === 0) break;
@@ -35,6 +48,9 @@ class LocationUploadService {
           longitude: latestItem.longitude,
           heading: latestItem.heading,
           speed: latestItem.speed,
+          destination_lat: destLat,
+          destination_lng: destLng,
+          destination_address: destAddr,
         });
 
         await TelemetryQueue.dequeueBatch(batch.length);

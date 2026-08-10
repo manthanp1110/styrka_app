@@ -103,7 +103,7 @@ const LoginScreen = () => {
             <Text style={styles.inputLabel}>Email or Username</Text>
             <TextInput 
               style={styles.input}
-              placeholder="admin@styrka.com or rahul@styrka.com"
+              placeholder="manthanpandhare1110@gmail.com"
               placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}

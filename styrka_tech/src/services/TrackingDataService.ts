@@ -38,8 +38,8 @@ const DEFAULT_EMPLOYEES: User[] = [
 
 const DEFAULT_ADMIN: User = {
   id: 'admin_1',
-  name: 'Admin Manager',
-  email: 'admin@styrka.com',
+  name: 'Manthan Pandhare',
+  email: 'manthanpandhare1110@gmail.com',
   role: 'admin',
 };
 

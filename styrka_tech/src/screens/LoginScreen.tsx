@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAppState } from '../store/useAppState';
 import { TrackingDataService } from '../services/TrackingDataService';
 
@@ -52,35 +52,35 @@ const LoginScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0F4C3A]">
+    <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 justify-center px-6"
+        style={styles.keyboardContainer}
       >
         {/* Header Section */}
-        <View className="items-center mb-8 mt-10">
-          <View className="w-20 h-20 rounded-2xl bg-amber-500 items-center justify-center mb-4 shadow-lg border-2 border-amber-600">
-             <Text className="text-white text-3xl font-extrabold">S</Text>
+        <View style={styles.header}>
+          <View style={styles.logoBadge}>
+            <Text style={styles.logoText}>S</Text>
           </View>
           
-          <Text className="text-2xl font-extrabold text-white mb-1 tracking-tight">STYRKA Live Tracker</Text>
-          <Text className="text-sm text-emerald-200">Dispatch & Real-time Location Tracking</Text>
+          <Text style={styles.title}>STYRKA Live Tracker</Text>
+          <Text style={styles.subtitle}>Dispatch & Real-time Location Tracking</Text>
         </View>
 
         {/* Login Card */}
-        <View className="bg-white rounded-3xl p-6 shadow-xl w-full mb-6">
-          <Text className="text-xl font-bold text-[#0F4C3A] text-center mb-4">Sign In</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Sign In</Text>
 
           {errorMsg ? (
-            <View className="bg-red-50 border border-red-200 p-3 rounded-xl mb-4">
-              <Text className="text-red-600 text-xs text-center font-medium">{errorMsg}</Text>
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           ) : null}
 
-          <View className="mb-4">
-            <Text className="text-xs font-bold text-gray-700 mb-2 uppercase">Email or Username</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Email or Username</Text>
             <TextInput 
-              className="w-full bg-gray-100 text-gray-900 px-4 py-3.5 rounded-xl text-base"
+              style={styles.input}
               placeholder="admin@styrka.com or rahul@styrka.com"
               placeholderTextColor="#9CA3AF"
               value={email}
@@ -90,10 +90,10 @@ const LoginScreen = () => {
             />
           </View>
 
-          <View className="mb-6">
-            <Text className="text-xs font-bold text-gray-700 mb-2 uppercase">Password</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Password</Text>
             <TextInput 
-              className="w-full bg-gray-100 text-gray-900 px-4 py-3.5 rounded-xl text-base"
+              style={styles.input}
               placeholder="••••••••"
               placeholderTextColor="#9CA3AF"
               value={password}
@@ -103,41 +103,41 @@ const LoginScreen = () => {
           </View>
 
           <TouchableOpacity 
-            className={`w-full py-4 rounded-xl items-center mb-4 flex-row justify-center ${isLoading ? 'bg-emerald-400' : 'bg-[#0F4C3A] active:bg-emerald-900'}`}
+            style={[styles.loginBtn, isLoading && { backgroundColor: '#34D399' }]}
             onPress={handleLogin}
             disabled={isLoading}
           >
-            {isLoading && <ActivityIndicator color="white" className="mr-2" />}
-            <Text className="text-white text-base font-bold">{isLoading ? 'Signing In...' : 'Log In'}</Text>
+            {isLoading && <ActivityIndicator color="white" style={{ marginRight: 8 }} />}
+            <Text style={styles.loginBtnText}>{isLoading ? 'Signing In...' : 'Log In'}</Text>
           </TouchableOpacity>
 
-          <View className="flex-row items-center my-3">
-            <View className="flex-1 h-[1px] bg-gray-200" />
-            <Text className="mx-3 text-xs text-gray-400 font-semibold">QUICK DEMO ACCESS</Text>
-            <View className="flex-1 h-[1px] bg-gray-200" />
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>QUICK DEMO ACCESS</Text>
+            <View style={styles.dividerLine} />
           </View>
 
-          <View className="flex-row space-x-3 gap-2">
+          <View style={styles.demoButtonsRow}>
             <TouchableOpacity 
-              className="flex-1 bg-amber-500 py-3 rounded-xl items-center"
+              style={[styles.demoBtn, { backgroundColor: '#F59E0B' }]}
               onPress={() => loginAsRole('admin')}
             >
-              <Text className="text-white font-bold text-sm">Admin Portal</Text>
+              <Text style={styles.demoBtnText}>Admin Portal</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="flex-1 bg-emerald-700 py-3 rounded-xl items-center"
+              style={[styles.demoBtn, { backgroundColor: '#047857' }]}
               onPress={() => loginAsRole('employee')}
             >
-              <Text className="text-white font-bold text-sm">Employee Portal</Text>
+              <Text style={styles.demoBtnText}>Employee Portal</Text>
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
       
       {/* Footer */}
-      <View className="pb-6 items-center justify-end">
-        <Text className="text-xs text-emerald-200 font-medium">
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
           © 2026 Styrka Live Tracking System
         </Text>
       </View>
@@ -145,5 +145,161 @@ const LoginScreen = () => {
   );
 };
 
-export default LoginScreen;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0F4C3A',
+  },
+  keyboardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+    marginTop: 20,
+  },
+  logoBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#F59E0B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
 
+    borderWidth: 2,
+    borderColor: '#D97706',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    elevation: 6,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: '800',
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#A7F3D0',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+    width: '100%',
+    marginBottom: 24,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F4C3A',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  input: {
+    width: '100%',
+    backgroundColor: '#F3F4F6',
+    color: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    fontSize: 16,
+  },
+  loginBtn: {
+    width: '100%',
+    backgroundColor: '#0F4C3A',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  loginBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+  demoButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  demoBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  demoBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  footer: {
+    paddingBottom: 24,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#A7F3D0',
+    fontWeight: '500',
+  },
+});
+
+export default LoginScreen;

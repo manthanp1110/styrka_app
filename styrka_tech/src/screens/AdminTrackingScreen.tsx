@@ -169,13 +169,6 @@ const AdminTrackingScreen = () => {
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lng : null,
   ]);
 
-  const fetchTrackingData = async () => {
-    setIsRefreshing(true);
-    try {
-      const usersData = await TrackingDataService.getEmployees();
-      const allLocations = await TrackingDataService.getAllLiveLocations();
-      const allDestinations = await TrackingDataService.getAllDestinations();
-
   // Helper: Resolve journey using emp.id -> emp.email -> live_locations.user_id -> null
   const resolveEmployeeJourney = (emp: any, journeysMap: Record<string, any>) => {
     if (!emp) return null;
@@ -202,6 +195,7 @@ const AdminTrackingScreen = () => {
   };
 
   const fetchTrackingData = async () => {
+    setIsRefreshing(true);
     try {
       const usersData = await TrackingDataService.getEmployees();
       const allLocations = await TrackingDataService.getAllLiveLocations();
@@ -345,7 +339,7 @@ const AdminTrackingScreen = () => {
               : [updatedPing],
           };
 
-          const nextMap = {
+          const nextMap: Record<string, any> = {
             ...prev,
             [primaryEmpId]: updatedJourney,
           };

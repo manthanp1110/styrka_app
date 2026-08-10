@@ -166,52 +166,84 @@ const EmployeeTrackingScreen = () => {
           }
         } catch {}
 
-        // Robust multi-tier location retriever
+        // Freshness & Accuracy Location Validator (Max age 15 seconds, max accuracy 100m)
+        const validateAndLogLocation = (loc: any, source: string): { latitude: number; longitude: number } | null => {
+          if (!loc || !loc.coords || loc.coords.latitude == null || loc.coords.longitude == null) return null;
+
+          const lat = Number(loc.coords.latitude);
+          const lng = Number(loc.coords.longitude);
+          const accuracy = loc.coords.accuracy != null ? Number(loc.coords.accuracy) : null;
+          const timestamp = loc.timestamp ? new Date(loc.timestamp).getTime() : Date.now();
+          const locationAgeMs = Math.abs(Date.now() - timestamp);
+          const isFresh = locationAgeMs <= 15000;
+          const isAccurate = accuracy == null || accuracy <= 100;
+
+          console.log(`[GPS LOCATION AUDIT - ${source}]`, {
+            lat,
+            lng,
+            accuracy: accuracy ? `${accuracy.toFixed(1)}m` : 'unknown',
+            altitude: loc.coords.altitude,
+            speed: loc.coords.speed,
+            heading: loc.coords.heading,
+            timestamp: new Date(timestamp).toISOString(),
+            locationAgeMs: `${(locationAgeMs / 1000).toFixed(1)}s`,
+            classification: isFresh && isAccurate ? 'FRESH' : (!isFresh ? 'STALE' : 'LOW_ACCURACY'),
+          });
+
+          if (!isAccurate) {
+            console.warn(`[GPS AUDIT] Rejected ${source} location: accuracy ${accuracy}m > 100m threshold`);
+            return null;
+          }
+
+          if (!isFresh && source !== 'LastKnownCache') {
+            console.warn(`[GPS AUDIT] Rejected ${source} location: age ${(locationAgeMs / 1000).toFixed(1)}s > 15s threshold`);
+            return null;
+          }
+
+          return { latitude: lat, longitude: lng };
+        };
+
         const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
           // Attempt 1: High accuracy GPS satellite chip
           try {
             const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 5000);
-            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-            }
+            const valid = validateAndLogLocation(loc, 'HighAccuracyGPS');
+            if (valid) return valid;
           } catch (e) {}
 
           // Attempt 2: Balanced Network / Cell Tower / Wi-Fi
           try {
             const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 5000);
-            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-            }
+            const valid = validateAndLogLocation(loc, 'BalancedNetwork');
+            if (valid) return valid;
           } catch (e) {}
 
           // Attempt 3: OS default without accuracy constraints
           try {
             const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({}), 5000);
-            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-            }
+            const valid = validateAndLogLocation(loc, 'DefaultOS');
+            if (valid) return valid;
           } catch (e) {}
 
           // Attempt 4: Last known OS cached position
           try {
             const lastLoc = await Location.getLastKnownPositionAsync();
-            if (lastLoc && lastLoc.coords && lastLoc.coords.latitude && lastLoc.coords.longitude) {
-              return { latitude: lastLoc.coords.latitude, longitude: lastLoc.coords.longitude };
-            }
+            const valid = validateAndLogLocation(lastLoc, 'LastKnownCache');
+            if (valid) return valid;
           } catch (e) {}
 
           return null;
         };
 
         const initialLoc = await getDeviceLocation();
-        const finalLat: number = initialLoc ? initialLoc.latitude : (Number(assigned.latitude) - 0.015);
-        const finalLng: number = initialLoc ? initialLoc.longitude : (Number(assigned.longitude) - 0.015);
+        const startLat = initialLoc ? initialLoc.latitude : Number(assigned.latitude);
+        const startLng = initialLoc ? initialLoc.longitude : Number(assigned.longitude);
 
         const newJourney = {
           id: `j_${user.id || 'emp_1'}`,
           user_id: user.id || 'emp_1',
-          start_lat: finalLat,
-          start_lng: finalLng,
+          start_lat: startLat,
+          start_lng: startLng,
           destination_lat: Number(assigned.latitude),
           destination_lng: Number(assigned.longitude),
           address: assigned.address,
@@ -219,9 +251,10 @@ const EmployeeTrackingScreen = () => {
           created_at: new Date().toISOString(),
         };
 
-        // Render map INSTANTLY
         setActiveJourney(newJourney);
-        setCurrentLocation({ latitude: finalLat, longitude: finalLng });
+        if (initialLoc) {
+          setCurrentLocation(initialLoc);
+        }
         setIsLoading(false);
 
         // Asynchronously re-verify GPS position in background
@@ -256,7 +289,7 @@ const EmployeeTrackingScreen = () => {
         AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
         SocketService.connect(user.id || 'emp_1', 'employee');
         setupTracking(newJourney.id);
-        fetchRoute(finalLat, finalLng, Number(assigned.latitude), Number(assigned.longitude));
+        fetchRoute(startLat, startLng, Number(assigned.latitude), Number(assigned.longitude));
         return;
       }
 

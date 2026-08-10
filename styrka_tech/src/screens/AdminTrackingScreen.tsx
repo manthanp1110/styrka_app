@@ -149,6 +149,18 @@ const AdminTrackingScreen = () => {
         const loc = allLocations[emp.id];
         const dest = allDestinations.find((d) => d.employee_id === emp.id && d.status !== 'completed');
 
+        // Prevent older database poll from overwriting newer live Socket.IO pings
+        const existingJourney = activeJourneys[emp.id];
+        const existingTime = existingJourney?.latestLocation?.timestamp
+          ? new Date(existingJourney.latestLocation.timestamp).getTime()
+          : 0;
+        const fetchedTime = loc?.timestamp ? new Date(loc.timestamp).getTime() : 0;
+
+        if (existingTime > fetchedTime && existingJourney?.latestLocation) {
+          journeyMap[emp.id] = existingJourney;
+          continue;
+        }
+
         if (loc || dest) {
           const latestPing = loc ? {
             latitude: Number(loc.latitude),
@@ -198,6 +210,19 @@ const AdminTrackingScreen = () => {
         setActiveJourneys((prev) => {
           const empId = loc.employee_id;
           const currentJourney = prev[empId];
+
+          const incomingTimestamp = loc.timestamp || new Date().toISOString();
+          const incomingTime = new Date(incomingTimestamp).getTime();
+          const existingTime = currentJourney?.latestLocation?.timestamp
+            ? new Date(currentJourney.latestLocation.timestamp).getTime()
+            : 0;
+
+          // Ignore out-of-order stale location broadcasts
+          if (existingTime > 0 && incomingTime < existingTime) {
+            console.warn(`[Socket.IO AUDIT] Discarded out-of-order ping for ${empId}: incoming ${incomingTime} < existing ${existingTime}`);
+            return prev;
+          }
+
           const updatedPing = {
             user_id: empId,
             latitude: Number(loc.latitude),
@@ -205,7 +230,7 @@ const AdminTrackingScreen = () => {
             heading: Number(loc.heading || 0),
             speed: Number(loc.speed || 0),
             status: 'online',
-            timestamp: loc.timestamp || new Date().toISOString(),
+            timestamp: incomingTimestamp,
           };
 
           return {

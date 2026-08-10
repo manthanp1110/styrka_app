@@ -343,7 +343,9 @@ export class TrackingDataService {
     heading?: number;
     speed?: number;
   }): Promise<void> {
+    const timestamp = new Date().toISOString();
     try {
+      // 1. Local storage cache
       const raw = await AsyncStorage.getItem(LOCATIONS_KEY);
       let locMap: Record<string, LiveLocation> = raw ? JSON.parse(raw) : {};
 
@@ -354,11 +356,30 @@ export class TrackingDataService {
         heading: location.heading || 0,
         speed: location.speed || 0,
         status: 'online',
-        timestamp: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        timestamp,
+        updated_at: timestamp,
       };
 
       await AsyncStorage.setItem(LOCATIONS_KEY, JSON.stringify(locMap));
+
+      // 2. Remote Supabase `public.live_locations` table upsert
+      try {
+        await supabase
+          .from('live_locations')
+          .upsert([
+            {
+              user_id: String(location.userId),
+              latitude: location.latitude,
+              longitude: location.longitude,
+              heading: location.heading || 0,
+              speed: location.speed || 0,
+              status: 'online',
+              updated_at: timestamp,
+            },
+          ], { onConflict: 'user_id' });
+      } catch (err) {
+        console.warn('[TrackingDataService] Supabase live_locations upsert error:', err);
+      }
     } catch (e) {
       console.error('[TrackingDataService] Error updating live location', e);
     }
@@ -366,6 +387,28 @@ export class TrackingDataService {
 
   // Get live location for employee
   static async getLiveLocation(userId: string): Promise<LiveLocation | null> {
+    try {
+      // Try Supabase first
+      const { data } = await supabase
+        .from('live_locations')
+        .select('*')
+        .eq('user_id', String(userId))
+        .maybeSingle();
+
+      if (data) {
+        return {
+          user_id: String(data.user_id),
+          latitude: Number(data.latitude),
+          longitude: Number(data.longitude),
+          heading: Number(data.heading || 0),
+          speed: Number(data.speed || 0),
+          status: data.status || 'online',
+          timestamp: data.updated_at || new Date().toISOString(),
+          updated_at: data.updated_at || new Date().toISOString(),
+        };
+      }
+    } catch {}
+
     try {
       const raw = await AsyncStorage.getItem(LOCATIONS_KEY);
       if (!raw) return null;
@@ -378,11 +421,41 @@ export class TrackingDataService {
 
   // Get all live locations map
   static async getAllLiveLocations(): Promise<Record<string, LiveLocation>> {
+    const resultMap: Record<string, LiveLocation> = {};
+
+    // 1. Read local storage cache
     try {
       const raw = await AsyncStorage.getItem(LOCATIONS_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
+      if (raw) {
+        const localMap = JSON.parse(raw);
+        Object.assign(resultMap, localMap);
+      }
+    } catch {}
+
+    // 2. Merge latest from Supabase
+    try {
+      const { data, error } = await supabase
+        .from('live_locations')
+        .select('*');
+
+      if (!error && data && data.length > 0) {
+        data.forEach((row: any) => {
+          resultMap[String(row.user_id)] = {
+            user_id: String(row.user_id),
+            latitude: Number(row.latitude),
+            longitude: Number(row.longitude),
+            heading: Number(row.heading || 0),
+            speed: Number(row.speed || 0),
+            status: row.status || 'online',
+            timestamp: row.updated_at || new Date().toISOString(),
+            updated_at: row.updated_at || new Date().toISOString(),
+          };
+        });
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not fetch remote live_locations:', e);
     }
+
+    return resultMap;
   }
 }

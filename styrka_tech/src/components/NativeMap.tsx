@@ -182,13 +182,18 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
   <script>
     var map = L.map('map', { zoomControl: false }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.round(getZoomFromRegion(activeRegion))});
     
-    var tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    var primaryTile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; Styrka Maps'
     });
 
-    tileLayer.addTo(map);
+    primaryTile.on('tileerror', function() {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(map);
+    });
 
+    primaryTile.addTo(map);
 
     var dataGroup = L.layerGroup().addTo(map);
 
@@ -246,10 +251,13 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ html: htmlContent }}
+        source={{ html: htmlContent, baseUrl: 'https://localhost' }}
         style={styles.map}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        mixedContentMode="always"
+        allowFileAccess={true}
+        allowUniversalAccessFromFileURLs={true}
         scrollEnabled={false}
         overScrollMode="never"
         bounces={false}
@@ -257,6 +265,7 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
     </View>
   );
 });
+
 
 // ──────────────────────────────────────────────
 // Exported MapView

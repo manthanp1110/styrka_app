@@ -29,7 +29,7 @@ const AdminDestinationScreen = () => {
   }, []);
 
   const fetchEmployees = async () => {
-    const list = TrackingDataService.getEmployees();
+    const list = await TrackingDataService.getEmployees();
     setEmployees(list);
   };
 

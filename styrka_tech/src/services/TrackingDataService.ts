@@ -278,12 +278,12 @@ export class TrackingDataService {
 
         if (!error && data && data.length > 0) {
           const remoteList: AssignedDestination[] = data.map((d: any) => ({
-            id: d.id,
-            admin_id: d.admin_id || 'admin_1',
-            employee_id: d.employee_id || 'emp_1',
-            address: d.address,
-            latitude: d.latitude,
-            longitude: d.longitude,
+            id: String(d.id),
+            admin_id: d.admin_id ? String(d.admin_id) : 'admin_1',
+            employee_id: d.employee_id ? String(d.employee_id) : 'emp_1',
+            address: d.address || '',
+            latitude: Number(d.latitude),
+            longitude: Number(d.longitude),
             status: d.status || 'pending',
             created_at: d.created_at || new Date().toISOString(),
           }));
@@ -303,6 +303,7 @@ export class TrackingDataService {
   // Get destinations for specific employee
   static async getEmployeeDestinations(employeeId: string): Promise<AssignedDestination[]> {
     const all = await this.getAllDestinations();
+    if (all.length === 0) return [];
     if (!employeeId) return all;
 
     const cleanId = employeeId.trim().toLowerCase();
@@ -310,17 +311,17 @@ export class TrackingDataService {
     // Filter matching employee ID, email, or name
     const filtered = all.filter((d) => {
       const empTarget = (d.employee_id || '').toLowerCase();
+      if (!empTarget) return true;
       return (
         empTarget === cleanId ||
         empTarget.includes(cleanId) ||
-        cleanId.includes(empTarget) ||
-        empTarget === 'emp_1'
+        cleanId.includes(empTarget)
       );
     });
 
     if (filtered.length > 0) return filtered;
     
-    // Fallback: return all destinations if none specifically matched
+    // Fallback: return all destinations so employee receives assigned task
     return all;
   }
 

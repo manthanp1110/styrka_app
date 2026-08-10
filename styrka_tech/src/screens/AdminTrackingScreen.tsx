@@ -76,6 +76,10 @@ const AdminTrackingScreen = () => {
   // selectedEmployeeId !== null -> show Map for this employee
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [currentRouteCoords, setCurrentRouteCoords] = useState<any[]>([]);
+  const [routeDistance, setRouteDistance] = useState<number | null>(null);
+  const [routeDuration, setRouteDuration] = useState<number | null>(null);
+  const lastRouteFetchRef = useRef<number>(0);
+  const routeFetchingRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!selectedEmployeeId && employees.length > 0) {
@@ -84,23 +88,39 @@ const AdminTrackingScreen = () => {
     }
   }, [employees]);
 
+  // Clear route when switching employees
+  useEffect(() => {
+    setCurrentRouteCoords([]);
+    setRouteDistance(null);
+    setRouteDuration(null);
+    lastRouteFetchRef.current = 0;
+  }, [selectedEmployeeId]);
+
   useEffect(() => {
     if (selectedEmployeeId && activeJourneys[selectedEmployeeId]) {
       const journey = activeJourneys[selectedEmployeeId];
       if (journey.destination_lat != null && journey.destination_lng != null) {
-        const fetchRoute = async () => {
+        const originLat = journey.latestLocation?.latitude != null
+          ? Number(journey.latestLocation.latitude)
+          : Number(journey.start_lat);
+        const originLng = journey.latestLocation?.longitude != null
+          ? Number(journey.latestLocation.longitude)
+          : Number(journey.start_lng);
+        const destLat = Number(journey.destination_lat);
+        const destLng = Number(journey.destination_lng);
+
+        if (!originLat || !originLng || !destLat || !destLng) return;
+
+        // Throttle route API calls to every 10 seconds
+        const now = Date.now();
+        if (now - lastRouteFetchRef.current < 10000 && currentRouteCoords.length > 0) return;
+        if (routeFetchingRef.current) return;
+
+        routeFetchingRef.current = true;
+        lastRouteFetchRef.current = now;
+
+        (async () => {
           try {
-            const originLat = journey.latestLocation?.latitude != null
-              ? Number(journey.latestLocation.latitude)
-              : Number(journey.start_lat);
-            const originLng = journey.latestLocation?.longitude != null
-              ? Number(journey.latestLocation.longitude)
-              : Number(journey.start_lng);
-            const destLat = Number(journey.destination_lat);
-            const destLng = Number(journey.destination_lng);
-
-            if (!originLat || !originLng || !destLat || !destLng) return;
-
             const res = await MapplsApi.direction({
               origin: `${originLng},${originLat}`,
               destination: `${destLng},${destLat}`,
@@ -109,24 +129,37 @@ const AdminTrackingScreen = () => {
               geometries: 'polyline'
             });
 
-            if (res && res.routes && res.routes.length > 0 && res.routes[0].geometry) {
+            if (res?.routes?.length > 0 && res.routes[0].geometry) {
               const decodedCoords = decodePolyline(res.routes[0].geometry);
               setCurrentRouteCoords(decodedCoords);
+              setRouteDistance(res.routes[0].distance ? res.routes[0].distance / 1000 : null);
+              setRouteDuration(res.routes[0].duration ? res.routes[0].duration / 60 : null);
             } else {
               // Fallback: straight line
               setCurrentRouteCoords([
                 { latitude: originLat, longitude: originLng },
                 { latitude: destLat, longitude: destLng },
               ]);
+              // Compute straight-line distance
+              setRouteDistance(getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng));
+              setRouteDuration(null);
             }
           } catch (e) {
             console.log('Mappls routing error', e);
+            // On error, draw straight line so polyline is always visible
+            setCurrentRouteCoords([
+              { latitude: originLat, longitude: originLng },
+              { latitude: destLat, longitude: destLng },
+            ]);
+          } finally {
+            routeFetchingRef.current = false;
           }
-        };
-        fetchRoute();
+        })();
       }
     } else {
       setCurrentRouteCoords([]);
+      setRouteDistance(null);
+      setRouteDuration(null);
     }
   }, [
     selectedEmployeeId,
@@ -134,7 +167,6 @@ const AdminTrackingScreen = () => {
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.longitude : null,
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lat : null,
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lng : null,
-    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.start_lat : null,
   ]);
 
   const fetchTrackingData = async () => {
@@ -540,11 +572,16 @@ const AdminTrackingScreen = () => {
                 {/* Rider Position Pointer Info */}
                 <View style={{ flex: 1, paddingLeft: 12, justifyContent: 'center' }}>
                   <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 16 }}>
-                    {selectedEmp?.name || 'Rider'} Position
+                    {selectedEmp?.name || 'Rider'}
                   </Text>
                   <Text style={{ color: '#3B82F6', fontSize: 12, marginTop: 2, fontWeight: '700' }}>
                     📍 {selectedJourney?.latestLocation?.latitude ? `${Number(selectedJourney.latestLocation.latitude).toFixed(4)}°N, ${Number(selectedJourney.latestLocation.longitude).toFixed(4)}°E` : 'Locating rider...'}
                   </Text>
+                  {selectedJourney?.address && (
+                    <Text style={{ color: '#6B7280', fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                      🏁 Dest: {selectedJourney.address}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Recenter Map Button */}
@@ -566,6 +603,34 @@ const AdminTrackingScreen = () => {
                   <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 13 }}>Recenter</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Route Stats Row */}
+              {(routeDistance != null || routeDuration != null) && (
+                <View style={{ flexDirection: 'row', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+                  {routeDistance != null && (
+                    <View style={{ flex: 1, alignItems: 'center' }}>
+                      <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600' }}>DISTANCE</Text>
+                      <Text style={{ color: '#111827', fontSize: 16, fontWeight: 'bold', marginTop: 2 }}>
+                        {routeDistance.toFixed(1)} km
+                      </Text>
+                    </View>
+                  )}
+                  {routeDuration != null && (
+                    <View style={{ flex: 1, alignItems: 'center' }}>
+                      <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600' }}>ETA</Text>
+                      <Text style={{ color: '#111827', fontSize: 16, fontWeight: 'bold', marginTop: 2 }}>
+                        {Math.round(routeDuration)} min
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600' }}>STATUS</Text>
+                    <Text style={{ color: selectedJourney?.latestLocation ? '#10B981' : '#F59E0B', fontSize: 16, fontWeight: 'bold', marginTop: 2 }}>
+                      {selectedJourney?.latestLocation ? '● LIVE' : '○ Waiting'}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           </View>
         )}

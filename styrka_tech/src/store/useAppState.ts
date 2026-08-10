@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { supabase } from '../config/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TrackingDataService } from '../services/TrackingDataService';
 
-// Define the possible roles for RBAC
 export type UserRole = 'admin' | 'employee' | null;
 
 interface AppState {
@@ -9,6 +9,7 @@ interface AppState {
     id: string | null;
     name: string | null;
     role: UserRole;
+    email: string | null;
   };
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -16,81 +17,61 @@ interface AppState {
   
   // Actions
   checkSession: () => Promise<void>;
-  setSession: (userId: string, role: UserRole, name: string) => void;
+  setSession: (userId: string, role: UserRole, name: string, email?: string) => Promise<void>;
   logout: () => Promise<void>;
   setMoreModalVisible: (visible: boolean) => void;
 }
+
+const AUTH_KEY = '@styrka_auth_user';
 
 export const useAppState = create<AppState>((set, get) => ({
   user: {
     id: null,
     name: null,
     role: null,
+    email: null,
   },
   isAuthenticated: false,
-  isLoading: true, // start loading while checking session
+  isLoading: true,
   isMoreModalVisible: false,
 
   checkSession: async () => {
     set({ isLoading: true });
     try {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.warn('[Auth] Stale refresh token encountered, signing out:', sessionError.message);
-        await supabase.auth.signOut().catch(() => {});
-        set({ isAuthenticated: false, user: { id: null, name: null, role: null }, isLoading: false });
-        return;
-      }
-
-      const session = data?.session;
-      if (session?.user) {
-        // Fetch role from users table
-        const { data: userData, error } = await supabase
-          .from('users')
-          .select('role, name, first_name')
-          .eq('email', session.user.email)
-          .single();
-
-        if (!error && userData) {
-          const displayName = userData.name || userData.first_name || session.user.email?.split('@')[0] || 'User';
-          
-          set({
-            user: {
-              id: session.user.id,
-              name: displayName,
-              role: userData.role as UserRole,
-            },
-            isAuthenticated: true,
-          });
-        } else {
-          await supabase.auth.signOut();
-          set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
-        }
+      const raw = await AsyncStorage.getItem(AUTH_KEY);
+      if (raw) {
+        const savedUser = JSON.parse(raw);
+        set({
+          user: savedUser,
+          isAuthenticated: true,
+        });
       } else {
-        set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
+        set({ isAuthenticated: false, user: { id: null, name: null, role: null, email: null } });
       }
     } catch (e) {
       console.error('Session check failed', e);
-      await supabase.auth.signOut();
-      set({ isAuthenticated: false, user: { id: null, name: null, role: null } });
+      set({ isAuthenticated: false, user: { id: null, name: null, role: null, email: null } });
     } finally {
       set({ isLoading: false });
     }
   },
 
-  setSession: (userId, role, name) => {
+  setSession: async (userId, role, name, email) => {
+    const userObj = { id: userId, role, name, email: email || '' };
+    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userObj));
+    await AsyncStorage.setItem('active_tracking_user_id', userId);
     set({
-      user: { id: userId, role, name },
+      user: userObj,
       isAuthenticated: true,
     });
   },
 
   logout: async () => {
     set({ isLoading: true });
-    await supabase.auth.signOut();
+    await AsyncStorage.removeItem(AUTH_KEY);
+    await AsyncStorage.removeItem('active_tracking_user_id');
     set({
-      user: { id: null, name: null, role: null },
+      user: { id: null, name: null, role: null, email: null },
       isAuthenticated: false,
       isLoading: false,
     });

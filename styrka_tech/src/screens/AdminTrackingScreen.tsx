@@ -4,11 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
-import { supabase } from '../config/supabase';
+import { TrackingDataService } from '../services/TrackingDataService';
 import { MapView, Marker, Callout, Polyline } from '../components/NativeMap';
 import { decodePolyline, getDistanceFromLatLonInKm } from '../utils/mapsUtils';
 import { useSmoothLocation } from '../hooks/useSmoothLocation';
 import MapplsApi from '../utils/mapplsApi';
+
 
 const AnimatedVehicleMarker = ({ latestLocation, selectedEmp }: any) => {
   const empName = selectedEmp?.name || selectedEmp?.first_name || 'Employee';
@@ -104,69 +105,38 @@ const AdminTrackingScreen = () => {
   const fetchTrackingData = async () => {
     setIsRefreshing(true);
     try {
-      // 1. Fetch all employees
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, name, email, first_name')
-        .eq('role', 'employee');
-      
-      if (usersError) throw usersError;
-      
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      const usersData = TrackingDataService.getEmployees();
+      const allLocations = await TrackingDataService.getAllLiveLocations();
+      const allDestinations = await TrackingDataService.getAllDestinations();
 
-      // 2. Fetch today's attendance for all employees
-      const { data: attendanceData } = await supabase
-        .from('daily_attendance')
-        .select('*')
-        .gte('created_at', todayStart.toISOString())
-        .order('created_at', { ascending: false });
-
-      const attendanceMap: any = {};
-      (attendanceData || []).forEach(record => {
-        if (!attendanceMap[record.user_id]) attendanceMap[record.user_id] = record;
-      });
-
-      // 3. Fetch active journeys
-      const { data: journeysData } = await supabase
-        .from('journeys')
-        .select('*')
-        .eq('status', 'active');
-        
       const journeyMap: any = {};
-      
-      await Promise.all((journeysData || []).map(async (j) => {
-        // fetch their location history
-        // Allow up to 15 mins of clock skew from the device
-        const journeyStart = new Date(j.created_at);
-        journeyStart.setMinutes(journeyStart.getMinutes() - 15);
+      for (const emp of usersData) {
+        const loc = allLocations[emp.id];
+        const dest = allDestinations.find((d) => d.employee_id === emp.id && d.status !== 'completed');
 
-        const { data: pings } = await supabase
-          .from('employee_locations')
-          .select('*')
-          .eq('user_id', j.user_id)
-          .gte('timestamp', journeyStart.toISOString())
-          .order('timestamp', { ascending: true });
-          
-        const startNode = {
-          latitude: j.start_lat,
-          longitude: j.start_lng,
-          timestamp: j.created_at,
-          status: 'Started'
-        };
-        
-        const history = [startNode, ...(pings || [])];
-        const latestPing = pings && pings.length > 0 ? pings[pings.length - 1] : startNode;
-        
-        journeyMap[j.user_id] = {
-           ...j,
-           locationHistory: history,
-           latestLocation: latestPing
-        };
-      }));
+        if (loc || dest) {
+          const latestPing = loc || {
+            latitude: dest?.latitude || 28.6139,
+            longitude: dest?.longitude || 77.2090,
+            status: 'online',
+            timestamp: new Date().toISOString(),
+          };
+
+          journeyMap[emp.id] = {
+            id: `j_${emp.id}`,
+            user_id: emp.id,
+            start_lat: 28.6139,
+            start_lng: 77.2090,
+            destination_lat: dest?.latitude || 28.6139,
+            destination_lng: dest?.longitude || 77.2090,
+            locationHistory: [latestPing],
+            latestLocation: latestPing,
+            address: dest?.address || 'Assigned location',
+          };
+        }
+      }
 
       setEmployees(usersData || []);
-      setDailyAttendance(attendanceMap);
       setActiveJourneys(journeyMap);
     } catch (e) {
       console.error(e);
@@ -178,67 +148,13 @@ const AdminTrackingScreen = () => {
 
   useEffect(() => {
     fetchTrackingData();
-    
-    let isMounted = true;
+    const interval = setInterval(() => {
+      fetchTrackingData();
+    }, 4000);
 
-    // Subscriptions array to manage cleanup
-    const subscriptions: any[] = [];
-
-    // 1. Subscribe to Live Journeys
-    const journeysSubscription = supabase
-      .channel('live-journeys')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'journeys' }, () => {
-        fetchTrackingData();
-      })
-      .subscribe();
-      
-    subscriptions.push(journeysSubscription);
-
-    // 2. Subscribe to Employee Live Locations
-    const locationsSubscription = supabase
-      .channel('live-locations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_live_locations' }, (payload: any) => {
-        if (!isMounted) return;
-        
-        const newLocation = payload.new;
-        if (!newLocation || !newLocation.employee_id) return;
-        
-        setActiveJourneys(current => {
-          const empId = newLocation.employee_id;
-          if (!current[empId]) return current;
-          
-          const journey = current[empId];
-          
-          const normalizedLoc = {
-            user_id: empId,
-            latitude: Number(newLocation.latitude || newLocation.snapped_latitude || newLocation.raw_latitude),
-            longitude: Number(newLocation.longitude || newLocation.snapped_longitude || newLocation.raw_longitude),
-            status: newLocation.status || 'online',
-            timestamp: newLocation.updated_at,
-            accuracy: newLocation.accuracy,
-            speed: newLocation.speed,
-            heading: newLocation.heading,
-          };
-
-          return {
-            ...current,
-            [empId]: {
-              ...journey,
-              locationHistory: [...(journey.locationHistory || []), normalizedLoc],
-              latestLocation: normalizedLoc
-            }
-          };
-        });
-      })
-      .subscribe();
-      
-    subscriptions.push(locationsSubscription);
-
-    return () => {
-      isMounted = false;
-      subscriptions.forEach(sub => supabase.removeChannel(sub));
-    };
+    return () => clearInterval(interval);
   }, []);
+
 
   const getEmployeeStatus = (empId: string) => {
     const attendance = dailyAttendance[empId];

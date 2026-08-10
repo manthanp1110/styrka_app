@@ -1,156 +1,39 @@
 import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { navigationRef } from './navigationRef';
 import { useAppState } from '../store/useAppState';
-import EmployeeDashboard from '../screens/EmployeeDashboard';
-import AdminDashboard from '../screens/AdminDashboard';
 import LoginScreen from '../screens/LoginScreen';
-import MoreOptionsModal from '../components/MoreOptionsModal';
-import AddEmployeeScreen from '../screens/AddEmployeeScreen';
-import AttendanceScreen from '../screens/AttendanceScreen';
-import OrdersScreen from '../screens/OrdersScreen';
-import EmployeeDirectoryScreen from '../screens/EmployeeDirectoryScreen';
-import EmployeeProfileScreen from '../screens/EmployeeProfileScreen';
-import LeaveRequestsScreen from '../screens/LeaveRequestsScreen';
-import AssignTaskScreen from '../screens/AssignTaskScreen';
-import ChatScreen from '../screens/ChatScreen';
-import EmployeeChatScreen from '../screens/EmployeeChatScreen';
-import EmployeeAttendanceScreen from '../screens/EmployeeAttendanceScreen';
-import EmployeeLeaveScreen from '../screens/EmployeeLeaveScreen';
-import EmployeeFarmersScreen from '../screens/EmployeeFarmersScreen';
-import EmployeeDealersScreen from '../screens/EmployeeDealersScreen';
-import FarmersScreen from '../screens/FarmersScreen';
-import DealersScreen from '../screens/DealersScreen';
 import AdminDestinationScreen from '../screens/AdminDestinationScreen';
+import AdminTrackingScreen from '../screens/AdminTrackingScreen';
 import EmployeeDestinationScreen from '../screens/EmployeeDestinationScreen';
 import EmployeeTrackingScreen from '../screens/EmployeeTrackingScreen';
-import AdminTrackingScreen from '../screens/AdminTrackingScreen';
-import LogDeliveryScreen from '../screens/LogDeliveryScreen';
 
 const Tab = createBottomTabNavigator();
 
-const DummyScreen = ({ title }: { title?: string }) => (
-  <View className="flex-1 justify-center items-center bg-[#F3F4F6]">
-    <Text className="text-2xl font-bold text-[#111827]">{title || 'Coming Soon'}</Text>
-  </View>
-);
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const AdminTabs = () => {
-  const { setMoreModalVisible } = useAppState();
-
+const HeaderRightLogout = () => {
+  const { logout } = useAppState();
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#0F4C3A', // Dark green matching design
-          borderTopWidth: 0,
-          height: 65,
-          paddingBottom: 10,
-          paddingTop: 10,
-        },
-        tabBarActiveTintColor: '#F59E0B', // Orange
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarIcon: ({ color, size, focused }) => {
-          let iconName: any = 'square';
-          let finalColor = color;
-
-          if (route.name === 'Overview') iconName = 'grid';
-          else if (route.name === 'Attendance') iconName = 'calendar';
-          else if (route.name === 'Orders') iconName = 'shopping-cart';
-          else if (route.name === 'Employee' || route.name === 'EmployeeProfile') {
-            iconName = 'users';
-            if (route.name === 'EmployeeProfile') {
-              finalColor = '#F59E0B'; // Keep it orange when in sub-screen
-            }
-          }
-          else if (route.name === 'More' || route.name === 'AddEmployee' || route.name === 'LeaveRequests' || route.name === 'AssignTask' || route.name === 'Chat' || route.name === 'Farmers' || route.name === 'Dealers') {
-            iconName = 'menu';
-            // Force the More icon to be active if we're on a sub-screen
-            if (route.name === 'AddEmployee' || route.name === 'LeaveRequests' || route.name === 'AssignTask' || route.name === 'Chat' || route.name === 'Farmers' || route.name === 'Dealers') {
-              finalColor = '#F59E0B'; 
-            }
-          }
-
-          return <Feather name={iconName} size={22} color={finalColor} />;
-        },
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
-        },
-        tabBarItemStyle: {
-          padding: 2,
-        },
-      })}
-    >
-      <Tab.Screen name="Overview" component={AdminDashboard} />
-      <Tab.Screen name="Attendance" component={AttendanceScreen} />
-      <Tab.Screen name="Orders" component={OrdersScreen} />
-      <Tab.Screen name="Employee" component={EmployeeDirectoryScreen} />
-      <Tab.Screen name="Dealers" component={DealersScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="AdminDestination" component={AdminDestinationScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="EmployeeDestination" component={EmployeeDestinationScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen name="EmployeeTracking" component={EmployeeTrackingScreen} options={{ tabBarItemStyle: { display: 'none' } }} />
-      <Tab.Screen 
-        name="EmployeeProfile" 
-        component={EmployeeProfileScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="LeaveRequests" 
-        component={LeaveRequestsScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="AssignTask" 
-        component={AssignTaskScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="Chat" 
-        component={ChatScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="More" 
-        component={DummyScreen} 
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            setMoreModalVisible(true);
-          },
-        }}
-      />
-      <Tab.Screen 
-        name="AddEmployee" 
-        component={AddEmployeeScreen}
-        options={{ tabBarItemStyle: { display: 'none' } }} // Hide from the actual tab bar
-      />
-      <Tab.Screen 
-        name="Farmers" 
-        component={FarmersScreen}
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-
-      <Tab.Screen 
-        name="AdminTracking" 
-        component={AdminTrackingScreen}
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-    </Tab.Navigator>
+    <TouchableOpacity onPress={logout} style={{ marginRight: 15, padding: 5 }}>
+      <Feather name="log-out" size={20} color="#EF4444" />
+    </TouchableOpacity>
   );
 };
 
-const EmployeeTabs = () => {
-  const { setMoreModalVisible } = useAppState();
+const AdminTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false,
+        headerShown: true,
+        headerStyle: { backgroundColor: '#0F4C3A' },
+        headerTitleStyle: { color: '#FFFFFF', fontWeight: 'bold' },
+        headerRight: () => <HeaderRightLogout />,
         tabBarStyle: {
           backgroundColor: '#0F4C3A',
           borderTopWidth: 0,
@@ -160,85 +43,63 @@ const EmployeeTabs = () => {
         },
         tabBarActiveTintColor: '#F59E0B',
         tabBarInactiveTintColor: '#9CA3AF',
-        tabBarIcon: ({ color, size }) => {
-          let iconName: any = 'square';
-          if (route.name === 'Overview') iconName = 'grid';
-          else if (route.name === 'My Farmers') iconName = 'users';
-          else if (route.name === 'More' || route.name === 'Attendance' || route.name === 'Leave' || route.name === 'Log Delivery' || route.name === 'LiveTracking' || route.name === 'My Dealers' || route.name === 'Chat') {
-            iconName = 'menu';
-          }
-          
+        tabBarIcon: ({ color }) => {
+          let iconName: any = 'map-pin';
+          if (route.name === 'Assign Destination') iconName = 'send';
+          else if (route.name === 'Live Tracking') iconName = 'map';
           return <Feather name={iconName} size={22} color={color} />;
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: '600',
-        },
-        tabBarItemStyle: {
-          padding: 2,
         },
       })}
     >
-      <Tab.Screen name="Overview" component={EmployeeDashboard} />
-      <Tab.Screen name="My Farmers" component={EmployeeFarmersScreen} />
-      <Tab.Screen 
-        name="Attendance" 
-        component={EmployeeAttendanceScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }} 
-      />
-      <Tab.Screen 
-        name="Leave" 
-        component={EmployeeLeaveScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }} 
-      />
-      <Tab.Screen 
-        name="Log Delivery" 
-        component={LogDeliveryScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="LiveTracking" 
-        component={EmployeeTrackingScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="My Dealers" 
-        component={EmployeeDealersScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }}
-      />
-      <Tab.Screen 
-        name="Chat" 
-        component={EmployeeChatScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }} 
-      />
-      <Tab.Screen 
-        name="EmployeeDestination" 
-        component={EmployeeDestinationScreen} 
-        options={{ tabBarItemStyle: { display: 'none' } }} 
-      />
-      <Tab.Screen 
-        name="More" 
-        component={DummyScreen} 
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            setMoreModalVisible(true);
-          },
-        }}
-      />
+      <Tab.Screen name="Assign Destination" component={AdminDestinationScreen} options={{ title: 'Assign Destination' }} />
+      <Tab.Screen name="Live Tracking" component={AdminTrackingScreen} options={{ title: 'Live Employee Tracking' }} />
     </Tab.Navigator>
   );
 };
 
-import * as SplashScreen from 'expo-splash-screen';
-
-SplashScreen.preventAutoHideAsync().catch(() => {});
+const EmployeeTabs = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: true,
+        headerStyle: { backgroundColor: '#0F4C3A' },
+        headerTitleStyle: { color: '#FFFFFF', fontWeight: 'bold' },
+        headerRight: () => <HeaderRightLogout />,
+        tabBarStyle: {
+          backgroundColor: '#0F4C3A',
+          borderTopWidth: 0,
+          height: 65,
+          paddingBottom: 10,
+          paddingTop: 10,
+        },
+        tabBarActiveTintColor: '#F59E0B',
+        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarIcon: ({ color }) => {
+          let iconName: any = 'navigation';
+          if (route.name === 'My Destinations') iconName = 'list';
+          else if (route.name === 'LiveTracking') iconName = 'navigation';
+          return <Feather name={iconName} size={22} color={color} />;
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+      })}
+    >
+      <Tab.Screen name="My Destinations" component={EmployeeDestinationScreen} options={{ title: 'Assigned Destinations' }} />
+      <Tab.Screen name="LiveTracking" component={EmployeeTrackingScreen} options={{ title: 'Start & Track Journey' }} />
+    </Tab.Navigator>
+  );
+};
 
 const AppNavigator = () => {
   const { user, isAuthenticated, isLoading, checkSession } = useAppState();
 
   useEffect(() => {
-    // Safety timer to force hide native splash screen after 1.5 seconds maximum
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
     }, 1500);
@@ -260,9 +121,9 @@ const AppNavigator = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center bg-[#F3F4F6]">
-        <ActivityIndicator size="large" color="#145C44" />
-        <Text className="text-[#333333] mt-4 font-medium">Loading Application...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F4C3A' }}>
+        <ActivityIndicator size="large" color="#F59E0B" />
+        <Text style={{ color: 'white', marginTop: 15, fontWeight: 'bold' }}>Loading Live Tracking App...</Text>
       </View>
     );
   }
@@ -274,7 +135,6 @@ const AppNavigator = () => {
   return (
     <NavigationContainer ref={navigationRef}>
       {user.role === 'admin' ? <AdminTabs /> : <EmployeeTabs />}
-      <MoreOptionsModal />
     </NavigationContainer>
   );
 };

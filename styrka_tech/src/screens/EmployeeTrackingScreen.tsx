@@ -4,8 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppState } from '../store/useAppState';
-import { supabase } from '../config/supabase';
+import { TrackingDataService } from '../services/TrackingDataService';
 import { MapView, Marker, Polyline } from '../components/NativeMap';
+
 import * as Location from 'expo-location';
 import { LOCATION_TASK_NAME } from '../tasks/locationTask';
 import { decodePolyline } from '../utils/mapsUtils';
@@ -147,30 +148,15 @@ const EmployeeTrackingScreen = () => {
   const fetchActiveJourney = async () => {
     setIsLoading(true);
     try {
-      const { data: journey, error } = await supabase
-        .from('journeys')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (!error && journey) {
+      const raw = await AsyncStorage.getItem('active_journey');
+      if (raw) {
+        const journey = JSON.parse(raw);
         setActiveJourney(journey);
-        
-        const { data: pingsData } = await supabase
-          .from('employee_locations')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('timestamp', journey.created_at)
-          .order('timestamp', { ascending: true });
-        
-        setPings(pingsData || []);
-        if (pingsData && pingsData.length > 0) {
-          const lastPing = pingsData[pingsData.length - 1];
-          setCurrentLocation({ latitude: lastPing.latitude, longitude: lastPing.longitude });
-          fetchAddress(lastPing.latitude, lastPing.longitude);
+
+        const loc = await TrackingDataService.getLiveLocation(user.id || 'emp_1');
+        if (loc) {
+          setCurrentLocation({ latitude: loc.latitude, longitude: loc.longitude });
+          fetchAddress(loc.latitude, loc.longitude);
         } else {
           setCurrentLocation({ latitude: journey.start_lat, longitude: journey.start_lng });
           fetchAddress(journey.start_lat, journey.start_lng);
@@ -194,18 +180,6 @@ const EmployeeTrackingScreen = () => {
   useEffect(() => {
     if (user.id) {
       fetchActiveJourney();
-
-      const channel = subscribeToEmployeeLocations(user.id, (newPing) => {
-        if (newPing && newPing.latitude && newPing.longitude) {
-          setPings((prev) => [...prev, newPing]);
-          setCurrentLocation({ latitude: newPing.latitude, longitude: newPing.longitude });
-          fetchAddress(newPing.latitude, newPing.longitude);
-        }
-      });
-
-      return () => {
-        unsubscribeChannel(`locations-${user.id}`);
-      };
     }
   }, [user.id]);
 
@@ -229,9 +203,10 @@ const EmployeeTrackingScreen = () => {
       if (dist < 0.1) {
         const markArrived = async () => {
           try {
-            await supabase.from('journeys').update({ status: 'arrived' }).eq('id', activeJourney.id);
-            setActiveJourney({ ...activeJourney, status: 'arrived' });
-            Alert.alert("Arrival Detected", "You have arrived at your destination! You can now start your visit and complete your task.");
+            const updated = { ...activeJourney, status: 'arrived' };
+            await AsyncStorage.setItem('active_journey', JSON.stringify(updated));
+            setActiveJourney(updated);
+            Alert.alert("Arrival Detected", "You have arrived at your destination! You can now start your visit.");
           } catch (e) {
             console.log('Error setting arrived status:', e);
           }
@@ -240,6 +215,7 @@ const EmployeeTrackingScreen = () => {
       }
     }
   }, [currentLocation, activeJourney, isProcessing]);
+
 
   useEffect(() => {
     return () => {
@@ -289,8 +265,8 @@ const EmployeeTrackingScreen = () => {
   
   const setupTracking = async (journeyId: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = 'local_session';
+
 
 
       const sub = await Location.watchPositionAsync(
@@ -457,27 +433,32 @@ const EmployeeTrackingScreen = () => {
         setIsProcessing(false);
         return;
       }
-      const userId = user.id;
+      const userId = user.id || 'emp_1';
 
-      const { data, error } = await supabase.from('journeys').insert([{
+      const journeyData = {
+        id: `journey_${Date.now()}`,
         user_id: userId,
         status: 'active',
         start_lat: startLat,
         start_lng: startLng,
         destination_lat: destLat,
         destination_lng: destLng,
-      }]).select().single();
-      
-      if (error) throw error;
+        created_at: new Date().toISOString(),
+      };
 
+      await AsyncStorage.setItem('active_journey', JSON.stringify(journeyData));
       await AsyncStorage.setItem('active_tracking_user_id', userId);
-      await AsyncStorage.setItem('active_journey_id', data.id);
+      await AsyncStorage.setItem('active_journey_id', journeyData.id);
 
-      setTrackingSessionId(data.id);
+      if (route.params?.assignedDestination?.id) {
+        await TrackingDataService.updateDestinationStatus(route.params.assignedDestination.id, 'in_progress');
+      }
+
+      setTrackingSessionId(journeyData.id);
       sequenceNumberRef.current = 1;
-      setActiveJourney(data);
+      setActiveJourney(journeyData);
       
-      await setupTracking(data.id);
+      await setupTracking(journeyData.id);
       alert("Journey started! Tracking is active.");
     } catch (e: any) {
       alert("Failed to start journey: " + e.message);
@@ -490,38 +471,19 @@ const EmployeeTrackingScreen = () => {
     if (!activeJourney) return;
     setIsProcessing(true);
     try {
-      // 1. Update journey status to completed
-      const { error } = await supabase.from('journeys').update({
-        status: 'completed',
-        ended_at: new Date().toISOString()
-      }).eq('id', activeJourney.id);
-      
-      if (error) throw error;
-      
+      await AsyncStorage.removeItem('active_journey');
       await AsyncStorage.removeItem('active_tracking_user_id');
       await AsyncStorage.removeItem('active_journey_id');
 
-      // 2. If associated with a task, mark task as completed
-      const taskId = route.params?.selectedTask?.id;
-      if (taskId) {
-        await supabase.from('tasks').update({
-          status: 'Completed'
-        }).eq('id', taskId);
-      }
-
       if (route.params?.assignedDestination?.id) {
-        await supabase.from('assigned_destinations').update({
-          status: 'completed'
-        }).eq('id', route.params.assignedDestination.id);
+        await TrackingDataService.updateDestinationStatus(route.params.assignedDestination.id, 'completed');
       }
       
-      // 3. Stop location watcher
       if (locationSubscription) {
         try { locationSubscription.remove(); } catch (e) {}
         setLocationSubscription(null);
       }
       
-      // 4. STOP BACKGROUND GPS TRACKING
       if (Platform.OS !== 'web') {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log('Stop bg location task error:', e));
       }
@@ -536,12 +498,13 @@ const EmployeeTrackingScreen = () => {
       setPings([]);
       setRouteCoordinates([]);
       setAddress("Locating...");
-      alert("Task & Journey completed successfully. Location tracking has stopped.");
+      alert("Journey completed successfully. Location tracking has stopped.");
       
       navigation.goBack();
     } catch (e: any) {
       alert("Failed to end journey: " + e.message);
     } finally {
+
       setIsProcessing(false);
     }
   };

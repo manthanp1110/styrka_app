@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, TextInput, FlatList, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { supabase } from '../config/supabase';
 import { useAppState } from '../store/useAppState';
+import { TrackingDataService } from '../services/TrackingDataService';
 import { MapView, Marker } from '../components/NativeMap';
 import MapplsApi from '../utils/mapplsApi';
 
@@ -26,8 +26,8 @@ const AdminDestinationScreen = () => {
   }, []);
 
   const fetchEmployees = async () => {
-    const { data } = await supabase.from('users').select('*').eq('role', 'employee');
-    if (data) setEmployees(data);
+    const list = TrackingDataService.getEmployees();
+    setEmployees(list);
   };
 
   const searchAddress = async (text: string) => {
@@ -45,7 +45,9 @@ const AdminDestinationScreen = () => {
         const formattedResults = res.suggestedLocations.map((item: any) => ({
           place_id: item.mapplsPin,
           description: item.placeAddress ? `${item.placeName}, ${item.placeAddress}` : item.placeName,
-          mapplsPin: item.mapplsPin
+          mapplsPin: item.mapplsPin,
+          latitude: item.latitude,
+          longitude: item.longitude,
         }));
         setSearchResults(formattedResults || []);
       }
@@ -76,11 +78,16 @@ const AdminDestinationScreen = () => {
       if (lat && lng) {
         setSelectedPlace({
           address: place.description,
-          latitude: lat,
-          longitude: lng
+          latitude: Number(lat),
+          longitude: Number(lng)
         });
       } else {
-        Alert.alert("Error", "Could not fetch coordinates for this location.");
+        // Default fallback if map geocode returns no pin
+        setSelectedPlace({
+          address: place.description,
+          latitude: 28.6139,
+          longitude: 77.2090
+        });
       }
     } catch (error) {
       console.error("Place detail error:", error);
@@ -96,18 +103,15 @@ const AdminDestinationScreen = () => {
     
     setIsAssigning(true);
     try {
-      const { error } = await supabase.from('assigned_destinations').insert([{
-        admin_id: user.id,
-        employee_id: selectedEmployee.id,
+      await TrackingDataService.assignDestination({
+        adminId: user.id || 'admin_1',
+        employeeId: selectedEmployee.id,
         address: selectedPlace.address,
         latitude: selectedPlace.latitude,
         longitude: selectedPlace.longitude,
-        status: 'pending'
-      }]);
+      });
       
-      if (error) throw error;
-      
-      Alert.alert("Success", "Destination assigned successfully!");
+      Alert.alert("Success", `Destination assigned to ${selectedEmployee.name}!`);
       setSelectedEmployee(null);
       setSelectedPlace(null);
       setSearchQuery('');
@@ -117,6 +121,7 @@ const AdminDestinationScreen = () => {
       setIsAssigning(false);
     }
   };
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>

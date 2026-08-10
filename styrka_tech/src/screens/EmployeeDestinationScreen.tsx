@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { supabase } from '../config/supabase';
 import { useAppState } from '../store/useAppState';
+import { TrackingDataService } from '../services/TrackingDataService';
 
 const EmployeeDestinationScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
@@ -14,23 +14,24 @@ const EmployeeDestinationScreen = () => {
 
   useEffect(() => {
     fetchDestinations();
-  }, []);
+  }, [user.id]);
 
   const fetchDestinations = async () => {
     try {
-      const { data } = await supabase
-        .from('assigned_destinations')
-        .select('*')
-        .eq('employee_id', user.id)
-        .order('created_at', { ascending: false });
-        
-      if (data) setDestinations(data);
+      setIsLoading(true);
+      let data = await TrackingDataService.getEmployeeDestinations(user.id || 'emp_1');
+      if (!data || data.length === 0) {
+        // Fallback to all destinations if user ID is general
+        data = await TrackingDataService.getAllDestinations();
+      }
+      setDestinations(data);
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>

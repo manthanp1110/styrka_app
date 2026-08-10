@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -98,12 +98,20 @@ const EmployeeTabs = () => {
 };
 
 const AppNavigator = () => {
-  const { user, isAuthenticated, checkSession } = useAppState();
+  const { user, isAuthenticated, isLoading, checkSession } = useAppState();
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
     checkSession();
   }, []);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0F4C3A', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#F59E0B" />
+      </View>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginScreen />;

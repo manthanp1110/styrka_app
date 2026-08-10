@@ -31,7 +31,7 @@ export const useAppState = create<AppState>((set, get) => ({
     email: null,
   },
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true,
   isMoreModalVisible: false,
 
   checkSession: async () => {
@@ -83,6 +83,8 @@ export const useAppState = create<AppState>((set, get) => ({
     try {
       await AsyncStorage.removeItem(AUTH_KEY);
       await AsyncStorage.removeItem('active_tracking_user_id');
+      await AsyncStorage.removeItem('active_journey');
+      await AsyncStorage.removeItem('active_journey_id');
     } catch (e) {}
     set({
       user: { id: null, name: null, role: null, email: null },

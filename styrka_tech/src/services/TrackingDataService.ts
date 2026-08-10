@@ -51,7 +51,7 @@ export class TrackingDataService {
   static async getEmployees(): Promise<User[]> {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id, name, email, role')
         .eq('role', 'employee');
       if (error || !data || data.length === 0) {
@@ -73,7 +73,7 @@ export class TrackingDataService {
     try {
       const cleanStr = emailOrId.trim().toLowerCase();
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id, name, email, role')
         .or(`email.eq.${cleanStr},id.eq.${emailOrId}`)
         .limit(1)

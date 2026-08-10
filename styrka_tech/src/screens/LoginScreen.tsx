@@ -20,7 +20,7 @@ const LoginScreen = () => {
     }
     // Fetch profile (name + role) from profiles table
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('users')
       .select('id, name, role, email')
       .eq('id', data.user.id)
       .single();
@@ -57,7 +57,7 @@ const LoginScreen = () => {
     try {
       // Fetch all profiles and pick first one matching the role
       const { data: profiles, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id, name, role, email')
         .eq('role', role)
         .limit(1);

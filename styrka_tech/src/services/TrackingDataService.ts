@@ -36,12 +36,21 @@ const DEFAULT_EMPLOYEES: User[] = [
   { id: 'emp_3', name: 'Amit Kumar', email: 'amit@styrka.com', role: 'employee' },
 ];
 
-const DEFAULT_ADMIN: User = {
-  id: 'admin_1',
-  name: 'Manthan Pandhare',
-  email: 'manthanpandhare1110@gmail.com',
-  role: 'admin',
-};
+const DEFAULT_ADMINS: User[] = [
+  {
+    id: 'admin_1',
+    name: 'Manthan Pandhare',
+    email: 'manthanpandhare1110@gmail.com',
+    role: 'admin',
+  },
+  {
+    id: 'admin_2',
+    name: 'Pravin Dagade',
+    email: 'dagadepravin55@gmail.com',
+    role: 'admin',
+  },
+];
+const DEFAULT_ADMIN = DEFAULT_ADMINS[0];
 
 const DESTINATIONS_KEY = '@styrka_destinations';
 const LOCATIONS_KEY = '@styrka_live_locations';
@@ -186,9 +195,11 @@ export class TrackingDataService {
     } catch {}
     // Fallback: check local defaults
     const cleanStr = emailOrId.trim().toLowerCase();
-    if (cleanStr.includes('admin') || cleanStr === DEFAULT_ADMIN.id) {
-      return DEFAULT_ADMIN;
-    }
+    const matchedAdmin = DEFAULT_ADMINS.find(
+      (a) => a.email.toLowerCase() === cleanStr || a.id === cleanStr
+    );
+    if (matchedAdmin) return matchedAdmin;
+    if (cleanStr.includes('admin')) return DEFAULT_ADMIN;
     return DEFAULT_EMPLOYEES.find(
       (e) => e.email.toLowerCase() === cleanStr || e.id === cleanStr
     ) || DEFAULT_EMPLOYEES[0];

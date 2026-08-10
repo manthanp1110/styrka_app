@@ -357,6 +357,12 @@ const EmployeeTrackingScreen = () => {
           
           setCurrentLocation({ latitude: newLat, longitude: newLng });
           trackingMapRef.current?.updateLocation({ latitude: newLat, longitude: newLng });
+          fetchAddress(newLat, newLng);
+
+          // Update activeJourney start location & recalculate route to destination if destination exists
+          if (activeJourney && activeJourney.destination_lat && activeJourney.destination_lng) {
+            fetchRoute(newLat, newLng, activeJourney.destination_lat, activeJourney.destination_lng);
+          }
 
           // Emit live location via Socket.io
           SocketService.updateLocation({

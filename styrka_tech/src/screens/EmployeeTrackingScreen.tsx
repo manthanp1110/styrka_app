@@ -148,14 +148,20 @@ const EmployeeTrackingScreen = () => {
           setIsLoading(false);
           return;
         }
-        // Check if GPS services are enabled on phone
+        // Prompt user natively to enable GPS if turned off on Android
         try {
           const servicesEnabled = await Location.hasServicesEnabledAsync();
           if (!servicesEnabled) {
-            Alert.alert(
-              'Enable GPS',
-              'Location services (GPS) are turned off. Please turn on GPS on your phone for precise tracking.'
-            );
+            if (Platform.OS === 'android') {
+              try {
+                await Location.enableNetworkProviderAsync();
+              } catch (e) {
+                Alert.alert(
+                  'GPS Disabled',
+                  'Location services (GPS) are turned off. Please swipe down your Android notifications bar and turn ON Location / GPS.'
+                );
+              }
+            }
           }
         } catch {}
 

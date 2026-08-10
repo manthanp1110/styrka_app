@@ -133,6 +133,38 @@ const EmployeeTrackingScreen = () => {
     }
   };
 
+  // Component-level Fast Multi-tier location retriever
+  const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+    // Attempt 1: Instant Last Known position from phone OS cache (< 50ms)
+    try {
+      const lastLoc = await Location.getLastKnownPositionAsync();
+      if (lastLoc && lastLoc.coords && lastLoc.coords.latitude && lastLoc.coords.longitude) {
+        console.log('[GPS AUDIT] Got instant cached position:', lastLoc.coords.latitude, lastLoc.coords.longitude);
+        return { latitude: Number(lastLoc.coords.latitude), longitude: Number(lastLoc.coords.longitude) };
+      }
+    } catch (e) {}
+
+    // Attempt 2: Fresh Balanced Network / Cell Tower / Wi-Fi position (up to 12s)
+    try {
+      const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 12000);
+      if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
+        console.log('[GPS AUDIT] Got balanced location:', loc.coords.latitude, loc.coords.longitude);
+        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
+      }
+    } catch (e) {}
+
+    // Attempt 3: High accuracy GPS satellite position
+    try {
+      const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 12000);
+      if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
+        console.log('[GPS AUDIT] Got high accuracy location:', loc.coords.latitude, loc.coords.longitude);
+        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
+      }
+    } catch (e) {}
+
+    return null;
+  };
+
   const fetchActiveJourney = async () => {
     setIsLoading(true);
     try {
@@ -165,38 +197,6 @@ const EmployeeTrackingScreen = () => {
             }
           }
         } catch {}
-
-        // Fast Multi-tier location retriever
-        const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-          // Attempt 1: Instant Last Known position from phone OS cache (< 50ms)
-          try {
-            const lastLoc = await Location.getLastKnownPositionAsync();
-            if (lastLoc && lastLoc.coords && lastLoc.coords.latitude && lastLoc.coords.longitude) {
-              console.log('[GPS AUDIT] Got instant cached position:', lastLoc.coords.latitude, lastLoc.coords.longitude);
-              return { latitude: Number(lastLoc.coords.latitude), longitude: Number(lastLoc.coords.longitude) };
-            }
-          } catch (e) {}
-
-          // Attempt 2: Fresh Balanced Network / Cell Tower / Wi-Fi position (up to 12s)
-          try {
-            const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 12000);
-            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-              console.log('[GPS AUDIT] Got balanced location:', loc.coords.latitude, loc.coords.longitude);
-              return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
-            }
-          } catch (e) {}
-
-          // Attempt 3: High accuracy GPS satellite position
-          try {
-            const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 12000);
-            if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-              console.log('[GPS AUDIT] Got high accuracy location:', loc.coords.latitude, loc.coords.longitude);
-              return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
-            }
-          } catch (e) {}
-
-          return null;
-        };
 
         const initialLoc = await getDeviceLocation();
 
@@ -264,13 +264,20 @@ const EmployeeTrackingScreen = () => {
         const journey = JSON.parse(raw);
         setActiveJourney(journey);
 
-        const loc = await TrackingDataService.getLiveLocation(user.id || 'emp_1');
-        if (loc) {
-          setCurrentLocation({ latitude: loc.latitude, longitude: loc.longitude });
-          fetchAddress(loc.latitude, loc.longitude);
+        // Fetch real device location first before falling back
+        const realLoc = await getDeviceLocation();
+        if (realLoc) {
+          setCurrentLocation(realLoc);
+          fetchAddress(realLoc.latitude, realLoc.longitude);
         } else {
-          setCurrentLocation({ latitude: journey.start_lat, longitude: journey.start_lng });
-          fetchAddress(journey.start_lat, journey.start_lng);
+          const loc = await TrackingDataService.getLiveLocation(user.id || 'emp_1');
+          if (loc) {
+            setCurrentLocation({ latitude: loc.latitude, longitude: loc.longitude });
+            fetchAddress(loc.latitude, loc.longitude);
+          } else {
+            setCurrentLocation({ latitude: journey.start_lat, longitude: journey.start_lng });
+            fetchAddress(journey.start_lat, journey.start_lng);
+          }
         }
 
         if (!heartbeatTimerRef.current) {

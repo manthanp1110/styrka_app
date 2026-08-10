@@ -1,26 +1,8 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, UIManager, Platform } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-let MapplsGL: any = null;
-let isNativeMapplsAvailable = false;
-
 const MAPPLS_KEY = process.env.EXPO_PUBLIC_MAPPLS_API_KEY || '28b2df366fa28c4d538d96c1b5cf32fb';
-
-// Strictly set isNativeMapplsAvailable to false in JS bundle unless native Mappls native views exist
-try {
-  if (Platform.OS !== 'web' && typeof UIManager.getViewManagerConfig === 'function') {
-    const mapViewConfig = UIManager.getViewManagerConfig('RCTMGLMapView');
-    const cameraConfig = UIManager.getViewManagerConfig('RCTMGLCamera');
-    // Verify view manager configs are valid objects with native commands
-    if (mapViewConfig && cameraConfig) {
-      MapplsGL = require('mappls-map-react-native').default;
-      isNativeMapplsAvailable = true;
-    }
-  }
-} catch (e) {
-  isNativeMapplsAvailable = false;
-}
 
 // Mathematically correct Mercator Zoom-from-Delta calculation
 function getZoomFromRegion(region: any): number {
@@ -39,9 +21,9 @@ function getZoomFromRegion(region: any): number {
 }
 
 // ──────────────────────────────────────────────
-// Expo Go Interactive WebView Map (Leaflet / OpenStreetMap)
+// Universal WebView Map Engine (Leaflet + Mappls Tiles)
 // ──────────────────────────────────────────────
-const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }: any, ref) => {
+const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children }: any, ref) => {
   const webViewRef = useRef<WebView>(null);
   const activeRegion = region || initialRegion || { latitude: 18.5204, longitude: 73.8567 };
 
@@ -67,13 +49,11 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
     if (!child || !React.isValidElement(child)) return;
     let props: any = child.props || {};
 
-    // Handle React.Fragment or components wrapping children
     if (child.type === React.Fragment && props.children) {
       React.Children.toArray(props.children).forEach(processChild);
       return;
     }
 
-    // Unpack wrapper components like AnimatedVehicleMarker
     if (!props.coordinate && props.latestLocation && props.latestLocation.latitude != null) {
       props = {
         coordinate: {
@@ -209,7 +189,6 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
 
     mapplsTileLayer.addTo(map);
 
-
     var dataGroup = L.layerGroup().addTo(map);
 
     window.renderData = function(markersData, polylinesData) {
@@ -262,148 +241,37 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
   `;
 
   return (
-    <View style={[styles.map, style]}>
+    <View style={style || styles.map}>
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
         source={{ html: htmlContent }}
-        style={{ flex: 1 }}
-        scrollEnabled={false}
+        style={styles.map}
         javaScriptEnabled={true}
         domStorageEnabled={true}
-        onLoadEnd={() => {
-          if (webViewRef.current) {
-            webViewRef.current.injectJavaScript(`if (window.renderData) { window.renderData(${markersJson}, ${polylinesJson}); } true;`);
-          }
-        }}
+        scrollEnabled={false}
+        overScrollMode="never"
+        bounces={false}
       />
     </View>
   );
 });
 
 // ──────────────────────────────────────────────
-// Native Mappls MapView
-// ──────────────────────────────────────────────
-const NativeMapView = forwardRef(({ initialRegion, region, style, onPress, onLongPress, children, ...props }: any, ref) => {
-  const cameraRef = useRef<any>(null);
-  const mapRef = useRef<any>(null);
-
-  useImperativeHandle(ref, () => ({
-    animateToRegion: (targetRegion: any, duration = 1000) => {
-      cameraRef.current?.setCamera({
-        centerCoordinate: [targetRegion.longitude, targetRegion.latitude],
-        zoomLevel: getZoomFromRegion(targetRegion),
-        animationDuration: duration,
-      });
-    },
-    fitToCoordinates: (coordinates: any[], options: any = {}) => {
-      if (coordinates.length === 0) return;
-      
-      let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-      coordinates.forEach(c => {
-        if (c.latitude < minLat) minLat = c.latitude;
-        if (c.latitude > maxLat) maxLat = c.latitude;
-        if (c.longitude < minLng) minLng = c.longitude;
-        if (c.longitude > maxLng) maxLng = c.longitude;
-      });
-
-      const ne = [maxLng, maxLat];
-      const sw = [minLng, minLat];
-      const padding = options.edgePadding || { top: 40, right: 40, bottom: 40, left: 40 };
-
-      cameraRef.current?.fitBounds(
-        ne, sw,
-        [padding.top, padding.right, padding.bottom, padding.left],
-        options.duration || 1000
-      );
-    }
-  }));
-
-  const activeRegion = region || initialRegion;
-  const centerCoordinate = activeRegion ? [activeRegion.longitude, activeRegion.latitude] : [73.8567, 18.5204];
-  const zoomLevel = activeRegion ? getZoomFromRegion(activeRegion) : 12;
-
-  const handlePress = (e: any) => {
-    if (onPress) {
-      const geometry = e.geometry || e.nativeEvent?.geometry;
-      if (geometry && geometry.coordinates) {
-        onPress({
-          nativeEvent: {
-            coordinate: {
-              latitude: geometry.coordinates[1],
-              longitude: geometry.coordinates[0],
-            }
-          }
-        });
-      }
-    }
-  };
-
-  return (
-    <MapplsGL.MapView
-      ref={mapRef}
-      style={style || styles.map}
-      onPress={handlePress}
-      attributionEnabled={false}
-      logoEnabled={false}
-    >
-      <MapplsGL.Camera
-        ref={cameraRef}
-        centerCoordinate={centerCoordinate as [number, number]}
-        zoomLevel={zoomLevel}
-      />
-      {children}
-    </MapplsGL.MapView>
-  );
-});
-
-// Error Boundary Wrapper for MapView to catch native view config errors
-class MapErrorBoundary extends React.Component<any, { hasError: boolean }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any) {
-    console.log('[NativeMap] Native map renderer exception, fallback to WebView:', error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <ExpoGoWebViewMap {...this.props} />;
-    }
-    return this.props.children;
-  }
-}
-
-// ──────────────────────────────────────────────
-// Exported MapView — uses Leaflet WebView Map with Mappls Tiles across Expo Go & Standalone APK
+// Exported MapView
 // ──────────────────────────────────────────────
 export const MapView = forwardRef((props: any, ref: any) => {
-  return <ExpoGoWebViewMap ref={ref} {...props} />;
+  return <UniversalWebViewMap ref={ref} {...props} />;
 });
 
-// ──────────────────────────────────────────────
-// Marker
-// ──────────────────────────────────────────────
 export const Marker = ({ coordinate, onPress, children, pinColor, id, title, ...props }: any) => {
   return children || null;
 };
 
-// ──────────────────────────────────────────────
-// Polyline
-// ──────────────────────────────────────────────
 export const Polyline = ({ coordinates, strokeColor, strokeWidth, ...props }: any) => {
   return null;
 };
 
-// ──────────────────────────────────────────────
-// Callout
-// ──────────────────────────────────────────────
 export const Callout = ({ children, ...props }: any) => {
   return children || null;
 };

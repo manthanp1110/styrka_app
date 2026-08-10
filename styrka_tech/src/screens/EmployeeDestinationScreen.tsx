@@ -49,7 +49,8 @@ const EmployeeDestinationScreen = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>
       <View className="bg-[#0F4C3A] flex-row items-center px-4 py-4 z-10">
-        <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3 p-1">
+        <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }} className="mr-3 p-1">
+
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
         <Text className="text-white font-bold text-lg">My Destinations</Text>

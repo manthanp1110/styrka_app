@@ -81,9 +81,7 @@
       "./withMapplsMaven.js",
       "./withMapplsOlf.js"
     ],
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/c83f58f3-19bc-4984-abcd-07c93c39c853",
       "enabled": false

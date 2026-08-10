@@ -148,12 +148,13 @@ const EmployeeTrackingScreen = () => {
           setIsLoading(false);
           return;
         }
-        let currLat = 28.6139;
-        let currLng = 77.2090;
+        let currLat: number | null = null;
+        let currLng: number | null = null;
+
         try {
           const loc: any = await fetchWithTimeout(
             Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-            4000
+            5000
           );
           if (loc && loc.coords) {
             currLat = loc.coords.latitude;
@@ -161,6 +162,22 @@ const EmployeeTrackingScreen = () => {
           }
         } catch (e) {
           console.log('Could not get current position:', e);
+        }
+
+        if (!currLat || !currLng) {
+          try {
+            const lastLoc = await Location.getLastKnownPositionAsync();
+            if (lastLoc && lastLoc.coords) {
+              currLat = lastLoc.coords.latitude;
+              currLng = lastLoc.coords.longitude;
+            }
+          } catch {}
+        }
+
+        // If still missing, fallback to assigned destination coordinates
+        if (!currLat || !currLng) {
+          currLat = Number(assigned.latitude);
+          currLng = Number(assigned.longitude);
         }
 
         const newJourney = {

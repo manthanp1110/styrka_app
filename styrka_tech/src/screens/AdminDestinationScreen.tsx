@@ -78,6 +78,14 @@ const AdminDestinationScreen = () => {
         }
       }
 
+      if (!lat || !lng) {
+        const geoRes = await MapplsApi.geocode({ address: place.description });
+        if (geoRes && geoRes.results && geoRes.results.length > 0) {
+          lat = geoRes.results[0].latitude;
+          lng = geoRes.results[0].longitude;
+        }
+      }
+
       if (lat && lng) {
         setSelectedPlace({
           address: place.description,
@@ -85,12 +93,7 @@ const AdminDestinationScreen = () => {
           longitude: Number(lng)
         });
       } else {
-        // Default fallback if map geocode returns no pin
-        setSelectedPlace({
-          address: place.description,
-          latitude: 28.6139,
-          longitude: 77.2090
-        });
+        Alert.alert("Location Warning", "Could not resolve exact GPS coordinates for this place. Please select a more specific location.");
       }
     } catch (error) {
       console.error("Place detail error:", error);

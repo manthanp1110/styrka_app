@@ -429,13 +429,29 @@ const EmployeeTrackingScreen = () => {
             fetchRoute(newLat, newLng, journey.destination_lat, journey.destination_lng);
           }
 
-          // Emit live location via Socket.io
-          SocketService.updateLocation({
-            userId: user.id || 'emp_1',
+          // Directly update Supabase live_locations database (crucial for Admin live tracking & polyline)
+          const userId = user.id || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
+          await TrackingDataService.updateLiveLocation({
+            userId,
             latitude: newLat,
             longitude: newLng,
             heading: loc.coords.heading || 0,
             speed: loc.coords.speed || 0,
+            destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
+            destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
+            destination_address: journey?.address || undefined,
+          });
+
+          // Emit live location via Socket.io / Supabase Realtime
+          SocketService.updateLocation({
+            userId,
+            latitude: newLat,
+            longitude: newLng,
+            heading: loc.coords.heading || 0,
+            speed: loc.coords.speed || 0,
+            destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
+            destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
+            destination_address: journey?.address || undefined,
           });
           
           let batteryLevel = 1.0;

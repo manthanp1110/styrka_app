@@ -5,9 +5,14 @@
     "*.sql": "postgres"
   },
   "java.project.exclusion": [
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "**/android_backup/**",
+    "**/apk_unzipped/**"
   ],
   "java.import.exclusions": [
-    "**/node_modules/**"
-  ]
+    "**/node_modules/**",
+    "**/android_backup/**",
+    "**/apk_unzipped/**"
+  ],
+  "java.project.importHint": false
 }

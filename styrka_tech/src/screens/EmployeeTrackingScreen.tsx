@@ -18,6 +18,7 @@ import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
 import MapplsApi from '../utils/mapplsApi';
+import Constants from 'expo-constants';
 import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
 import SocketService from '../services/SocketService';
 
@@ -427,20 +428,26 @@ const EmployeeTrackingScreen = () => {
         }, 10000);
       }
 
-      if (Platform.OS !== 'web') {
-        const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-        if (!isBackgroundRunning) {
-          await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-            accuracy: Location.Accuracy.High,
-            distanceInterval: 10,
-            showsBackgroundLocationIndicator: true,
-            pausesUpdatesAutomatically: false,
-            foregroundService: {
-              notificationTitle: "Styrka Tracking Active",
-              notificationBody: "Your location is being tracked."
-            }
-          }).catch(e => console.log(e));
+      // Background Location Service (Only available in compiled APK / Development Build, not Expo Go)
+      try {
+        const isExpoGo = Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
+        if (!isExpoGo && Platform.OS !== 'web') {
+          const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+          if (!isBackgroundRunning) {
+            await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+              accuracy: Location.Accuracy.High,
+              distanceInterval: 10,
+              showsBackgroundLocationIndicator: true,
+              pausesUpdatesAutomatically: false,
+              foregroundService: {
+                notificationTitle: "Styrka Tracking Active",
+                notificationBody: "Your location is being tracked."
+              }
+            }).catch(e => console.log('Background location error:', e));
+          }
         }
+      } catch (e) {
+        console.log('Skipped background task in Expo Go context:', e);
       }
     } catch (e) {
       console.log('Error setting up tracking', e);

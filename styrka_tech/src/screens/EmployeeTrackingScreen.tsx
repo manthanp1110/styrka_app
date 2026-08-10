@@ -57,6 +57,8 @@ const EmployeeTrackingScreen = () => {
   const sequenceNumberRef = useRef(1);
   const lastTelemetrySentTimeRef = useRef(0);
   const heartbeatTimerRef = useRef<any>(null);
+  const lastDbUploadTimeRef = useRef<number>(0);
+  const lastDbUploadCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const fetchWithTimeout = (promise: Promise<any>, ms: number) => {
     let timeoutId: any;
@@ -429,30 +431,46 @@ const EmployeeTrackingScreen = () => {
             fetchRoute(newLat, newLng, journey.destination_lat, journey.destination_lng);
           }
 
-          // Directly update Supabase live_locations database (crucial for Admin live tracking & polyline)
-          const userId = user.id || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
-          await TrackingDataService.updateLiveLocation({
-            userId,
-            latitude: newLat,
-            longitude: newLng,
-            heading: loc.coords.heading || 0,
-            speed: loc.coords.speed || 0,
-            destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
-            destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
-            destination_address: journey?.address || undefined,
-          });
+          // Smart DB throttling: Update Supabase if >3s elapsed OR >5m moved
+          const now = Date.now();
+          const lastTime = lastDbUploadTimeRef.current;
+          const lastCoords = lastDbUploadCoordsRef.current;
 
-          // Emit live location via Socket.io / Supabase Realtime
-          SocketService.updateLocation({
-            userId,
-            latitude: newLat,
-            longitude: newLng,
-            heading: loc.coords.heading || 0,
-            speed: loc.coords.speed || 0,
-            destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
-            destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
-            destination_address: journey?.address || undefined,
-          });
+          let shouldUpload = false;
+          if (!lastCoords || now - lastTime > 3000) {
+            shouldUpload = true;
+          } else {
+            const distMoved = getDistanceFromLatLonInKm(lastCoords.lat, lastCoords.lng, newLat, newLng) * 1000;
+            if (distMoved >= 5) shouldUpload = true;
+          }
+
+          if (shouldUpload) {
+            lastDbUploadTimeRef.current = now;
+            lastDbUploadCoordsRef.current = { lat: newLat, lng: newLng };
+
+            const userId = user.id || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
+            await TrackingDataService.updateLiveLocation({
+              userId,
+              latitude: newLat,
+              longitude: newLng,
+              heading: loc.coords.heading || 0,
+              speed: loc.coords.speed || 0,
+              destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
+              destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
+              destination_address: journey?.address || undefined,
+            });
+
+            SocketService.updateLocation({
+              userId,
+              latitude: newLat,
+              longitude: newLng,
+              heading: loc.coords.heading || 0,
+              speed: loc.coords.speed || 0,
+              destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
+              destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
+              destination_address: journey?.address || undefined,
+            });
+          }
           
           let batteryLevel = 1.0;
           try { batteryLevel = await Battery.getBatteryLevelAsync(); } catch (e) {}

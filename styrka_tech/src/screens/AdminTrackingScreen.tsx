@@ -178,8 +178,18 @@ const AdminTrackingScreen = () => {
 
       const journeyMap: any = {};
       for (const emp of usersData) {
-        const loc = allLocations[emp.id];
-        const dest = allDestinations.find((d) => d.employee_id === emp.id && d.status !== 'completed');
+        const loc = allLocations[emp.id]
+          || (emp.email ? allLocations[emp.email] : null)
+          || Object.values(allLocations).find((l: any) => 
+               l.user_id === emp.id || 
+               (emp.email && l.user_id === emp.email) ||
+               (l.user_id && (
+                 l.user_id.toLowerCase() === (emp.id || '').toLowerCase() ||
+                 l.user_id.toLowerCase() === (emp.email || '').toLowerCase() ||
+                 (emp.name && l.user_id.toLowerCase().includes(emp.name.toLowerCase()))
+               ))
+             );
+        const dest = allDestinations.find((d) => (d.employee_id === emp.id || (emp.email && d.employee_id === emp.email)) && d.status !== 'completed');
 
         // Prevent older database poll from overwriting newer live Socket.IO pings
         const existingJourney = activeJourneys[emp.id];
@@ -243,8 +253,13 @@ const AdminTrackingScreen = () => {
 
     const handleLocationChange = (loc: any) => {
       if (loc && loc.employee_id) {
+        // Resolve incoming employee_id to matched employee in state
+        const matched = employees.find(
+          (e) => e.id === loc.employee_id || e.email === loc.employee_id || (e.name && e.name.toLowerCase() === loc.employee_id.toLowerCase())
+        );
+        const empId = matched ? matched.id : loc.employee_id;
+
         setActiveJourneys((prev) => {
-          const empId = loc.employee_id;
           const currentJourney = prev[empId];
 
           const incomingTimestamp = loc.timestamp || new Date().toISOString();

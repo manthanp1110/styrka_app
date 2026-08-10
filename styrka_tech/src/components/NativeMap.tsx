@@ -70,11 +70,14 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       const lat = Number(props.coordinate.latitude ?? props.coordinate.lat);
       const lng = Number(props.coordinate.longitude ?? props.coordinate.lng);
       if (!isNaN(lat) && !isNaN(lng)) {
+        const pinColor = props.pinColor || '#3B82F6';
+        const isDest = pinColor === 'red' || pinColor === '#EF4444' || props.title === 'Destination';
         markersData.push({
           lat,
           lng,
-          title: props.title || 'Rider',
-          color: props.pinColor || '#3B82F6'
+          title: props.title || (isDest ? 'Destination' : 'Rider'),
+          color: pinColor,
+          isRider: !isDest && (pinColor === '#3B82F6' || pinColor === '#2563EB' || !!props.latestLocation)
         });
       }
     }
@@ -176,7 +179,7 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       width: 16px; height: 16px; background: #10B981; border: 3px solid #FFF; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     .dest-pin {
-      width: 16px; height: 16px; background: #EF4444; border: 3px solid #FFF; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      width: 18px; height: 18px; background: #EF4444; border: 3px solid #FFF; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }
   </style>
 </head>
@@ -223,9 +226,9 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       markersData.forEach(function(m) {
         var iconHtml;
         var titleText = m.title || 'Rider';
-        if (m.color === '#3B82F6' || m.color === '#2563EB' || titleText.toLowerCase().includes('rider') || titleText.toLowerCase().includes('location') || titleText.toLowerCase().includes('employee')) {
+        if (m.isRider) {
           iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="navigation-arrow-symbol"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFFFFF"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg></div></div>';
-        } else if (m.color === '#10B981' || titleText.toLowerCase().includes('start')) {
+        } else if (m.color === '#10B981' || m.color === 'green') {
           iconHtml = '<div class="start-pin"></div>';
         } else {
           iconHtml = '<div class="dest-pin"></div>';

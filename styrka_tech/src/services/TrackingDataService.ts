@@ -232,15 +232,12 @@ export class TrackingDataService {
 
     // Save to Supabase `destinations` table
     try {
-      const isUuidAdmin = param.adminId.includes('-');
-      const isUuidEmp = param.employeeId.includes('-');
-
       const { data, error } = await supabase
         .from('destinations')
         .insert([
           {
-            admin_id: isUuidAdmin ? param.adminId : null,
-            employee_id: isUuidEmp ? param.employeeId : null,
+            admin_id: String(param.adminId),
+            employee_id: String(param.employeeId),
             address: param.address,
             latitude: param.latitude,
             longitude: param.longitude,
@@ -252,6 +249,8 @@ export class TrackingDataService {
 
       if (!error && data) {
         newDest.id = data.id;
+      } else if (error) {
+        console.warn('[TrackingDataService] Supabase destination insert error:', error.message);
       }
     } catch (e) {
       console.warn('[TrackingDataService] Could not insert destination to Supabase:', e);

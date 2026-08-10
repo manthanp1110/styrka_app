@@ -57,11 +57,11 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 
--- 4. Create `destinations` table (Admin assigns to Employees)
+-- 4. Create `destinations` table (Admin assignment to employees)
 CREATE TABLE IF NOT EXISTS public.destinations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    employee_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    admin_id TEXT,
+    employee_id TEXT,
     address TEXT NOT NULL,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
@@ -69,6 +69,13 @@ CREATE TABLE IF NOT EXISTS public.destinations (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- If destinations table already exists, alter column types to TEXT
+ALTER TABLE public.destinations DROP CONSTRAINT IF EXISTS destinations_admin_id_fkey;
+ALTER TABLE public.destinations DROP CONSTRAINT IF EXISTS destinations_employee_id_fkey;
+ALTER TABLE public.destinations ALTER COLUMN admin_id TYPE TEXT;
+ALTER TABLE public.destinations ALTER COLUMN employee_id TYPE TEXT;
+ALTER TABLE public.destinations ALTER COLUMN employee_id DROP NOT NULL;
 
 ALTER TABLE public.destinations ENABLE ROW LEVEL SECURITY;
 

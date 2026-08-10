@@ -20,37 +20,38 @@ export const MapplsApi = {
     const [originLng, originLat] = params.origin.split(',');
     const [destLng, destLat] = params.destination.split(',');
 
-    // 1. Try Direct Mappls REST API
+    // Primary: High-accuracy OSRM Driving Road Geometry Engine
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline&steps=true`;
+      const osrmRes = await fetch(osrmUrl);
+      const osrmData = await osrmRes.json();
+      if (osrmData && osrmData.routes && osrmData.routes.length > 0 && osrmData.routes[0].geometry) {
+        return osrmData;
+      }
+    } catch (error) {
+      console.log('[MapplsApi] OSRM Direction error:', error);
+    }
+
+    // Secondary: Mappls REST API
     try {
       const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/route_adv/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
       const response = await fetch(url);
-      const text = await response.text();
-      if (text) {
-        const data = JSON.parse(text);
-        if (data && data.routes && data.routes.length > 0) return data;
-      }
+      const data = await response.json();
+      if (data && data.routes && data.routes.length > 0) return data;
     } catch (err) {
-      console.log('[MapplsApi] Mappls direction error, using OSRM fallback:', err);
+      console.log('[MapplsApi] Mappls direction error:', err);
     }
 
-    // 2. OSRM Fallback (100% free & reliable routing)
-    try {
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
-      const osrmRes = await fetch(osrmUrl);
-      const osrmData = await osrmRes.json();
-      return osrmData;
-    } catch (error) {
-      console.error('[MapplsApi] OSRM Direction error:', error);
-      // Straight line fallback
-      return {
-        routes: [{
-          distance: 1000,
-          duration: 300,
-          geometry: ''
-        }]
-      };
-    }
+    // Fallback
+    return {
+      routes: [{
+        distance: 1000,
+        duration: 300,
+        geometry: ''
+      }]
+    };
   },
+
 
   /**
    * Address AutoSuggest / Search

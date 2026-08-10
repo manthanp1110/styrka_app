@@ -182,12 +182,13 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
   <script>
     var map = L.map('map', { zoomControl: false }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.round(getZoomFromRegion(activeRegion))});
     
-    var mapplsTileLayer = L.tileLayer('https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/tile/{z}/{x}/{y}.png', {
+    var tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '&copy; Mappls (MapmyIndia)'
+      attribution: '&copy; Styrka Maps'
     });
 
-    mapplsTileLayer.addTo(map);
+    tileLayer.addTo(map);
+
 
     var dataGroup = L.layerGroup().addTo(map);
 

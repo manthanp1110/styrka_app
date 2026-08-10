@@ -565,41 +565,51 @@ const EmployeeTrackingScreen = () => {
         );
       }
 
-      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const startLat = location.coords.latitude;
-      const startLng = location.coords.longitude;
-      setCurrentLocation({ latitude: startLat, longitude: startLng });
-      fetchAddress(startLat, startLng);
+      let startLat: number | null = null;
+      let startLng: number | null = null;
 
-      let destLat = startLat + 0.05;
-      let destLng = startLng + 0.05;
+      try {
+        let location: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 5000);
+        if (location && location.coords) {
+          startLat = location.coords.latitude;
+          startLng = location.coords.longitude;
+        }
+      } catch (e) {}
+
+      if (!startLat || !startLng) {
+        try {
+          let lastLoc = await Location.getLastKnownPositionAsync();
+          if (lastLoc && lastLoc.coords) {
+            startLat = lastLoc.coords.latitude;
+            startLng = lastLoc.coords.longitude;
+          }
+        } catch (e) {}
+      }
+
       const assignedDestination = route.params?.assignedDestination;
-      
+      let destLat = startLat ? startLat + 0.05 : 28.6139;
+      let destLng = startLng ? startLng + 0.05 : 77.2090;
+
       if (assignedDestination) {
         if (assignedDestination.latitude && assignedDestination.longitude) {
-          destLat = assignedDestination.latitude;
-          destLng = assignedDestination.longitude;
+          destLat = Number(assignedDestination.latitude);
+          destLng = Number(assignedDestination.longitude);
         } else if (assignedDestination.address) {
           try {
-            // Use Mappls native geocoding for best accuracy in India
             const result = await fetchWithTimeout(MapplsApi.geocode({ address: assignedDestination.address }), 5000);
-            
             if (result && result.results && result.results.length > 0) {
               destLat = result.results[0].latitude;
               destLng = result.results[0].longitude;
-            } else {
-              // Fallback to expo-location if Mappls fails to find the specific address
-              const fallbackResult = await fetchWithTimeout(Location.geocodeAsync(assignedDestination.address), 3000);
-              if (fallbackResult && fallbackResult.length > 0) {
-                destLat = fallbackResult[0].latitude;
-                destLng = fallbackResult[0].longitude;
-              }
             }
-          } catch (e) {
-            console.log("Forward geocode failed:", e);
-          }
+          } catch (e) {}
         }
       }
+
+      const finalStartLat = startLat ?? (destLat - 0.015);
+      const finalStartLng = startLng ?? (destLng - 0.015);
+
+      setCurrentLocation({ latitude: finalStartLat, longitude: finalStartLng });
+      fetchAddress(finalStartLat, finalStartLng);
 
       if (!user.id) {
         alert("User session not found. Please log in again.");
@@ -612,8 +622,8 @@ const EmployeeTrackingScreen = () => {
         id: `journey_${Date.now()}`,
         user_id: userId,
         status: 'active',
-        start_lat: startLat,
-        start_lng: startLng,
+        start_lat: finalStartLat,
+        start_lng: finalStartLng,
         destination_lat: destLat,
         destination_lng: destLng,
         created_at: new Date().toISOString(),
@@ -630,7 +640,7 @@ const EmployeeTrackingScreen = () => {
       setTrackingSessionId(journeyData.id);
       sequenceNumberRef.current = 1;
       setActiveJourney(journeyData);
-      fetchRoute(startLat, startLng, destLat, destLng);
+      fetchRoute(finalStartLat, finalStartLng, destLat, destLng);
       
       await setupTracking(journeyData.id);
       alert("Journey started! Tracking is active.");

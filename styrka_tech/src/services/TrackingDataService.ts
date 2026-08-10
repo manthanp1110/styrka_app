@@ -45,27 +45,124 @@ const DEFAULT_ADMIN: User = {
 
 const DESTINATIONS_KEY = '@styrka_destinations';
 const LOCATIONS_KEY = '@styrka_live_locations';
+const CUSTOM_EMPLOYEES_KEY = '@styrka_custom_employees';
 
 export class TrackingDataService {
-  // Get list of employees from Supabase profiles table
+  // Get list of employees from Supabase users table & local storage
   static async getEmployees(): Promise<User[]> {
+    let supabaseEmployees: User[] = [];
     try {
       const { data, error } = await supabase
         .from('users')
         .select('id, name, email, role')
         .eq('role', 'employee');
-      if (error || !data || data.length === 0) {
-        return DEFAULT_EMPLOYEES;
+      if (!error && data && data.length > 0) {
+        supabaseEmployees = data.map((p: any) => ({
+          id: p.id,
+          name: p.name || p.email,
+          email: p.email,
+          role: 'employee' as const,
+        }));
       }
-      return data.map((p: any) => ({
-        id: p.id,
-        name: p.name || p.email,
-        email: p.email,
-        role: 'employee' as const,
-      }));
-    } catch {
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not fetch employees from Supabase:', e);
+    }
+
+    // Merge with local custom employees
+    let customEmployees: User[] = [];
+    try {
+      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
+      if (raw) customEmployees = JSON.parse(raw);
+    } catch {}
+
+    const all = [...supabaseEmployees, ...customEmployees];
+    if (all.length === 0) {
       return DEFAULT_EMPLOYEES;
     }
+
+    // Remove duplicates by id or email
+    const uniqueMap = new Map<string, User>();
+    all.forEach((emp) => uniqueMap.set(emp.id, emp));
+    DEFAULT_EMPLOYEES.forEach((emp) => {
+      if (!uniqueMap.has(emp.id)) uniqueMap.set(emp.id, emp);
+    });
+
+    return Array.from(uniqueMap.values());
+  }
+
+  // Add a new employee to Supabase and local storage
+  static async addEmployee(param: { name: string; email: string; password?: string }): Promise<User> {
+    const cleanName = param.name.trim();
+    const cleanEmail = param.email.trim().toLowerCase();
+    const password = param.password || 'Styrka123!';
+
+    let createdId: string | null = null;
+
+    try {
+      // 1. Register with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password,
+        options: {
+          data: {
+            name: cleanName,
+            role: 'employee',
+          },
+        },
+      });
+
+      if (!authError && authData.user) {
+        createdId = authData.user.id;
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Supabase Auth signUp failed, attempting direct table insert', e);
+    }
+
+    if (!createdId) {
+      try {
+        // 2. Direct insert into public.users table if Auth signup is skipped or restricted
+        const tempId = `emp_${Date.now()}`;
+        const { data, error } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: tempId,
+              name: cleanName,
+              email: cleanEmail,
+              role: 'employee',
+            },
+          ])
+          .select()
+          .single();
+
+        if (!error && data) {
+          createdId = data.id;
+        } else {
+          createdId = tempId;
+        }
+      } catch {
+        createdId = `emp_${Date.now()}`;
+      }
+    }
+
+    const newEmp: User = {
+      id: createdId,
+      name: cleanName,
+      email: cleanEmail,
+      role: 'employee',
+    };
+
+    // Store in local storage so it persists offline / instantly
+    try {
+      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
+      const customEmployees: User[] = raw ? JSON.parse(raw) : [];
+      const updated = [newEmp, ...customEmployees.filter((e) => e.email !== cleanEmail)];
+      await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('[TrackingDataService] Failed to save custom employee locally:', e);
+    }
+
+    return newEmp;
   }
 
   // Get user by email or ID from Supabase

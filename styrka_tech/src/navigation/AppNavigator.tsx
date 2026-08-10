@@ -10,6 +10,7 @@ import { useAppState } from '../store/useAppState';
 import LoginScreen from '../screens/LoginScreen';
 import AdminDestinationScreen from '../screens/AdminDestinationScreen';
 import AdminTrackingScreen from '../screens/AdminTrackingScreen';
+import AdminEmployeesScreen from '../screens/AdminEmployeesScreen';
 import EmployeeDestinationScreen from '../screens/EmployeeDestinationScreen';
 import EmployeeTrackingScreen from '../screens/EmployeeTrackingScreen';
 
@@ -43,7 +44,8 @@ const AdminTabs = () => {
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarIcon: ({ color }) => {
           let iconName: any = 'map-pin';
-          if (route.name === 'Assign Destination') iconName = 'send';
+          if (route.name === 'Manage Employees') iconName = 'users';
+          else if (route.name === 'Assign Destination') iconName = 'send';
           else if (route.name === 'Live Tracking') iconName = 'map';
           return <Feather name={iconName} size={22} color={color} />;
         },
@@ -53,6 +55,7 @@ const AdminTabs = () => {
         },
       })}
     >
+      <Tab.Screen name="Manage Employees" component={AdminEmployeesScreen} options={{ title: 'Employees' }} />
       <Tab.Screen name="Assign Destination" component={AdminDestinationScreen} options={{ title: 'Assign Destination' }} />
       <Tab.Screen name="Live Tracking" component={AdminTrackingScreen} options={{ title: 'Live Employee Tracking' }} />
     </Tab.Navigator>

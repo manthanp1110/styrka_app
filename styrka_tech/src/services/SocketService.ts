@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
-// Change SERVER_URL to your local backend server port/host if running Node server
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+
 
 class SocketService {
   private socket: Socket | null = null;

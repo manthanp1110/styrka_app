@@ -207,14 +207,8 @@ const ExpoGoWebViewMap = forwardRef(({ initialRegion, region, style, children }:
       attribution: '&copy; Mappls (MapmyIndia)'
     });
 
-    mapplsTileLayer.on('tileerror', function() {
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
-      }).addTo(map);
-    });
-
     mapplsTileLayer.addTo(map);
+
 
     var dataGroup = L.layerGroup().addTo(map);
 

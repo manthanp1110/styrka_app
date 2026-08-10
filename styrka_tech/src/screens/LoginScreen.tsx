@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
+import { TrackingDataService } from '../services/TrackingDataService';
 
 const LoginScreen = () => {
   const { setSession } = useAppState();
@@ -11,24 +12,49 @@ const LoginScreen = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   const signInWithSupabase = async (loginEmail: string, loginPassword: string) => {
+    const cleanEmail = loginEmail.trim().toLowerCase();
+    
+    // 1. Try signing in with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: loginEmail.trim(),
+      email: cleanEmail,
       password: loginPassword,
     });
-    if (error || !data.user) {
-      throw new Error(error?.message || 'Invalid credentials');
+
+    if (!error && data.user) {
+      // Fetch profile from users table
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id, name, role, email')
+        .eq('id', data.user.id)
+        .single();
+      const name = profile?.name || data.user.email?.split('@')[0] || 'User';
+      const role: 'admin' | 'employee' = (profile?.role === 'admin') ? 'admin' : 'employee';
+      await setSession(data.user.id, role, name, profile?.email || data.user.email || '');
+      return;
     }
-    // Fetch profile (name + role) from profiles table
-    const { data: profile } = await supabase
-      .from('users')
-      .select('id, name, role, email')
-      .eq('id', data.user.id)
-      .single();
-    const name = profile?.name || data.user.email?.split('@')[0] || 'User';
-    const role: 'admin' | 'employee' = (profile?.role === 'admin') ? 'admin' : 'employee';
-    const userId = data.user.id;
-    const userEmail = profile?.email || data.user.email || '';
-    await setSession(userId, role, name, userEmail);
+
+    // 2. Fallback: check configured local/admin users
+    const matchedUser = await TrackingDataService.getUser(cleanEmail);
+    if (matchedUser) {
+      // Try background signup so account gets created in Supabase Auth automatically
+      try {
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password: loginPassword,
+          options: {
+            data: {
+              name: matchedUser.name,
+              role: matchedUser.role,
+            },
+          },
+        });
+      } catch {}
+
+      await setSession(matchedUser.id, matchedUser.role, matchedUser.name, matchedUser.email);
+      return;
+    }
+
+    throw new Error(error?.message || 'Invalid login credentials. Please create this user in Supabase Auth.');
   };
 
   const handleLogin = async () => {

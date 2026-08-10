@@ -133,34 +133,55 @@ const EmployeeTrackingScreen = () => {
     }
   };
 
-  // Component-level Fast Multi-tier location retriever
+  // Ref to always expose current destination to watchPositionAsync callback
+  const activeJourneyRef = useRef<any>(null);
+
+  // Component-level robust GPS location retriever
   const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    // Attempt 1: Instant Last Known position from phone OS cache (< 50ms)
+    // Attempt 1: Low Power (cell/WiFi) — fastest, usually < 2s on Android
+    try {
+      const loc: any = await fetchWithTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+        8000
+      );
+      if (loc?.coords?.latitude && loc?.coords?.longitude) {
+        console.log('[GPS] Low power hit:', loc.coords.latitude, loc.coords.longitude);
+        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
+      }
+    } catch (e) { console.log('[GPS] Low power failed:', e); }
+
+    // Attempt 2: Balanced (cell/WiFi + some GPS) — up to 12s
+    try {
+      const loc: any = await fetchWithTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        12000
+      );
+      if (loc?.coords?.latitude && loc?.coords?.longitude) {
+        console.log('[GPS] Balanced hit:', loc.coords.latitude, loc.coords.longitude);
+        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
+      }
+    } catch (e) { console.log('[GPS] Balanced failed:', e); }
+
+    // Attempt 3: Last Known (may be null if phone never ran location)
     try {
       const lastLoc = await Location.getLastKnownPositionAsync();
-      if (lastLoc && lastLoc.coords && lastLoc.coords.latitude && lastLoc.coords.longitude) {
-        console.log('[GPS AUDIT] Got instant cached position:', lastLoc.coords.latitude, lastLoc.coords.longitude);
+      if (lastLoc?.coords?.latitude && lastLoc?.coords?.longitude) {
+        console.log('[GPS] LastKnown hit:', lastLoc.coords.latitude, lastLoc.coords.longitude);
         return { latitude: Number(lastLoc.coords.latitude), longitude: Number(lastLoc.coords.longitude) };
       }
     } catch (e) {}
 
-    // Attempt 2: Fresh Balanced Network / Cell Tower / Wi-Fi position (up to 12s)
+    // Attempt 4: High accuracy GPS (last resort, may take >15s indoors)
     try {
-      const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), 12000);
-      if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-        console.log('[GPS AUDIT] Got balanced location:', loc.coords.latitude, loc.coords.longitude);
+      const loc: any = await fetchWithTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+        20000
+      );
+      if (loc?.coords?.latitude && loc?.coords?.longitude) {
+        console.log('[GPS] High accuracy hit:', loc.coords.latitude, loc.coords.longitude);
         return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
       }
-    } catch (e) {}
-
-    // Attempt 3: High accuracy GPS satellite position
-    try {
-      const loc: any = await fetchWithTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 12000);
-      if (loc && loc.coords && loc.coords.latitude && loc.coords.longitude) {
-        console.log('[GPS AUDIT] Got high accuracy location:', loc.coords.latitude, loc.coords.longitude);
-        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
-      }
-    } catch (e) {}
+    } catch (e) { console.log('[GPS] High accuracy failed:', e); }
 
     return null;
   };
@@ -212,6 +233,7 @@ const EmployeeTrackingScreen = () => {
           created_at: new Date().toISOString(),
         };
 
+        activeJourneyRef.current = newJourney;
         setActiveJourney(newJourney);
         if (initialLoc) {
           setCurrentLocation(initialLoc);
@@ -241,6 +263,7 @@ const EmployeeTrackingScreen = () => {
               start_lat: fresh.latitude,
               start_lng: fresh.longitude,
             };
+            activeJourneyRef.current = realJourney;
             setActiveJourney(realJourney);
             AsyncStorage.setItem('active_journey', JSON.stringify(realJourney));
 
@@ -262,6 +285,7 @@ const EmployeeTrackingScreen = () => {
       const raw = await AsyncStorage.getItem('active_journey');
       if (raw) {
         const journey = JSON.parse(raw);
+        activeJourneyRef.current = journey;
         setActiveJourney(journey);
 
         // Fetch real device location first before falling back
@@ -399,9 +423,10 @@ const EmployeeTrackingScreen = () => {
           trackingMapRef.current?.updateLocation({ latitude: newLat, longitude: newLng });
           fetchAddress(newLat, newLng);
 
-          // Update activeJourney start location & recalculate route to destination if destination exists
-          if (activeJourney && activeJourney.destination_lat && activeJourney.destination_lng) {
-            fetchRoute(newLat, newLng, activeJourney.destination_lat, activeJourney.destination_lng);
+          // Use ref to avoid stale closure — always has up-to-date destination
+          const journey = activeJourneyRef.current;
+          if (journey?.destination_lat && journey?.destination_lng) {
+            fetchRoute(newLat, newLng, journey.destination_lat, journey.destination_lng);
           }
 
           // Emit live location via Socket.io

@@ -162,30 +162,32 @@ const EmployeeTrackingScreen = () => {
         let currLat: number | null = null;
         let currLng: number | null = null;
 
+        // 1. Try instant last known location from device GPS cache
+        try {
+          const lastLoc = await Location.getLastKnownPositionAsync();
+          if (lastLoc && lastLoc.coords) {
+            currLat = lastLoc.coords.latitude;
+            currLng = lastLoc.coords.longitude;
+          }
+        } catch (e) {
+          console.log('Last known position error:', e);
+        }
+
+        // 2. Query fresh GPS position
         try {
           const loc: any = await fetchWithTimeout(
-            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-            12000
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest }),
+            6000
           );
           if (loc && loc.coords) {
             currLat = loc.coords.latitude;
             currLng = loc.coords.longitude;
           }
         } catch (e) {
-          console.log('Position fetch timed out, trying last known position:', e);
+          console.log('High accuracy GPS fetch error:', e);
         }
 
-        if (!currLat || !currLng) {
-          try {
-            const lastLoc = await Location.getLastKnownPositionAsync();
-            if (lastLoc && lastLoc.coords) {
-              currLat = lastLoc.coords.latitude;
-              currLng = lastLoc.coords.longitude;
-            }
-          } catch {}
-        }
-
-        // If GPS is unavailable, offset start point by ~1.5km so start & end DO NOT coincide
+        // 3. Fallback offset if device has no GPS fix yet
         if (!currLat || !currLng) {
           const destLat = Number(assigned.latitude);
           const destLng = Number(assigned.longitude);
@@ -352,8 +354,9 @@ const EmployeeTrackingScreen = () => {
 
       const sub = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 1000,
+          distanceInterval: 1,
         },
         async (loc) => {
           const newLat = loc.coords.latitude;

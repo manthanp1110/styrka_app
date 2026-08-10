@@ -151,9 +151,14 @@ const EmployeeTrackingScreen = () => {
         let currLat = 28.6139;
         let currLng = 77.2090;
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-          currLat = loc.coords.latitude;
-          currLng = loc.coords.longitude;
+          const loc: any = await fetchWithTimeout(
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+            4000
+          );
+          if (loc && loc.coords) {
+            currLat = loc.coords.latitude;
+            currLng = loc.coords.longitude;
+          }
         } catch (e) {
           console.log('Could not get current position:', e);
         }
@@ -227,10 +232,8 @@ const EmployeeTrackingScreen = () => {
   };
 
   useEffect(() => {
-    if (user.id) {
-      fetchActiveJourney();
-    }
-  }, [user.id, route.params?.assignedDestination]);
+    fetchActiveJourney();
+  }, [user?.id, route.params?.assignedDestination]);
 
 
   useEffect(() => {

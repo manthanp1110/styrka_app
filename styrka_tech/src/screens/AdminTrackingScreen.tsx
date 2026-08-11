@@ -160,75 +160,82 @@ const AdminTrackingScreen = () => {
       const allLocations = await TrackingDataService.getAllLiveLocations();
       const allDestinations = await TrackingDataService.getAllDestinations();
 
-      const journeyMap: any = {};
-      for (const emp of usersData) {
-        const loc = allLocations[emp.id]
-          || (emp.email ? allLocations[emp.email] : null)
-          || Object.values(allLocations).find((l: any) => 
-               l.user_id === emp.id || 
-               (emp.email && l.user_id === emp.email) ||
-               (l.user_id && (
-                 l.user_id.toLowerCase() === (emp.id || '').toLowerCase() ||
-                 l.user_id.toLowerCase() === (emp.email || '').toLowerCase() ||
-                 (emp.name && l.user_id.toLowerCase().includes(emp.name.toLowerCase()))
-               ))
-             );
-        const dest = allDestinations.find((d) => (d.employee_id === emp.id || (emp.email && d.employee_id === emp.email)) && d.status !== 'completed');
+      setEmployees(usersData || []);
 
-        // Prevent older database poll from overwriting newer live Socket.IO pings
-        const existingJourney = activeJourneys[emp.id] || (emp.email ? activeJourneys[emp.email] : null);
-        const existingTime = existingJourney?.latestLocation?.timestamp
-          ? new Date(existingJourney.latestLocation.timestamp).getTime()
-          : 0;
-        const fetchedTime = loc?.timestamp ? new Date(loc.timestamp).getTime() : 0;
+      setActiveJourneys((prev) => {
+        const nextMap: Record<string, any> = { ...prev };
 
-        if (existingTime > fetchedTime && existingJourney?.latestLocation) {
-          journeyMap[emp.id] = existingJourney;
-          if (emp.email) journeyMap[emp.email] = existingJourney;
-          if (loc?.user_id) journeyMap[loc.user_id] = existingJourney;
-          continue;
-        }
+        for (const emp of usersData || []) {
+          const loc = allLocations[emp.id]
+            || (emp.email ? allLocations[emp.email] : null)
+            || Object.values(allLocations).find((l: any) => 
+                 l.user_id === emp.id || 
+                 (emp.email && l.user_id === emp.email) ||
+                 (l.user_id && (
+                   l.user_id.toLowerCase() === (emp.id || '').toLowerCase() ||
+                   l.user_id.toLowerCase() === (emp.email || '').toLowerCase() ||
+                   (emp.name && l.user_id.toLowerCase().includes(emp.name.toLowerCase()))
+                 ))
+               );
 
-        if (loc || dest) {
-          const latestPing = loc ? {
-            user_id: loc.user_id || emp.id,
-            latitude: Number(loc.latitude),
-            longitude: Number(loc.longitude),
-            heading: Number(loc.heading || 0),
-            speed: Number(loc.speed || 0),
-            status: loc.status || 'online',
-            timestamp: loc.timestamp || new Date().toISOString(),
-          } : null;
+          const dest = allDestinations.find((d) => (d.employee_id === emp.id || (emp.email && d.employee_id === emp.email)) && d.status !== 'completed');
 
-          // Destination priority: admin-assigned dest > live_locations dest (custom journey) > null
+          const existingJourney = prev[emp.id] 
+            || (emp.email ? prev[emp.email] : null) 
+            || (emp.name ? prev[emp.name] : null);
+
+          const existingTime = existingJourney?.latestLocation?.timestamp
+            ? new Date(existingJourney.latestLocation.timestamp).getTime()
+            : 0;
+          const fetchedTime = loc?.timestamp ? new Date(loc.timestamp).getTime() : 0;
+
+          // Preserve newer live Socket.IO ping if available in state
+          let latestPing = existingJourney?.latestLocation || null;
+          if (fetchedTime > existingTime && loc) {
+            latestPing = {
+              user_id: loc.user_id || emp.id,
+              latitude: Number(loc.latitude),
+              longitude: Number(loc.longitude),
+              heading: Number(loc.heading || 0),
+              speed: Number(loc.speed || 0),
+              status: loc.status || 'online',
+              timestamp: loc.timestamp || new Date().toISOString(),
+            };
+          }
+
           const destLat = dest ? Number(dest.latitude)
-            : (loc?.destination_lat != null ? Number(loc.destination_lat) : null);
+            : (existingJourney?.destination_lat != null ? Number(existingJourney.destination_lat)
+            : (loc?.destination_lat != null ? Number(loc.destination_lat) : null));
           const destLng = dest ? Number(dest.longitude)
-            : (loc?.destination_lng != null ? Number(loc.destination_lng) : null);
+            : (existingJourney?.destination_lng != null ? Number(existingJourney.destination_lng)
+            : (loc?.destination_lng != null ? Number(loc.destination_lng) : null));
           const destAddress = dest?.address
+            || existingJourney?.address
             || (loc as any)?.destination_address
             || 'Custom destination';
 
-          const journeyObj = {
-            id: `j_${emp.id}`,
-            user_id: emp.id,
-            start_lat: latestPing ? latestPing.latitude : (destLat || 28.6139),
-            start_lng: latestPing ? latestPing.longitude : (destLng || 77.2090),
-            destination_lat: destLat,
-            destination_lng: destLng,
-            locationHistory: latestPing ? [latestPing] : [],
-            latestLocation: latestPing,
-            address: destAddress,
-          };
+          if (loc || dest || existingJourney) {
+            const journeyObj = {
+              ...(existingJourney || {}),
+              id: existingJourney?.id || `j_${emp.id}`,
+              user_id: emp.id,
+              start_lat: latestPing ? latestPing.latitude : (destLat || 28.6139),
+              start_lng: latestPing ? latestPing.longitude : (destLng || 77.2090),
+              destination_lat: destLat,
+              destination_lng: destLng,
+              locationHistory: existingJourney?.locationHistory || (latestPing ? [latestPing] : []),
+              latestLocation: latestPing,
+              address: destAddress,
+            };
 
-          journeyMap[emp.id] = journeyObj;
-          if (emp.email) journeyMap[emp.email] = journeyObj;
-          if (loc?.user_id) journeyMap[loc.user_id] = journeyObj;
+            nextMap[emp.id] = journeyObj;
+            if (emp.email) nextMap[emp.email] = journeyObj;
+            if (emp.name) nextMap[emp.name] = journeyObj;
+          }
         }
-      }
 
-      setEmployees(usersData || []);
-      setActiveJourneys(journeyMap);
+        return nextMap;
+      });
     } catch (e) {
       console.error(e);
     } finally {

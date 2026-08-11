@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: styrka-telemetry-server
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        value: https://fabtqddbaeoawlrrjwrm.supabase.co
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        value: sb_publishable_Bbu8NxxN7EsJDKK3uUGgeQ_jKF6qmh8

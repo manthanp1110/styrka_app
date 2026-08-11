@@ -36,10 +36,26 @@ io.on('connection', (socket) => {
       socket.join(userId);
       if (role === 'admin') {
         socket.join('admin_room');
+        console.log(`[Socket.io] Admin ${userId} joined admin_room. Sending ${activeEmployees.size} cached locations.`);
+        // Send cached active employee locations to newly connected admin
+        for (const [empId, record] of activeEmployees.entries()) {
+          if (record && record.latestLoc) {
+            socket.emit('employee_location_changed', record.latestLoc);
+          }
+        }
       } else {
         socket.join('employee_room');
       }
       console.log(`[Socket.io] User ${userId} (${role}) joined rooms.`);
+    }
+  });
+
+  // Admin explicit pull request for all active employee locations
+  socket.on('get_active_employees', () => {
+    for (const [empId, record] of activeEmployees.entries()) {
+      if (record && record.latestLoc) {
+        socket.emit('employee_location_changed', record.latestLoc);
+      }
     }
   });
 

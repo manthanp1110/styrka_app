@@ -191,38 +191,56 @@ const EmployeeTrackingScreen = () => {
   const fetchActiveJourney = async () => {
     setIsLoading(true);
     try {
+      // 1. Request location permissions unconditionally
+      let { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+      if (fgStatus !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'Please grant location permission to enable tracking and map navigation.',
+          [{ text: 'OK' }]
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Prompt user natively to enable GPS if turned off on Android
+      try {
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled && Platform.OS === 'android') {
+          try {
+            await Location.enableNetworkProviderAsync();
+          } catch (e) {
+            Alert.alert(
+              'GPS Disabled',
+              'Location services (GPS) are turned off. Please swipe down your Android notifications bar and turn ON Location / GPS.'
+            );
+          }
+        }
+      } catch {}
+
+      // Always connect SocketService for employee
+      SocketService.connect(user.id || 'emp_1', 'employee');
+
+      // 2. Fetch real initial device location immediately
+      const initialLoc = await getDeviceLocation();
+      if (initialLoc) {
+        setCurrentLocation(initialLoc);
+        fetchAddress(initialLoc.latitude, initialLoc.longitude);
+        TrackingDataService.updateLiveLocation({
+          userId: user.id || 'emp_1',
+          latitude: initialLoc.latitude,
+          longitude: initialLoc.longitude,
+        });
+        SocketService.updateLocation({
+          userId: user.id || 'emp_1',
+          latitude: initialLoc.latitude,
+          longitude: initialLoc.longitude,
+        });
+      }
+
+      // 3. Process assigned destination or active journey
       const assigned = route.params?.assignedDestination;
       if (assigned) {
-        // Request location permission before fetching current position
-        let { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-        if (fgStatus !== 'granted') {
-          Alert.alert(
-            'Location Permission Required',
-            'Please grant location permission to start your journey.',
-            [{ text: 'OK' }]
-          );
-          setIsLoading(false);
-          return;
-        }
-        // Prompt user natively to enable GPS if turned off on Android
-        try {
-          const servicesEnabled = await Location.hasServicesEnabledAsync();
-          if (!servicesEnabled) {
-            if (Platform.OS === 'android') {
-              try {
-                await Location.enableNetworkProviderAsync();
-              } catch (e) {
-                Alert.alert(
-                  'GPS Disabled',
-                  'Location services (GPS) are turned off. Please swipe down your Android notifications bar and turn ON Location / GPS.'
-                );
-              }
-            }
-          }
-        } catch {}
-
-        const initialLoc = await getDeviceLocation();
-
         const newJourney: any = {
           id: `j_${user.id || 'emp_1'}`,
           user_id: user.id || 'emp_1',
@@ -238,11 +256,8 @@ const EmployeeTrackingScreen = () => {
         activeJourneyRef.current = newJourney;
         setActiveJourney(newJourney);
         if (initialLoc) {
-          setCurrentLocation(initialLoc);
           fetchRoute(initialLoc.latitude, initialLoc.longitude, Number(assigned.latitude), Number(assigned.longitude));
-          fetchAddress(initialLoc.latitude, initialLoc.longitude);
         } else {
-          // Provide initial offset so markers DO NOT coincide while waiting for GPS lock
           const initialOffset = {
             latitude: Number(assigned.latitude) - 0.015,
             longitude: Number(assigned.longitude) - 0.015,
@@ -250,37 +265,9 @@ const EmployeeTrackingScreen = () => {
           setCurrentLocation(initialOffset);
           fetchRoute(initialOffset.latitude, initialOffset.longitude, Number(assigned.latitude), Number(assigned.longitude));
         }
-        setIsLoading(false);
-
-        // Asynchronously re-verify GPS position in background
-        (async () => {
-          const fresh = await getDeviceLocation();
-          if (fresh) {
-            setCurrentLocation({ latitude: fresh.latitude, longitude: fresh.longitude });
-            fetchRoute(fresh.latitude, fresh.longitude, Number(assigned.latitude), Number(assigned.longitude));
-            fetchAddress(fresh.latitude, fresh.longitude);
-
-            const realJourney = {
-              ...newJourney,
-              start_lat: fresh.latitude,
-              start_lng: fresh.longitude,
-            };
-            activeJourneyRef.current = realJourney;
-            setActiveJourney(realJourney);
-            AsyncStorage.setItem('active_journey', JSON.stringify(realJourney));
-
-            TrackingDataService.updateLiveLocation({
-              userId: user.id || 'emp_1',
-              latitude: fresh.latitude,
-              longitude: fresh.longitude,
-            });
-          }
-        })();
 
         AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
-        SocketService.connect(user.id || 'emp_1', 'employee');
         setupTracking(newJourney.id);
-        fetchRoute(Number(newJourney.start_lat), Number(newJourney.start_lng), Number(assigned.latitude), Number(assigned.longitude));
         return;
       }
 
@@ -289,30 +276,14 @@ const EmployeeTrackingScreen = () => {
         const journey = JSON.parse(raw);
         activeJourneyRef.current = journey;
         setActiveJourney(journey);
-
-        // Fetch real device location first before falling back
-        const realLoc = await getDeviceLocation();
-        if (realLoc) {
-          setCurrentLocation(realLoc);
-          fetchAddress(realLoc.latitude, realLoc.longitude);
-        } else {
-          const loc = await TrackingDataService.getLiveLocation(user.id || 'emp_1');
-          if (loc) {
-            setCurrentLocation({ latitude: loc.latitude, longitude: loc.longitude });
-            fetchAddress(loc.latitude, loc.longitude);
-          } else {
-            setCurrentLocation({ latitude: journey.start_lat, longitude: journey.start_lng });
-            fetchAddress(journey.start_lat, journey.start_lng);
-          }
+        if (journey?.destination_lat && journey?.destination_lng && currentLocation) {
+          fetchRoute(currentLocation.latitude, currentLocation.longitude, Number(journey.destination_lat), Number(journey.destination_lng));
         }
-
-        if (!heartbeatTimerRef.current) {
-          setTrackingSessionId(journey.id);
-          setupTracking(journey.id);
-        }
+        setupTracking(journey.id);
       } else {
         setActiveJourney(null);
         setPings([]);
+        setupTracking();
       }
     } catch (e) {
       console.error(e);
@@ -406,7 +377,7 @@ const EmployeeTrackingScreen = () => {
     }
   };
   
-  const setupTracking = async (journeyId: string) => {
+  const setupTracking = async (journeyId?: string) => {
     try {
       SocketService.connect(user.id || 'emp_1', 'employee');
 

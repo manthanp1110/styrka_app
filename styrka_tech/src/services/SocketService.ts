@@ -17,7 +17,7 @@ class SocketService {
         });
 
         this.socket.on('connect', () => {
-          console.log('[SocketService] Connected to Render Socket.io server with ID:', this.socket?.id);
+          console.log('[SOCKET DEBUG] connected:', this.socket?.id);
           if (userId && role) this.register(userId, role);
         });
 
@@ -33,11 +33,15 @@ class SocketService {
           this.emitLocal('journey_status_changed', data);
         });
 
-        this.socket.on('disconnect', () => {
-          console.log('[SocketService] Disconnected from Render Socket.io server');
+        this.socket.on('disconnect', (reason) => {
+          console.log('[SOCKET DEBUG] disconnected:', reason);
+        });
+
+        this.socket.on('connect_error', (err) => {
+          console.warn('[SOCKET DEBUG] connection error:', err?.message || err);
         });
       } catch (e) {
-        console.warn('[SocketService] Exception connecting to Socket.io:', e);
+        console.warn('[SOCKET DEBUG] Exception connecting to Socket.io:', e);
       }
     } else if (userId && role) {
       this.register(userId, role);
@@ -65,16 +69,28 @@ class SocketService {
 
   public updateLocation(payload: {
     userId: string;
+    email?: string;
+    name?: string;
     latitude: number;
     longitude: number;
     heading?: number;
     speed?: number;
+    accuracy?: number;
+    timestamp?: string;
     destination_lat?: number;
     destination_lng?: number;
     destination_address?: string;
     status?: 'online' | 'offline';
   }) {
     if (this.socket) {
+      console.log('[SOCKET DEBUG] Emitting update_location:', {
+        userId: payload.userId,
+        email: payload.email,
+        name: payload.name,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        timestamp: payload.timestamp || new Date().toISOString(),
+      });
       this.socket.emit('update_location', payload);
     }
   }
@@ -86,6 +102,12 @@ class SocketService {
   }) {
     if (this.socket) {
       this.socket.emit('journey_status', payload);
+    }
+  }
+
+  public emit(event: string, payload: any = {}) {
+    if (this.socket) {
+      this.socket.emit(event, payload);
     }
   }
 

@@ -52,8 +52,11 @@ io.on('connection', (socket) => {
 
   // Admin explicit pull request for all active employee locations
   socket.on('get_active_employees', () => {
+    console.log('[SERVER LOCATION] get_active_employees requested by socket:', socket.id);
+    const sent = new Set();
     for (const [empId, record] of activeEmployees.entries()) {
-      if (record && record.latestLoc) {
+      if (record && record.latestLoc && !sent.has(record.latestLoc.employee_id)) {
+        sent.add(record.latestLoc.employee_id);
         socket.emit('employee_location_changed', record.latestLoc);
       }
     }
@@ -72,20 +75,47 @@ io.on('connection', (socket) => {
 
   // Employee sends live GPS location -> relay to admins
   socket.on('update_location', (payload) => {
-    if (payload && payload.userId) {
+    const empId = payload?.userId || payload?.employee_id;
+    if (payload && empId) {
+      console.log('[SERVER LOCATION] update_location received:', {
+        employeeId: empId,
+        userId: payload.userId,
+        email: payload.email,
+        name: payload.name,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        timestamp: payload.timestamp
+      });
+
       const locationRecord = {
-        employee_id: payload.userId,
+        employee_id: empId,
+        user_id: payload.userId || empId,
+        email: payload.email || '',
+        name: payload.name || '',
         latitude: payload.latitude,
         longitude: payload.longitude,
         heading: payload.heading || 0,
         speed: payload.speed || 0,
+        accuracy: payload.accuracy || 0,
         status: 'online',
         timestamp: payload.timestamp || new Date().toISOString(),
+        destination_lat: payload.destination_lat != null ? Number(payload.destination_lat) : null,
+        destination_lng: payload.destination_lng != null ? Number(payload.destination_lng) : null,
+        destination_address: payload.destination_address || null,
       };
 
-      activeEmployees.set(payload.userId, {
+      activeEmployees.set(empId, {
         latestLoc: locationRecord,
         status: 'online',
+      });
+      if (payload.email) activeEmployees.set(payload.email, { latestLoc: locationRecord, status: 'online' });
+      if (payload.name) activeEmployees.set(payload.name, { latestLoc: locationRecord, status: 'online' });
+
+      console.log('[SERVER LOCATION] employee_location_changed broadcast:', {
+        employeeId: empId,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        timestamp: locationRecord.timestamp
       });
 
       // Broadcast real-time location change to admin room

@@ -312,10 +312,22 @@ const AdminTrackingScreen = () => {
     fetchTrackingData();
 
     SocketService.connect(user.id || 'admin_1', 'admin');
+    // Explicitly request active employees from Render Socket server
+    SocketService.emit('get_active_employees', {});
 
     const handleLocationChange = (loc: any) => {
       const incomingId = loc?.employee_id || loc?.user_id;
       if (loc && incomingId) {
+        console.log('[ADMIN LOCATION] received:', {
+          employeeId: incomingId,
+          userId: loc.user_id,
+          email: loc.email,
+          name: loc.name,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          timestamp: loc.timestamp
+        });
+
         // Resolve incoming employee_id to matched employee in state using ref
         const currentEmployees = employeesRef.current || [];
         const matched = currentEmployees.find(
@@ -327,6 +339,8 @@ const AdminTrackingScreen = () => {
         const primaryEmpId = matched ? matched.id : incomingId;
         const empEmail = matched?.email;
         const empName = matched?.name;
+
+        console.log('[ADMIN LOCATION] employee matched:', { primaryEmpId, matchedName: empName || matched?.name || 'none' });
 
         setActiveJourneys((prev) => {
           const currentJourney = prev[primaryEmpId] || (empEmail ? prev[empEmail] : null) || prev[incomingId];
@@ -352,6 +366,8 @@ const AdminTrackingScreen = () => {
             status: loc.status || 'online',
             timestamp: incomingTimestamp,
           };
+
+          console.log('[ADMIN LOCATION] latestLocation updated:', updatedPing);
 
           // Pick up destination data from Socket.IO pings (for custom journeys)
           const incomingDestLat = loc.destination_lat != null ? Number(loc.destination_lat) : null;
@@ -440,18 +456,24 @@ const AdminTrackingScreen = () => {
   useEffect(() => {
     let isMounted = true;
     const fetchCurrentAddress = async () => {
-      const lat = selectedJourney?.latestLocation?.latitude != null ? Number(selectedJourney.latestLocation.latitude) : null;
-      const lng = selectedJourney?.latestLocation?.longitude != null ? Number(selectedJourney.latestLocation.longitude) : null;
+      const lat = selectedJourney?.latestLocation?.latitude != null 
+        ? Number(selectedJourney.latestLocation.latitude) 
+        : (selectedJourney?.start_lat != null ? Number(selectedJourney.start_lat) : null);
+      const lng = selectedJourney?.latestLocation?.longitude != null 
+        ? Number(selectedJourney.latestLocation.longitude) 
+        : (selectedJourney?.start_lng != null ? Number(selectedJourney.start_lng) : null);
 
       if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+        console.log('[ADDRESS DEBUG] reverse geocoding:', { latitude: lat, longitude: lng });
         try {
           const res = await MapplsApi.reverseGeocode({ latitude: lat, longitude: lng });
           if (isMounted && res && res.results && res.results.length > 0 && res.results[0].formatted_address) {
+            console.log('[ADDRESS DEBUG] address resolved:', res.results[0].formatted_address);
             setCurrentLocationAddress(res.results[0].formatted_address);
             return;
           }
-        } catch (e) {
-          console.log('[AdminTrackingScreen] Reverse geocode error:', e);
+        } catch (e: any) {
+          console.log('[ADDRESS DEBUG] reverse geocoding failed:', e?.message || e);
         }
         if (isMounted) {
           setCurrentLocationAddress(`${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`);

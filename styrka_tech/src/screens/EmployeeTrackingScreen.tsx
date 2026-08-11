@@ -415,6 +415,13 @@ const EmployeeTrackingScreen = () => {
             if (distMoved >= 5) shouldUpload = true;
           }
 
+          console.log('[LOCATION DEBUG] GPS position received:', {
+            latitude: newLat,
+            longitude: newLng,
+            accuracy: loc.coords.accuracy,
+            timestamp,
+          });
+
           if (shouldUpload) {
             lastDbUploadTimeRef.current = now;
             lastDbUploadCoordsRef.current = { lat: newLat, lng: newLng };
@@ -433,10 +440,14 @@ const EmployeeTrackingScreen = () => {
 
             SocketService.updateLocation({
               userId,
+              email: user.email || undefined,
+              name: user.name || undefined,
               latitude: newLat,
               longitude: newLng,
               heading: loc.coords.heading || 0,
               speed: loc.coords.speed || 0,
+              accuracy: loc.coords.accuracy || 0,
+              timestamp,
               destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
               destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
               destination_address: journey?.address || undefined,

@@ -104,78 +104,7 @@ const AdminTrackingScreen = () => {
     lastRouteFetchRef.current = 0;
   }, [selectedEmployeeId]);
 
-  useEffect(() => {
-    if (selectedEmployeeId && activeJourneys[selectedEmployeeId]) {
-      const journey = activeJourneys[selectedEmployeeId];
-      if (journey.destination_lat != null && journey.destination_lng != null) {
-        const originLat = journey.latestLocation?.latitude != null
-          ? Number(journey.latestLocation.latitude)
-          : Number(journey.start_lat);
-        const originLng = journey.latestLocation?.longitude != null
-          ? Number(journey.latestLocation.longitude)
-          : Number(journey.start_lng);
-        const destLat = Number(journey.destination_lat);
-        const destLng = Number(journey.destination_lng);
 
-        if (!originLat || !originLng || !destLat || !destLng) return;
-
-        // Throttle route API calls to every 10 seconds
-        const now = Date.now();
-        if (now - lastRouteFetchRef.current < 10000 && currentRouteCoords.length > 0) return;
-        if (routeFetchingRef.current) return;
-
-        routeFetchingRef.current = true;
-        lastRouteFetchRef.current = now;
-
-        (async () => {
-          try {
-            const res = await MapplsApi.direction({
-              origin: `${originLng},${originLat}`,
-              destination: `${destLng},${destLat}`,
-              profile: 'driving',
-              overview: 'full',
-              geometries: 'polyline'
-            });
-
-            if (res?.routes?.length > 0 && res.routes[0].geometry) {
-              const decodedCoords = decodePolyline(res.routes[0].geometry);
-              setCurrentRouteCoords(decodedCoords);
-              setRouteDistance(res.routes[0].distance ? res.routes[0].distance / 1000 : null);
-              setRouteDuration(res.routes[0].duration ? res.routes[0].duration / 60 : null);
-            } else {
-              // Fallback: straight line
-              setCurrentRouteCoords([
-                { latitude: originLat, longitude: originLng },
-                { latitude: destLat, longitude: destLng },
-              ]);
-              // Compute straight-line distance
-              setRouteDistance(getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng));
-              setRouteDuration(null);
-            }
-          } catch (e) {
-            console.log('Mappls routing error', e);
-            // On error, draw straight line so polyline is always visible
-            setCurrentRouteCoords([
-              { latitude: originLat, longitude: originLng },
-              { latitude: destLat, longitude: destLng },
-            ]);
-          } finally {
-            routeFetchingRef.current = false;
-          }
-        })();
-      }
-    } else {
-      setCurrentRouteCoords([]);
-      setRouteDistance(null);
-      setRouteDuration(null);
-    }
-  }, [
-    selectedEmployeeId,
-    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.latitude : null,
-    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.latestLocation?.longitude : null,
-    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lat : null,
-    selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lng : null,
-  ]);
 
   // Helper: Resolve journey using emp.id -> emp.email -> live_locations.user_id -> fuzzy match
   const resolveEmployeeJourney = (emp: any, journeysMap: Record<string, any>) => {
@@ -454,6 +383,68 @@ const AdminTrackingScreen = () => {
   const selectedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
 
   useEffect(() => {
+    if (selectedJourney && selectedJourney.destination_lat != null && selectedJourney.destination_lng != null) {
+      const originLat = selectedJourney.latestLocation?.latitude != null
+        ? Number(selectedJourney.latestLocation.latitude)
+        : Number(selectedJourney.start_lat);
+      const originLng = selectedJourney.latestLocation?.longitude != null
+        ? Number(selectedJourney.latestLocation.longitude)
+        : Number(selectedJourney.start_lng);
+      const destLat = Number(selectedJourney.destination_lat);
+      const destLng = Number(selectedJourney.destination_lng);
+
+      if (!originLat || !originLng || !destLat || !destLng || isNaN(originLat) || isNaN(originLng) || isNaN(destLat) || isNaN(destLng)) return;
+
+      const now = Date.now();
+      if (now - lastRouteFetchRef.current < 10000 && currentRouteCoords.length > 0) return;
+      if (routeFetchingRef.current) return;
+
+      routeFetchingRef.current = true;
+      lastRouteFetchRef.current = now;
+
+      (async () => {
+        try {
+          const res = await MapplsApi.direction({
+            origin: `${originLng},${originLat}`,
+            destination: `${destLng},${destLat}`,
+            profile: 'driving',
+            overview: 'full',
+            geometries: 'polyline'
+          });
+
+          if (res?.routes?.length > 0 && res.routes[0].geometry) {
+            const decodedCoords = decodePolyline(res.routes[0].geometry);
+            setCurrentRouteCoords(decodedCoords);
+            setRouteDistance(res.routes[0].distance ? res.routes[0].distance / 1000 : null);
+            setRouteDuration(res.routes[0].duration ? res.routes[0].duration / 60 : null);
+          } else {
+            setCurrentRouteCoords([
+              { latitude: originLat, longitude: originLng },
+              { latitude: destLat, longitude: destLng },
+            ]);
+            setRouteDistance(getDistanceFromLatLonInKm(originLat, originLng, destLat, destLng));
+            setRouteDuration(null);
+          }
+        } catch (e) {
+          console.log('Mappls routing error', e);
+          setCurrentRouteCoords([
+            { latitude: originLat, longitude: originLng },
+            { latitude: destLat, longitude: destLng },
+          ]);
+        } finally {
+          routeFetchingRef.current = false;
+        }
+      })();
+    }
+  }, [
+    selectedEmployeeId,
+    selectedJourney?.latestLocation?.latitude,
+    selectedJourney?.latestLocation?.longitude,
+    selectedJourney?.destination_lat,
+    selectedJourney?.destination_lng,
+  ]);
+
+  useEffect(() => {
     let isMounted = true;
     const fetchCurrentAddress = async () => {
       const lat = selectedJourney?.latestLocation?.latitude != null 
@@ -478,14 +469,17 @@ const AdminTrackingScreen = () => {
         if (isMounted) {
           setCurrentLocationAddress(`${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`);
         }
-      } else {
-        if (isMounted) setCurrentLocationAddress('');
       }
     };
 
     fetchCurrentAddress();
     return () => { isMounted = false; };
-  }, [selectedJourney?.latestLocation?.latitude, selectedJourney?.latestLocation?.longitude]);
+  }, [
+    selectedJourney?.latestLocation?.latitude, 
+    selectedJourney?.latestLocation?.longitude,
+    selectedJourney?.start_lat,
+    selectedJourney?.start_lng
+  ]);
 
   if (selectedEmp) {
     console.log(`[ADMIN_MATCH] employee.id = ${selectedEmp.id}`);

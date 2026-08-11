@@ -78,8 +78,11 @@ const AdminTrackingScreen = () => {
   const [currentRouteCoords, setCurrentRouteCoords] = useState<any[]>([]);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
+  const [currentLocationAddress, setCurrentLocationAddress] = useState<string>('');
   const lastRouteFetchRef = useRef<number>(0);
   const routeFetchingRef = useRef<boolean>(false);
+
+
 
   useEffect(() => {
     if (!selectedEmployeeId && employees.length > 0) {
@@ -401,6 +404,34 @@ const AdminTrackingScreen = () => {
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
   const selectedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCurrentAddress = async () => {
+      const lat = selectedJourney?.latestLocation?.latitude != null ? Number(selectedJourney.latestLocation.latitude) : null;
+      const lng = selectedJourney?.latestLocation?.longitude != null ? Number(selectedJourney.latestLocation.longitude) : null;
+
+      if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+        try {
+          const res = await MapplsApi.reverseGeocode({ latitude: lat, longitude: lng });
+          if (isMounted && res && res.results && res.results.length > 0 && res.results[0].formatted_address) {
+            setCurrentLocationAddress(res.results[0].formatted_address);
+            return;
+          }
+        } catch (e) {
+          console.log('[AdminTrackingScreen] Reverse geocode error:', e);
+        }
+        if (isMounted) {
+          setCurrentLocationAddress(`${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`);
+        }
+      } else {
+        if (isMounted) setCurrentLocationAddress('');
+      }
+    };
+
+    fetchCurrentAddress();
+    return () => { isMounted = false; };
+  }, [selectedJourney?.latestLocation?.latitude, selectedJourney?.latestLocation?.longitude]);
+
   if (selectedEmp) {
     console.log(`[ADMIN_MATCH] employee.id = ${selectedEmp.id}`);
     console.log(`[ADMIN_MATCH] employee.email = ${selectedEmp.email}`);
@@ -660,8 +691,8 @@ const AdminTrackingScreen = () => {
                   <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 16 }}>
                     {selectedEmp?.name || 'Rider'}
                   </Text>
-                  <Text style={{ color: '#3B82F6', fontSize: 12, marginTop: 2, fontWeight: '700' }}>
-                    📍 {selectedJourney?.latestLocation?.latitude ? `${Number(selectedJourney.latestLocation.latitude).toFixed(4)}°N, ${Number(selectedJourney.latestLocation.longitude).toFixed(4)}°E` : 'Locating rider...'}
+                  <Text style={{ color: '#2563EB', fontSize: 12, marginTop: 2, fontWeight: '700' }} numberOfLines={2}>
+                    📍 Current: {currentLocationAddress || (selectedJourney?.latestLocation?.latitude ? `${Number(selectedJourney.latestLocation.latitude).toFixed(4)}°N, ${Number(selectedJourney.latestLocation.longitude).toFixed(4)}°E` : 'Locating rider...')}
                   </Text>
                   {selectedJourney?.address && (
                     <Text style={{ color: '#6B7280', fontSize: 11, marginTop: 2 }} numberOfLines={1}>

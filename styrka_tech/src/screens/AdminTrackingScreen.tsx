@@ -84,6 +84,11 @@ const AdminTrackingScreen = () => {
 
 
 
+  const employeesRef = useRef<any[]>(employees);
+  useEffect(() => {
+    employeesRef.current = employees;
+  }, [employees]);
+
   useEffect(() => {
     if (!selectedEmployeeId && employees.length > 0) {
       // Auto-select first employee so Admin opens directly to live map & polyline
@@ -172,29 +177,51 @@ const AdminTrackingScreen = () => {
     selectedEmployeeId ? activeJourneys[selectedEmployeeId]?.destination_lng : null,
   ]);
 
-  // Helper: Resolve journey using emp.id -> emp.email -> live_locations.user_id -> null
+  // Helper: Resolve journey using emp.id -> emp.email -> live_locations.user_id -> fuzzy match
   const resolveEmployeeJourney = (emp: any, journeysMap: Record<string, any>) => {
     if (!emp) return null;
-    // 1. Check emp.id
-    if (emp.id && journeysMap[emp.id]) {
-      return journeysMap[emp.id];
-    }
-    // 2. Check emp.email
-    if (emp.email && journeysMap[emp.email]) {
-      return journeysMap[emp.email];
-    }
-    // 3. Search values for user_id matching emp.id or emp.email
-    const match = Object.values(journeysMap).find((j: any) => {
-      const locUserId = j.latestLocation?.user_id || j.user_id;
-      if (!locUserId) return false;
-      return (
-        locUserId === emp.id ||
-        (emp.email && locUserId === emp.email) ||
-        (emp.id && String(locUserId).toLowerCase() === String(emp.id).toLowerCase()) ||
-        (emp.email && String(locUserId).toLowerCase() === String(emp.email).toLowerCase())
-      );
+
+    const candidateJourneys: any[] = [];
+    if (emp.id && journeysMap[emp.id]) candidateJourneys.push(journeysMap[emp.id]);
+    if (emp.email && journeysMap[emp.email]) candidateJourneys.push(journeysMap[emp.email]);
+    if (emp.name && journeysMap[emp.name]) candidateJourneys.push(journeysMap[emp.name]);
+
+    Object.values(journeysMap).forEach((j: any) => {
+      const locUserId = String(j.latestLocation?.user_id || j.user_id || '').toLowerCase();
+      const empId = String(emp.id || '').toLowerCase();
+      const empEmail = String(emp.email || '').toLowerCase();
+      const empName = String(emp.name || '').toLowerCase();
+
+      if (
+        (empId && locUserId === empId) ||
+        (empEmail && locUserId === empEmail) ||
+        (empName && locUserId.includes(empName))
+      ) {
+        if (!candidateJourneys.includes(j)) candidateJourneys.push(j);
+      }
     });
-    return match || null;
+
+    if (candidateJourneys.length === 0) return null;
+
+    // Merge candidates so destination details & latest location are cleanly combined
+    const base = { ...candidateJourneys[0] };
+    for (const c of candidateJourneys) {
+      if (!base.latestLocation && c.latestLocation) {
+        base.latestLocation = c.latestLocation;
+      } else if (base.latestLocation && c.latestLocation) {
+        const baseTime = new Date(base.latestLocation.timestamp || 0).getTime();
+        const cTime = new Date(c.latestLocation.timestamp || 0).getTime();
+        if (cTime > baseTime) {
+          base.latestLocation = c.latestLocation;
+        }
+      }
+      if (!base.destination_lat && c.destination_lat) {
+        base.destination_lat = c.destination_lat;
+        base.destination_lng = c.destination_lng;
+        base.address = c.address;
+      }
+    }
+    return base;
   };
 
   const fetchTrackingData = async () => {
@@ -289,12 +316,17 @@ const AdminTrackingScreen = () => {
     const handleLocationChange = (loc: any) => {
       const incomingId = loc?.employee_id || loc?.user_id;
       if (loc && incomingId) {
-        // Resolve incoming employee_id to matched employee in state
-        const matched = employees.find(
-          (e) => e.id === incomingId || (e.email && e.email.toLowerCase() === String(incomingId).toLowerCase()) || (e.name && e.name.toLowerCase() === String(incomingId).toLowerCase())
+        // Resolve incoming employee_id to matched employee in state using ref
+        const currentEmployees = employeesRef.current || [];
+        const matched = currentEmployees.find(
+          (e) => e.id === incomingId || 
+                 (e.email && e.email.toLowerCase() === String(incomingId).toLowerCase()) || 
+                 (e.name && String(incomingId).toLowerCase().includes(e.name.toLowerCase())) ||
+                 (e.name && String(e.name).toLowerCase().includes(String(incomingId).toLowerCase()))
         );
         const primaryEmpId = matched ? matched.id : incomingId;
         const empEmail = matched?.email;
+        const empName = matched?.name;
 
         setActiveJourneys((prev) => {
           const currentJourney = prev[primaryEmpId] || (empEmail ? prev[empEmail] : null) || prev[incomingId];
@@ -347,6 +379,7 @@ const AdminTrackingScreen = () => {
             [primaryEmpId]: updatedJourney,
           };
           if (empEmail) nextMap[empEmail] = updatedJourney;
+          if (empName) nextMap[empName] = updatedJourney;
           if (incomingId) nextMap[incomingId] = updatedJourney;
           return nextMap;
         });

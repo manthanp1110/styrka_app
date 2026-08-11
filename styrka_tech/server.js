@@ -62,13 +62,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Admin assigns destination -> relay to specific employee
+  // Admin assigns destination -> relay to specific employee & employee room
   socket.on('assign_destination', (payload) => {
     console.log('[Socket.io] Destination assigned event:', payload);
-    if (payload && payload.employee_id) {
-      // Emit to employee room
-      io.to(payload.employee_id).emit('destination_assigned', payload);
-      // Emit to all admins
+    if (payload) {
+      if (payload.employee_id) io.to(payload.employee_id).emit('destination_assigned', payload);
+      io.to('employee_room').emit('destination_assigned', payload);
       io.to('admin_room').emit('destination_assigned', payload);
     }
   });
@@ -77,6 +76,7 @@ io.on('connection', (socket) => {
   socket.on('update_location', (payload) => {
     const empId = payload?.userId || payload?.employee_id;
     if (payload && empId) {
+      const isOffline = payload.status === 'offline';
       console.log('[SERVER LOCATION] update_location received:', {
         employeeId: empId,
         userId: payload.userId,
@@ -84,6 +84,7 @@ io.on('connection', (socket) => {
         name: payload.name,
         latitude: payload.latitude,
         longitude: payload.longitude,
+        status: isOffline ? 'offline' : 'online',
         timestamp: payload.timestamp
       });
 
@@ -97,22 +98,26 @@ io.on('connection', (socket) => {
         heading: payload.heading || 0,
         speed: payload.speed || 0,
         accuracy: payload.accuracy || 0,
-        status: 'online',
+        status: isOffline ? 'offline' : 'online',
         timestamp: payload.timestamp || new Date().toISOString(),
-        destination_lat: payload.destination_lat != null ? Number(payload.destination_lat) : null,
-        destination_lng: payload.destination_lng != null ? Number(payload.destination_lng) : null,
-        destination_address: payload.destination_address || null,
+        destination_lat: isOffline ? null : (payload.destination_lat != null ? Number(payload.destination_lat) : null),
+        destination_lng: isOffline ? null : (payload.destination_lng != null ? Number(payload.destination_lng) : null),
+        destination_address: isOffline ? null : (payload.destination_address || null),
       };
 
-      activeEmployees.set(empId, {
-        latestLoc: locationRecord,
-        status: 'online',
-      });
-      if (payload.email) activeEmployees.set(payload.email, { latestLoc: locationRecord, status: 'online' });
-      if (payload.name) activeEmployees.set(payload.name, { latestLoc: locationRecord, status: 'online' });
+      if (isOffline) {
+        activeEmployees.delete(empId);
+        if (payload.email) activeEmployees.delete(payload.email);
+        if (payload.name) activeEmployees.delete(payload.name);
+      } else {
+        activeEmployees.set(empId, { latestLoc: locationRecord, status: 'online' });
+        if (payload.email) activeEmployees.set(payload.email, { latestLoc: locationRecord, status: 'online' });
+        if (payload.name) activeEmployees.set(payload.name, { latestLoc: locationRecord, status: 'online' });
+      }
 
       console.log('[SERVER LOCATION] employee_location_changed broadcast:', {
         employeeId: empId,
+        status: isOffline ? 'offline' : 'online',
         latitude: payload.latitude,
         longitude: payload.longitude,
         timestamp: locationRecord.timestamp
@@ -126,6 +131,9 @@ io.on('connection', (socket) => {
   // Journey status events (started, arrived, completed)
   socket.on('journey_status', (payload) => {
     console.log('[Socket.io] Journey status update:', payload);
+    if (payload && payload.userId && payload.status === 'completed') {
+      activeEmployees.delete(payload.userId);
+    }
     io.to('admin_room').emit('journey_status_changed', payload);
   });
 

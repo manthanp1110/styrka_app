@@ -687,40 +687,65 @@ const EmployeeTrackingScreen = () => {
     if (!activeJourney) return;
     setIsProcessing(true);
     try {
-      await AsyncStorage.removeItem('active_journey');
-      await AsyncStorage.removeItem('active_tracking_user_id');
-      await AsyncStorage.removeItem('active_journey_id');
+      const userId = user.id || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
+      const journeyId = activeJourney.id || `journey_${userId}`;
 
-      if (route.params?.assignedDestination?.id) {
-        await TrackingDataService.updateDestinationStatus(route.params.assignedDestination.id, 'completed');
+      // Mark destination status as completed in local storage & database
+      const destId = route.params?.assignedDestination?.id || activeJourney.destination_id || activeJourney.id;
+      if (destId) {
+        await TrackingDataService.updateDestinationStatus(destId, 'completed');
       }
-      
+
+      // Notify Render server & Admin dashboard that employee tracking has stopped / completed
+      SocketService.updateLocation({
+        userId,
+        latitude: currentLocation?.latitude || 0,
+        longitude: currentLocation?.longitude || 0,
+        status: 'offline',
+      });
+      SocketService.emitJourneyStatus({
+        journeyId,
+        userId,
+        status: 'completed',
+      });
+
+      // Stop location watcher
       if (locationSubscription) {
         try { locationSubscription.remove(); } catch (e) {}
         setLocationSubscription(null);
       }
       
+      // Stop background location task
       if (Platform.OS !== 'web') {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log('Stop bg location task error:', e));
       }
 
+      // Clear heartbeat timer
       if (heartbeatTimerRef.current) {
         clearInterval(heartbeatTimerRef.current);
         heartbeatTimerRef.current = null;
       }
 
+      // Clear storage & state
+      await AsyncStorage.removeItem('active_journey');
+      await AsyncStorage.removeItem('active_tracking_user_id');
+      await AsyncStorage.removeItem('active_journey_id');
+
+      activeJourneyRef.current = null;
       setActiveJourney(null);
       setTrackingSessionId(null);
       setPings([]);
       setRouteCoordinates([]);
       setAddress("Locating...");
-      alert("Journey completed successfully. Location tracking has stopped.");
-      
-      navigation.goBack();
-    } catch (e: any) {
-      alert("Failed to end journey: " + e.message);
-    } finally {
 
+      Alert.alert("Journey Completed", "Drop-off is complete. Location tracking has stopped.");
+      
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    } catch (e: any) {
+      Alert.alert("Error", "Failed to end journey: " + e.message);
+    } finally {
       setIsProcessing(false);
     }
   };

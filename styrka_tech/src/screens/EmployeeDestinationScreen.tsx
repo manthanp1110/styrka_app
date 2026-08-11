@@ -61,7 +61,18 @@ const EmployeeDestinationScreen = () => {
     });
 
     SocketService.connect(user.id || 'emp_1', 'employee');
-    const handleNewDestination = () => {
+    const handleNewDestination = async (payload?: any) => {
+      if (payload && payload.address && payload.latitude && payload.longitude) {
+        try {
+          await TrackingDataService.assignDestination({
+            adminId: payload.admin_id || 'admin_1',
+            employeeId: payload.employee_id || user.id || 'emp_1',
+            address: payload.address,
+            latitude: Number(payload.latitude),
+            longitude: Number(payload.longitude),
+          });
+        } catch (e) {}
+      }
       fetchDestinations();
     };
 

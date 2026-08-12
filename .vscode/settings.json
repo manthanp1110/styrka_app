@@ -14,5 +14,6 @@
     "**/android_backup/**",
     "**/apk_unzipped/**"
   ],
-  "java.project.importHint": false
+  "java.project.importHint": false,
+  "java.autobuild.enabled": false
 }

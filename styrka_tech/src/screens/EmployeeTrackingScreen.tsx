@@ -796,10 +796,24 @@ const EmployeeTrackingScreen = () => {
           <MapView 
             ref={mapRef}
             style={styles.map} 
-            initialRegion={initialRegion}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-          />
+            region={{
+              latitude: currentLocation?.latitude || 18.5204,
+              longitude: currentLocation?.longitude || 73.8567,
+              latitudeDelta: 0.02,
+              longitudeDelta: 0.02,
+            }}
+          >
+            {currentLocation && (
+              <Marker
+                coordinate={{
+                  latitude: Number(currentLocation.latitude),
+                  longitude: Number(currentLocation.longitude),
+                }}
+                title="My Current Location"
+                pinColor="#3B82F6"
+              />
+            )}
+          </MapView>
         )}
 
         <View style={styles.overlayCard}>

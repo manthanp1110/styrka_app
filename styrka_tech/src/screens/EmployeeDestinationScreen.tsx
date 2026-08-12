@@ -77,10 +77,14 @@ const EmployeeDestinationScreen = () => {
     };
 
     SocketService.on('destination_assigned', handleNewDestination);
+    SocketService.on('destination_updated', fetchDestinations);
+    SocketService.on('destination_deleted', fetchDestinations);
 
     return () => {
       unsubscribe?.();
       SocketService.off('destination_assigned', handleNewDestination);
+      SocketService.off('destination_updated', fetchDestinations);
+      SocketService.off('destination_deleted', fetchDestinations);
     };
   }, [fetchDestinations, navigation, user.id]);
 

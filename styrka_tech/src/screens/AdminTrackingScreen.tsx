@@ -389,6 +389,46 @@ const AdminTrackingScreen = () => {
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
   const selectedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
 
+  // Compute live polyline that ALWAYS starts at the exact live employee location and connects to destination
+  const displayedPolyline = React.useMemo(() => {
+    const liveLat = selectedJourney?.latestLocation?.latitude != null
+      ? Number(selectedJourney.latestLocation.latitude)
+      : (selectedJourney?.start_lat != null ? Number(selectedJourney.start_lat) : null);
+    const liveLng = selectedJourney?.latestLocation?.longitude != null
+      ? Number(selectedJourney.latestLocation.longitude)
+      : (selectedJourney?.start_lng != null ? Number(selectedJourney.start_lng) : null);
+
+    if (liveLat == null || liveLng == null || isNaN(liveLat) || isNaN(liveLng)) {
+      return currentRouteCoords;
+    }
+
+    const livePt = { latitude: liveLat, longitude: liveLng };
+
+    if (currentRouteCoords.length > 1) {
+      return [livePt, ...currentRouteCoords.slice(1)];
+    }
+
+    if (selectedJourney?.destination_lat != null && selectedJourney?.destination_lng != null) {
+      return [
+        livePt,
+        {
+          latitude: Number(selectedJourney.destination_lat),
+          longitude: Number(selectedJourney.destination_lng),
+        },
+      ];
+    }
+
+    return [livePt];
+  }, [
+    selectedJourney?.latestLocation?.latitude,
+    selectedJourney?.latestLocation?.longitude,
+    selectedJourney?.start_lat,
+    selectedJourney?.start_lng,
+    selectedJourney?.destination_lat,
+    selectedJourney?.destination_lng,
+    currentRouteCoords,
+  ]);
+
   useEffect(() => {
     if (selectedJourney && selectedJourney.destination_lat != null && selectedJourney.destination_lng != null) {
       const originLat = selectedJourney.latestLocation?.latitude != null
@@ -707,17 +747,10 @@ const AdminTrackingScreen = () => {
                 />
               )}
 
-              {/* Destination Route Polyline — only draw when rider is live & online */}
+              {/* Destination Route Polyline — dynamically anchors from rider's exact live GPS position */}
               {selectedJourney.latestLocation && selectedJourney.latestLocation.status !== 'offline' && selectedJourney.destination_lat != null && (
                 <Polyline
-                  coordinates={
-                    currentRouteCoords.length > 0
-                      ? currentRouteCoords
-                      : [
-                          { latitude: Number(selectedJourney.latestLocation.latitude), longitude: Number(selectedJourney.latestLocation.longitude) },
-                          { latitude: Number(selectedJourney.destination_lat), longitude: Number(selectedJourney.destination_lng) }
-                        ]
-                  }
+                  coordinates={displayedPolyline}
                   strokeWidth={6}
                   strokeColor="#3B82F6"
                 />

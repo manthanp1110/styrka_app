@@ -94,9 +94,6 @@ export class TrackingDataService {
     } catch {}
 
     const all = [...supabaseEmployees, ...customEmployees];
-    if (all.length === 0) {
-      return DEFAULT_EMPLOYEES;
-    }
 
     // Remove duplicates by id or email
     const uniqueMap = new Map<string, User>();
@@ -105,7 +102,14 @@ export class TrackingDataService {
       if (!uniqueMap.has(emp.id)) uniqueMap.set(emp.id, emp);
     });
 
-    return Array.from(uniqueMap.values());
+    const resultList = Array.from(uniqueMap.values());
+
+    // Sync back to local storage so offline access is instant
+    try {
+      await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(resultList));
+    } catch {}
+
+    return resultList;
   }
 
   // Add a new employee to Supabase and local storage
@@ -174,13 +178,44 @@ export class TrackingDataService {
     try {
       const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
       const customEmployees: User[] = raw ? JSON.parse(raw) : [];
-      const updated = [newEmp, ...customEmployees.filter((e) => e.email !== cleanEmail)];
+      const updated = [newEmp, ...customEmployees.filter((e) => e.email !== cleanEmail && e.id !== newEmp.id)];
       await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(updated));
     } catch (e) {
       console.error('[TrackingDataService] Failed to save custom employee locally:', e);
     }
 
     return newEmp;
+  }
+
+  // Delete an employee from Supabase and local storage
+  static async deleteEmployee(employeeId: string): Promise<void> {
+    try {
+      // 1. Delete from Supabase
+      await supabase.from('users').delete().eq('id', employeeId);
+      await supabase.from('destinations').delete().eq('employee_id', employeeId);
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not delete employee from Supabase:', e);
+    }
+
+    // 2. Delete from local storage
+    try {
+      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
+      if (raw) {
+        const list: User[] = JSON.parse(raw);
+        const filtered = list.filter((e) => e.id !== employeeId && e.email !== employeeId);
+        await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(filtered));
+      }
+
+      // Clear assigned destinations for this employee locally
+      const destRaw = await AsyncStorage.getItem(DESTINATIONS_KEY);
+      if (destRaw) {
+        const destList: AssignedDestination[] = JSON.parse(destRaw);
+        const filteredDest = destList.filter((d) => d.employee_id !== employeeId);
+        await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(filteredDest));
+      }
+    } catch (e) {
+      console.error('[TrackingDataService] Error deleting employee locally:', e);
+    }
   }
 
   // Get user by email or ID from Supabase
@@ -251,7 +286,7 @@ export class TrackingDataService {
         .single();
 
       if (!error && data) {
-        newDest.id = data.id;
+        newDest.id = String(data.id);
       } else if (error) {
         console.warn('[TrackingDataService] Supabase destination insert error:', error.message);
       }
@@ -261,9 +296,59 @@ export class TrackingDataService {
 
     // Save to local storage for instant access across screens
     const existing = await this.getAllDestinations();
-    const updated = [newDest, ...existing];
+    const updated = [newDest, ...existing.filter((d) => d.id !== newDest.id)];
     await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
     return newDest;
+  }
+
+  // Edit/Update an assigned destination
+  static async updateDestination(
+    destinationId: string,
+    param: { address: string; latitude: number; longitude: number }
+  ): Promise<void> {
+    // 1. Supabase update
+    try {
+      await supabase
+        .from('destinations')
+        .update({
+          address: param.address,
+          latitude: param.latitude,
+          longitude: param.longitude,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', destinationId);
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not update destination in Supabase:', e);
+    }
+
+    // 2. Local storage update
+    const all = await this.getAllDestinations();
+    const updated = all.map((d) =>
+      d.id === destinationId
+        ? {
+            ...d,
+            address: param.address,
+            latitude: param.latitude,
+            longitude: param.longitude,
+          }
+        : d
+    );
+    await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
+  }
+
+  // Delete an assigned destination
+  static async deleteDestination(destinationId: string): Promise<void> {
+    // 1. Supabase delete
+    try {
+      await supabase.from('destinations').delete().eq('id', destinationId);
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not delete destination from Supabase:', e);
+    }
+
+    // 2. Local storage delete
+    const all = await this.getAllDestinations();
+    const updated = all.filter((d) => d.id !== destinationId);
+    await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
   }
 
   // Get all destinations
@@ -333,6 +418,15 @@ export class TrackingDataService {
     destinationId: string,
     status: 'pending' | 'in_progress' | 'completed'
   ): Promise<void> {
+    // 1. Supabase update
+    try {
+      await supabase
+        .from('destinations')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', destinationId);
+    } catch (e) {}
+
+    // 2. Local update
     const all = await this.getAllDestinations();
     const updated = all.map((d) => (d.id === destinationId ? { ...d, status } : d));
     await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
@@ -403,3 +497,4 @@ export class TrackingDataService {
     return resultMap;
   }
 }
+

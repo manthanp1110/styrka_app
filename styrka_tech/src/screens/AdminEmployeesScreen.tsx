@@ -99,6 +99,29 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleDeleteEmployee = (item: User) => {
+    Alert.alert(
+      'Delete Employee',
+      `Are you sure you want to delete employee "${item.name}"? This will also remove any assigned destinations.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await TrackingDataService.deleteEmployee(item.id);
+              Alert.alert('Deleted', `Employee "${item.name}" was successfully removed.`);
+              loadData();
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to delete employee');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const filteredEmployees = employees.filter((emp) => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
@@ -139,14 +162,23 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => {
-            navigation.navigate('Assign Destination', { selectedEmployeeId: item.id });
-          }}
-        >
-          <Feather name="send" size={16} color="#0F4C3A" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => {
+              navigation.navigate('Assign Destination', { selectedEmployeeId: item.id });
+            }}
+          >
+            <Feather name="send" size={16} color="#0F4C3A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: '#FEE2E2', marginLeft: 6 }]}
+            onPress={() => handleDeleteEmployee(item)}
+          >
+            <Feather name="trash-2" size={16} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };

@@ -140,11 +140,28 @@ const EmployeeTrackingScreen = () => {
 
   // Component-level robust GPS location retriever
   const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    // Attempt 1: High accuracy GPS (prioritize fresh real-time coordinates)
+    // Attempt 1: Fast position lookup with maxAge (uses recent system fix if available)
+    try {
+      const loc: any = await fetchWithTimeout(
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+          maxAge: 10000,
+        } as any),
+        5000
+      );
+      if (loc?.coords?.latitude && loc?.coords?.longitude) {
+        console.log('[GPS] Fast position hit:', loc.coords.latitude, loc.coords.longitude);
+        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
+      }
+    } catch (e) {
+      console.log('[GPS] Fast position failed:', e);
+    }
+
+    // Attempt 2: High accuracy GPS lookup
     try {
       const loc: any = await fetchWithTimeout(
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
-        5000
+        6000
       );
       if (loc?.coords?.latitude && loc?.coords?.longitude) {
         console.log('[GPS] High accuracy hit:', loc.coords.latitude, loc.coords.longitude);
@@ -152,20 +169,6 @@ const EmployeeTrackingScreen = () => {
       }
     } catch (e) {
       console.log('[GPS] High accuracy failed:', e);
-    }
-
-    // Attempt 2: Balanced accuracy (Cell / WiFi / GPS)
-    try {
-      const loc: any = await fetchWithTimeout(
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        5000
-      );
-      if (loc?.coords?.latitude && loc?.coords?.longitude) {
-        console.log('[GPS] Balanced hit:', loc.coords.latitude, loc.coords.longitude);
-        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
-      }
-    } catch (e) {
-      console.log('[GPS] Balanced failed:', e);
     }
 
     // Attempt 3: Last Known Position (fallback placeholder)

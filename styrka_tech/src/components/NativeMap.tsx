@@ -194,39 +194,39 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
 
     var map = L.map('map', { 
       zoomControl: false,
-      maxBounds: maharashtraBounds,
-      maxBoundsViscosity: 1.0,
-      minZoom: 6,
+      minZoom: 3,
       maxZoom: 19
     }).setView([${activeRegion.latitude}, ${activeRegion.longitude}], ${Math.max(6, Math.round(getZoomFromRegion(activeRegion)))});
     
     var primaryTile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      minZoom: 6,
+      minZoom: 3,
       maxZoom: 19,
-      bounds: maharashtraBounds,
       attribution: '&copy; Styrka Maps'
     });
 
     primaryTile.on('tileerror', function() {
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        minZoom: 6,
-        maxZoom: 19,
-        bounds: maharashtraBounds
+        minZoom: 3,
+        maxZoom: 19
       }).addTo(map);
     });
 
     primaryTile.addTo(map);
 
     var dataGroup = L.layerGroup().addTo(map);
+    var isFirstRender = true;
 
     window.renderData = function(markersData, polylinesData) {
       dataGroup.clearLayers();
+
+      var riderPos = null;
 
       // Render Markers
       markersData.forEach(function(m) {
         var iconHtml;
         var titleText = m.title || 'Rider';
         if (m.isRider) {
+          riderPos = [m.lat, m.lng];
           iconHtml = '<div class="rider-name-tag">' + titleText + '</div><div class="rider-pulse"><div class="navigation-arrow-symbol"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFFFFF"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg></div></div>';
         } else if (m.color === '#10B981' || m.color === 'green') {
           iconHtml = '<div class="start-pin"></div>';
@@ -244,7 +244,6 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
         L.marker([m.lat, m.lng], { icon: customIcon }).addTo(dataGroup);
       });
 
-
       // Render Polylines
       var allBounds = [];
       polylinesData.forEach(function(p) {
@@ -260,6 +259,9 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
           combinedBounds.extend(allBounds[i]);
         }
         map.fitBounds(combinedBounds, { padding: [40, 40] });
+      } else if (riderPos && isFirstRender) {
+        isFirstRender = false;
+        map.setView(riderPos, 15);
       }
     };
 

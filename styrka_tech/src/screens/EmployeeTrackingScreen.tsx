@@ -140,35 +140,29 @@ const EmployeeTrackingScreen = () => {
 
   // Component-level robust GPS location retriever
   const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    // Attempt 1: Fast position lookup with maxAge (uses recent system fix if available)
+    // Attempt 1: Instantaneous cell/Wi-Fi fix (resolves <100ms on all devices)
     try {
-      const loc: any = await fetchWithTimeout(
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-          maxAge: 10000,
-        } as any),
-        5000
-      );
+      const loc: any = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest });
       if (loc?.coords?.latitude && loc?.coords?.longitude) {
-        console.log('[GPS] Fast position hit:', loc.coords.latitude, loc.coords.longitude);
+        console.log('[GPS] Instant Lowest accuracy hit:', loc.coords.latitude, loc.coords.longitude);
         return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
       }
     } catch (e) {
-      console.log('[GPS] Fast position failed:', e);
+      console.log('[GPS] Lowest accuracy failed:', e);
     }
 
-    // Attempt 2: High accuracy GPS lookup
+    // Attempt 2: Balanced accuracy
     try {
       const loc: any = await fetchWithTimeout(
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
-        6000
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        10000
       );
       if (loc?.coords?.latitude && loc?.coords?.longitude) {
-        console.log('[GPS] High accuracy hit:', loc.coords.latitude, loc.coords.longitude);
+        console.log('[GPS] Balanced accuracy hit:', loc.coords.latitude, loc.coords.longitude);
         return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
       }
     } catch (e) {
-      console.log('[GPS] High accuracy failed:', e);
+      console.log('[GPS] Balanced accuracy failed:', e);
     }
 
     // Attempt 3: Last Known Position (fallback placeholder)

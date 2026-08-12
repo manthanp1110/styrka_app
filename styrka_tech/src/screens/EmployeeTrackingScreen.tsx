@@ -140,50 +140,42 @@ const EmployeeTrackingScreen = () => {
 
   // Component-level robust GPS location retriever
   const getDeviceLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    // Attempt 1: Low Power (cell/WiFi) — fastest, usually < 2s on Android
-    try {
-      const loc: any = await fetchWithTimeout(
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
-        8000
-      );
-      if (loc?.coords?.latitude && loc?.coords?.longitude) {
-        console.log('[GPS] Low power hit:', loc.coords.latitude, loc.coords.longitude);
-        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
-      }
-    } catch (e) { console.log('[GPS] Low power failed:', e); }
-
-    // Attempt 2: Balanced (cell/WiFi + some GPS) — up to 12s
-    try {
-      const loc: any = await fetchWithTimeout(
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        12000
-      );
-      if (loc?.coords?.latitude && loc?.coords?.longitude) {
-        console.log('[GPS] Balanced hit:', loc.coords.latitude, loc.coords.longitude);
-        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
-      }
-    } catch (e) { console.log('[GPS] Balanced failed:', e); }
-
-    // Attempt 3: Last Known (may be null if phone never ran location)
-    try {
-      const lastLoc = await Location.getLastKnownPositionAsync();
-      if (lastLoc?.coords?.latitude && lastLoc?.coords?.longitude) {
-        console.log('[GPS] LastKnown hit:', lastLoc.coords.latitude, lastLoc.coords.longitude);
-        return { latitude: Number(lastLoc.coords.latitude), longitude: Number(lastLoc.coords.longitude) };
-      }
-    } catch (e) {}
-
-    // Attempt 4: High accuracy GPS (last resort, may take >15s indoors)
+    // Attempt 1: High accuracy GPS (prioritize fresh real-time coordinates)
     try {
       const loc: any = await fetchWithTimeout(
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
-        20000
+        5000
       );
       if (loc?.coords?.latitude && loc?.coords?.longitude) {
         console.log('[GPS] High accuracy hit:', loc.coords.latitude, loc.coords.longitude);
         return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
       }
-    } catch (e) { console.log('[GPS] High accuracy failed:', e); }
+    } catch (e) {
+      console.log('[GPS] High accuracy failed:', e);
+    }
+
+    // Attempt 2: Balanced accuracy (Cell / WiFi / GPS)
+    try {
+      const loc: any = await fetchWithTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        5000
+      );
+      if (loc?.coords?.latitude && loc?.coords?.longitude) {
+        console.log('[GPS] Balanced hit:', loc.coords.latitude, loc.coords.longitude);
+        return { latitude: Number(loc.coords.latitude), longitude: Number(loc.coords.longitude) };
+      }
+    } catch (e) {
+      console.log('[GPS] Balanced failed:', e);
+    }
+
+    // Attempt 3: Last Known Position (fallback placeholder)
+    try {
+      const lastLoc = await Location.getLastKnownPositionAsync();
+      if (lastLoc?.coords?.latitude && lastLoc?.coords?.longitude) {
+        console.log('[GPS] LastKnown fallback:', lastLoc.coords.latitude, lastLoc.coords.longitude);
+        return { latitude: Number(lastLoc.coords.latitude), longitude: Number(lastLoc.coords.longitude) };
+      }
+    } catch (e) {}
 
     return null;
   };

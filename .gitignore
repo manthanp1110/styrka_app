@@ -7,3 +7,7 @@ ios/
 scratch/
 dist/
 .expo/
+
+*.apk
+android/app/build/
+android/.cxx/

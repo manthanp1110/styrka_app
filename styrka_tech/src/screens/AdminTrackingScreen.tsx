@@ -89,13 +89,6 @@ const AdminTrackingScreen = () => {
     employeesRef.current = employees;
   }, [employees]);
 
-  useEffect(() => {
-    if (!selectedEmployeeId && employees.length > 0) {
-      // Auto-select first employee so Admin opens directly to live map & polyline
-      setSelectedEmployeeId(employees[0].id);
-    }
-  }, [employees]);
-
   // Clear route when switching employees
   useEffect(() => {
     setCurrentRouteCoords([]);

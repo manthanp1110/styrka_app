@@ -8,11 +8,11 @@ import {
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
-  Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -29,13 +29,12 @@ const EmployeeDestinationScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Custom Destination Selection Modal state
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  // Search & Selection State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<any>(null);
-  const [isAssigningCustom, setIsAssigningCustom] = useState(false);
+  const [isStartingJourney, setIsStartingJourney] = useState(false);
 
   const fetchDestinations = useCallback(async () => {
     try {
@@ -61,30 +60,9 @@ const EmployeeDestinationScreen = () => {
     });
 
     SocketService.connect(user.id || 'emp_1', 'employee');
-    const handleNewDestination = async (payload?: any) => {
-      if (payload && payload.address && payload.latitude && payload.longitude) {
-        try {
-          await TrackingDataService.assignDestination({
-            adminId: payload.admin_id || 'admin_1',
-            employeeId: payload.employee_id || user.id || 'emp_1',
-            address: payload.address,
-            latitude: Number(payload.latitude),
-            longitude: Number(payload.longitude),
-          });
-        } catch (e) {}
-      }
-      fetchDestinations();
-    };
-
-    SocketService.on('destination_assigned', handleNewDestination);
-    SocketService.on('destination_updated', fetchDestinations);
-    SocketService.on('destination_deleted', fetchDestinations);
 
     return () => {
       unsubscribe?.();
-      SocketService.off('destination_assigned', handleNewDestination);
-      SocketService.off('destination_updated', fetchDestinations);
-      SocketService.off('destination_deleted', fetchDestinations);
     };
   }, [fetchDestinations, navigation, user.id]);
 
@@ -163,37 +141,46 @@ const EmployeeDestinationScreen = () => {
     }
   };
 
-  // Start journey to employee-selected custom destination
-  const handleStartCustomJourney = async () => {
-    if (!selectedPlace) {
+  // Start journey to selected destination
+  const handleStartJourney = async (place?: any) => {
+    const targetPlace = place || selectedPlace;
+    if (!targetPlace) {
       return Alert.alert('Select Location', 'Please search and select a destination address.');
     }
 
-    setIsAssigningCustom(true);
+    setIsStartingJourney(true);
     try {
       const created = await TrackingDataService.assignDestination({
-        adminId: 'self',
+        adminId: user.id || 'emp_1',
         employeeId: user.id || 'emp_1',
-        address: selectedPlace.address,
-        latitude: selectedPlace.latitude,
-        longitude: selectedPlace.longitude,
+        address: targetPlace.address,
+        latitude: targetPlace.latitude,
+        longitude: targetPlace.longitude,
       });
 
-      // Reset modal state
-      setIsModalVisible(false);
+      // Broadcast Socket.IO event so Admin is notified
+      SocketService.assignDestination({
+        destination_id: created.id,
+        admin_id: user.id || 'emp_1',
+        employee_id: user.id || 'emp_1',
+        address: targetPlace.address,
+        latitude: targetPlace.latitude,
+        longitude: targetPlace.longitude,
+      });
+
+      // Reset state
       setSelectedPlace(null);
       setSearchQuery('');
       setSearchResults([]);
 
-      // Refresh list & navigate to live tracking map
-      fetchDestinations();
+      // Navigate to live tracking map with selected destination
       navigation.navigate('LiveTracking', {
         assignedDestination: created,
       });
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to start custom journey');
+      Alert.alert('Error', e.message || 'Failed to start journey');
     } finally {
-      setIsAssigningCustom(false);
+      setIsStartingJourney(false);
     }
   };
 
@@ -202,93 +189,27 @@ const EmployeeDestinationScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }} style={{ marginRight: 10 }}>
-            <Feather name="arrow-left" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Destinations</Text>
+          <View style={styles.headerIconBg}>
+            <Feather name="navigation" size={20} color="#F59E0B" />
+          </View>
+          <View style={{ marginLeft: 10 }}>
+            <Text style={styles.headerTitle}>Select Destination</Text>
+            <Text style={styles.headerSubtitle}>Choose where you're heading today</Text>
+          </View>
         </View>
-
-        <TouchableOpacity style={styles.pickCustomBtn} onPress={() => setIsModalVisible(true)}>
-          <Feather name="plus-circle" size={16} color="#0F4C3A" style={{ marginRight: 4 }} />
-          <Text style={styles.pickCustomBtnText}>Custom Destination</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Main List */}
-      <View style={{ flex: 1, backgroundColor: '#F4F7FB', padding: 20 }}>
-        {isLoading ? (
-          <ActivityIndicator size="large" color="#0F4C3A" style={{ marginTop: 50 }} />
-        ) : (
-          <FlatList
-            data={destinations}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0F4C3A']} />}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Feather name="map-pin" size={48} color="#D1D5DB" />
-                <Text style={styles.emptyText}>No destinations assigned yet</Text>
-                <TouchableOpacity style={styles.emptyActionBtn} onPress={() => setIsModalVisible(true)}>
-                  <Feather name="search" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.emptyActionBtnText}>Select Your Destination</Text>
-                </TouchableOpacity>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={[styles.statusBadge, item.status === 'completed' ? styles.statusCompleted : styles.statusPending]}>
-                    <Text style={[styles.statusText, item.status === 'completed' ? styles.statusTextCompleted : styles.statusTextPending]}>
-                      {item.status.toUpperCase()}
-                    </Text>
-                  </View>
-                  <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString()}</Text>
-                </View>
-
-                <View style={styles.addressContainer}>
-                  <Feather name="map-pin" size={20} color="#F59E0B" style={{ marginTop: 2 }} />
-                  <Text style={styles.addressText}>{item.address}</Text>
-                </View>
-
-                {item.status !== 'completed' && (
-                  <TouchableOpacity
-                    style={styles.startBtn}
-                    onPress={() => {
-                      navigation.navigate('LiveTracking', {
-                        assignedDestination: item,
-                      });
-                    }}
-                  >
-                    <Feather name="navigation" size={18} color="white" />
-                    <Text style={styles.startBtnText}>Start Journey</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          />
-        )}
-      </View>
-
-      {/* Select Custom Destination Modal */}
-      <Modal visible={isModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Feather name="map-pin" size={20} color="#0F4C3A" style={{ marginRight: 8 }} />
-                <Text style={styles.modalTitle}>Choose Custom Destination</Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-                <Feather name="x" size={22} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputLabel}>Search Location / Address</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: '#F4F7FB' }}>
+        <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0F4C3A']} />}>
+          
+          {/* Main Search Card */}
+          <View style={styles.searchCard}>
+            <Text style={styles.sectionLabel}>Search Destination</Text>
             <View style={styles.searchBox}>
-              <Feather name="search" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+              <Feather name="search" size={20} color="#9CA3AF" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="e.g. Pune Railway Station, Phoenix Mall..."
+                placeholder="Search station, office, landmark..."
                 placeholderTextColor="#9CA3AF"
                 value={searchQuery}
                 onChangeText={handleSearchAddress}
@@ -302,62 +223,93 @@ const EmployeeDestinationScreen = () => {
 
             {searching ? <ActivityIndicator size="small" color="#0F4C3A" style={{ marginVertical: 12 }} /> : null}
 
-            {/* Search Suggestions Dropdown */}
+            {/* Suggestions List */}
             {searchResults.length > 0 ? (
               <View style={styles.searchResultsContainer}>
-                <FlatList
-                  data={searchResults}
-                  keyExtractor={(item, idx) => `item_${idx}`}
-                  style={{ maxHeight: 180 }}
-                  keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.searchResultItem} onPress={() => handleSelectPlace(item)}>
-                      <Feather name="map-pin" size={16} color="#6B7280" style={{ marginRight: 8, marginTop: 2 }} />
-                      <Text style={styles.searchResultText} numberOfLines={2}>{item.description}</Text>
-                    </TouchableOpacity>
-                  )}
-                />
+                {searchResults.map((item, idx) => (
+                  <TouchableOpacity key={`item_${idx}`} style={styles.searchResultItem} onPress={() => handleSelectPlace(item)}>
+                    <Feather name="map-pin" size={16} color="#6B7280" style={{ marginRight: 8, marginTop: 2 }} />
+                    <Text style={styles.searchResultText} numberOfLines={2}>{item.description}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             ) : null}
 
-            {/* Selected Place Box */}
-            {selectedPlace ? (
+            {/* Selected Place Card */}
+            {selectedPlace && (
               <View style={styles.selectedBox}>
-                <Feather name="check-circle" size={20} color="#10B981" style={{ marginRight: 10 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.selectedTitle}>Selected Destination:</Text>
-                  <Text style={styles.selectedAddress}>{selectedPlace.address}</Text>
-                  <Text style={styles.selectedCoords}>
-                    GPS: {selectedPlace.latitude.toFixed(4)}, {selectedPlace.longitude.toFixed(4)}
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <Feather name="check-circle" size={20} color="#10B981" style={{ marginRight: 8 }} />
+                  <Text style={styles.selectedTitle}>Destination Selected</Text>
                 </View>
+                <Text style={styles.selectedAddress}>{selectedPlace.address}</Text>
+
+                <TouchableOpacity
+                  style={styles.startJourneyBtn}
+                  disabled={isStartingJourney}
+                  onPress={() => handleStartJourney()}
+                >
+                  {isStartingJourney ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Feather name="navigation" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.startJourneyBtnText}>Start Journey & Track Route</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
-            ) : null}
-
-            {/* Actions */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.confirmBtn, !selectedPlace && { backgroundColor: '#9CA3AF' }]}
-                disabled={!selectedPlace || isAssigningCustom}
-                onPress={handleStartCustomJourney}
-              >
-                {isAssigningCustom ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Feather name="navigation" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.confirmBtnText}>Start Journey</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+            )}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+          {/* Recent / Saved Destinations Section */}
+          <Text style={[styles.sectionLabel, { marginTop: 20, marginBottom: 10 }]}>Recent Destinations</Text>
+
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#0F4C3A" style={{ marginTop: 20 }} />
+          ) : destinations.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Feather name="map" size={36} color="#9CA3AF" />
+              <Text style={styles.emptyCardText}>No recent destinations</Text>
+              <Text style={styles.emptyCardSub}>Use the search bar above to select your destination.</Text>
+            </View>
+          ) : (
+            destinations.map((item) => (
+              <View key={item.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.statusBadge, item.status === 'completed' ? styles.statusCompleted : styles.statusPending]}>
+                    <Text style={[styles.statusText, item.status === 'completed' ? styles.statusTextCompleted : styles.statusTextPending]}>
+                      {item.status === 'completed' ? 'COMPLETED' : 'READY'}
+                    </Text>
+                  </View>
+                  <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString()}</Text>
+                </View>
+
+                <View style={styles.addressContainer}>
+                  <Feather name="map-pin" size={20} color="#F59E0B" style={{ marginTop: 2 }} />
+                  <Text style={styles.addressText}>{item.address}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.reselectBtn}
+                  disabled={isStartingJourney}
+                  onPress={() => {
+                    handleStartJourney({
+                      address: item.address,
+                      latitude: item.latitude,
+                      longitude: item.longitude,
+                    });
+                  }}
+                >
+                  <Feather name="play-circle" size={18} color="white" />
+                  <Text style={styles.reselectBtnText}>Select & Start Journey</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -369,144 +321,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F4C3A',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  headerIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 18,
   },
-  pickCustomBtn: {
-    backgroundColor: '#F59E0B',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  pickCustomBtnText: {
-    color: '#0F4C3A',
-    fontWeight: '700',
+  headerSubtitle: {
+    color: '#9CA3AF',
     fontSize: 12,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  emptyActionBtn: {
-    backgroundColor: '#0F4C3A',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  emptyActionBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusPending: { backgroundColor: '#FEF3C7' },
-  statusCompleted: { backgroundColor: '#D1FAE5' },
-  statusText: { fontSize: 10, fontWeight: 'bold' },
-  statusTextPending: { color: '#D97706' },
-  statusTextCompleted: { color: '#059669' },
-  dateText: { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  addressText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 15,
-    color: '#1F2937',
-    fontWeight: '500',
-    lineHeight: 22,
-  },
-  startBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#0F4C3A',
-    padding: 12,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startBtnText: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginLeft: 8,
-    fontSize: 15,
-  },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  modalContent: {
+  searchCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
-    elevation: 5,
+    padding: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalTitle: {
-    fontSize: 17,
+  sectionLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
+    color: '#1F2937',
+    marginBottom: 10,
   },
   searchBox: {
     flexDirection: 'row',
@@ -514,91 +365,145 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: '#111827',
   },
   searchResultsContainer: {
-    marginTop: 8,
+    marginTop: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 10,
+    borderRadius: 12,
     elevation: 3,
+    maxHeight: 220,
   },
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   searchResultText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: '#1F2937',
   },
   selectedBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#ECFDF5',
     borderColor: '#A7F3D0',
     borderWidth: 1,
-    padding: 12,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 12,
     marginTop: 16,
   },
   selectedTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#059669',
     textTransform: 'uppercase',
   },
   selectedAddress: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#065F46',
-    marginTop: 2,
+    marginBottom: 14,
   },
-  selectedCoords: {
-    fontSize: 11,
-    color: '#047857',
-    marginTop: 2,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-  },
-  cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  cancelBtnText: {
-    color: '#6B7280',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  confirmBtn: {
+  startJourneyBtn: {
     backgroundColor: '#0F4C3A',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
   },
-  confirmBtnText: {
+  startJourneyBtnText: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  emptyCardText: {
+    fontSize: 15,
     fontWeight: '600',
+    color: '#374151',
+    marginTop: 10,
+  },
+  emptyCardSub: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusPending: { backgroundColor: '#FEF3C7' },
+  statusCompleted: { backgroundColor: '#D1FAE5' },
+  statusText: { fontSize: 10, fontWeight: 'bold' },
+  statusTextPending: { color: '#D97706' },
+  statusTextCompleted: { color: '#059669' },
+  dateText: { fontSize: 12, color: '#9CA3AF' },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  addressText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  reselectBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#0F4C3A',
+    padding: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reselectBtnText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 8,
     fontSize: 14,
   },
 });

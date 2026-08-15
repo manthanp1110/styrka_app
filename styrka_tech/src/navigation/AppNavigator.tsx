@@ -8,7 +8,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { navigationRef } from './navigationRef';
 import { useAppState } from '../store/useAppState';
 import LoginScreen from '../screens/LoginScreen';
-import AdminDestinationScreen from '../screens/AdminDestinationScreen';
 import AdminTrackingScreen from '../screens/AdminTrackingScreen';
 import AdminEmployeesScreen from '../screens/AdminEmployeesScreen';
 import EmployeeDestinationScreen from '../screens/EmployeeDestinationScreen';
@@ -43,9 +42,8 @@ const AdminTabs = () => {
         tabBarActiveTintColor: '#F59E0B',
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarIcon: ({ color }) => {
-          let iconName: any = 'map-pin';
+          let iconName: any = 'map';
           if (route.name === 'Manage Employees') iconName = 'users';
-          else if (route.name === 'Assign Destination') iconName = 'send';
           else if (route.name === 'Live Tracking') iconName = 'map';
           return <Feather name={iconName} size={22} color={color} />;
         },
@@ -55,9 +53,8 @@ const AdminTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="Manage Employees" component={AdminEmployeesScreen} options={{ title: 'Employees' }} />
-      <Tab.Screen name="Assign Destination" component={AdminDestinationScreen} options={{ title: 'Assign Destination' }} />
       <Tab.Screen name="Live Tracking" component={AdminTrackingScreen} options={{ title: 'Live Employee Tracking' }} />
+      <Tab.Screen name="Manage Employees" component={AdminEmployeesScreen} options={{ title: 'Employees' }} />
     </Tab.Navigator>
   );
 };
@@ -81,7 +78,7 @@ const EmployeeTabs = () => {
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarIcon: ({ color }) => {
           let iconName: any = 'navigation';
-          if (route.name === 'My Destinations') iconName = 'list';
+          if (route.name === 'Select Destination') iconName = 'map-pin';
           else if (route.name === 'LiveTracking') iconName = 'navigation';
           return <Feather name={iconName} size={22} color={color} />;
         },
@@ -91,7 +88,7 @@ const EmployeeTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="My Destinations" component={EmployeeDestinationScreen} options={{ title: 'Assigned Destinations' }} />
+      <Tab.Screen name="Select Destination" component={EmployeeDestinationScreen} options={{ title: 'Select Destination' }} />
       <Tab.Screen name="LiveTracking" component={EmployeeTrackingScreen} options={{ title: 'Start & Track Journey' }} />
     </Tab.Navigator>
   );

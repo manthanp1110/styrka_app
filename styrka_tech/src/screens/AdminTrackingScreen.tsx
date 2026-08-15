@@ -748,7 +748,7 @@ const AdminTrackingScreen = () => {
               )}
 
               {/* Destination Route Polyline — dynamically anchors from rider's exact live GPS position */}
-              {selectedJourney.latestLocation && selectedJourney.latestLocation.status !== 'offline' && selectedJourney.destination_lat != null && (
+              {selectedJourney.destination_lat != null && selectedJourney.destination_lng != null && displayedPolyline.length >= 2 && (
                 <Polyline
                   coordinates={displayedPolyline}
                   strokeWidth={6}

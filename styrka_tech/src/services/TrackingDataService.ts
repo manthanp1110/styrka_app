@@ -33,11 +33,7 @@ export interface LiveLocation {
   destination_address?: string | null;
 }
 
-const DEFAULT_EMPLOYEES: User[] = [
-  { id: 'emp_1', name: 'Rahul Sharma', email: 'rahul@styrka.com', role: 'employee' },
-  { id: 'emp_2', name: 'Priya Singh', email: 'priya@styrka.com', role: 'employee' },
-  { id: 'emp_3', name: 'Amit Kumar', email: 'amit@styrka.com', role: 'employee' },
-];
+const DEFAULT_EMPLOYEES: User[] = [];
 
 const DEFAULT_ADMINS: User[] = [
   {
@@ -66,6 +62,20 @@ const LOCATIONS_KEY = '@styrka_live_locations';
 const CUSTOM_EMPLOYEES_KEY = '@styrka_custom_employees';
 
 export class TrackingDataService {
+  // Clear all employees from local storage & Supabase
+  static async clearAllEmployees(): Promise<void> {
+    try {
+      await supabase.from('users').delete().eq('role', 'employee');
+      await supabase.from('destinations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('live_locations').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+    } catch (e) {}
+    try {
+      await AsyncStorage.removeItem(CUSTOM_EMPLOYEES_KEY);
+      await AsyncStorage.removeItem(DESTINATIONS_KEY);
+      await AsyncStorage.removeItem(LOCATIONS_KEY);
+    } catch (e) {}
+  }
+
   // Get list of employees from Supabase users table & local storage
   static async getEmployees(): Promise<User[]> {
     let supabaseEmployees: User[] = [];
@@ -98,9 +108,6 @@ export class TrackingDataService {
     // Remove duplicates by id or email
     const uniqueMap = new Map<string, User>();
     all.forEach((emp) => uniqueMap.set(emp.id, emp));
-    DEFAULT_EMPLOYEES.forEach((emp) => {
-      if (!uniqueMap.has(emp.id)) uniqueMap.set(emp.id, emp);
-    });
 
     const resultList = Array.from(uniqueMap.values());
 

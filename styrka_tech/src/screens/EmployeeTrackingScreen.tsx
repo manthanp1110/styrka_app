@@ -244,16 +244,39 @@ const EmployeeTrackingScreen = () => {
 
         activeJourneyRef.current = newJourney;
         setActiveJourney(newJourney);
+
+        const currentLat = initialLoc ? initialLoc.latitude : (Number(assigned.latitude) - 0.015);
+        const currentLng = initialLoc ? initialLoc.longitude : (Number(assigned.longitude) - 0.015);
+
         if (initialLoc) {
           fetchRoute(initialLoc.latitude, initialLoc.longitude, Number(assigned.latitude), Number(assigned.longitude));
         } else {
           const initialOffset = {
-            latitude: Number(assigned.latitude) - 0.015,
-            longitude: Number(assigned.longitude) - 0.015,
+            latitude: currentLat,
+            longitude: currentLng,
           };
           setCurrentLocation(initialOffset);
           fetchRoute(initialOffset.latitude, initialOffset.longitude, Number(assigned.latitude), Number(assigned.longitude));
         }
+
+        // Broadcast current location WITH destination metadata immediately to Supabase & Socket.IO
+        await TrackingDataService.updateLiveLocation({
+          userId: user.id || 'emp_1',
+          latitude: currentLat,
+          longitude: currentLng,
+          destination_lat: Number(assigned.latitude),
+          destination_lng: Number(assigned.longitude),
+          destination_address: assigned.address,
+        });
+
+        SocketService.updateLocation({
+          userId: user.id || 'emp_1',
+          latitude: currentLat,
+          longitude: currentLng,
+          destination_lat: Number(assigned.latitude),
+          destination_lng: Number(assigned.longitude),
+          destination_address: assigned.address,
+        });
 
         AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
         setupTracking(newJourney.id);
@@ -267,6 +290,24 @@ const EmployeeTrackingScreen = () => {
         setActiveJourney(journey);
         if (journey?.destination_lat && journey?.destination_lng && currentLocation) {
           fetchRoute(currentLocation.latitude, currentLocation.longitude, Number(journey.destination_lat), Number(journey.destination_lng));
+
+          await TrackingDataService.updateLiveLocation({
+            userId: user.id || 'emp_1',
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            destination_lat: Number(journey.destination_lat),
+            destination_lng: Number(journey.destination_lng),
+            destination_address: journey.address,
+          });
+
+          SocketService.updateLocation({
+            userId: user.id || 'emp_1',
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            destination_lat: Number(journey.destination_lat),
+            destination_lng: Number(journey.destination_lng),
+            destination_address: journey.address,
+          });
         }
         setupTracking(journey.id);
       } else {

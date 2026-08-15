@@ -387,7 +387,18 @@ const AdminTrackingScreen = () => {
   };
 
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
-  const selectedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
+  const resolvedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
+  const selectedJourney = resolvedJourney || (selectedEmp ? {
+    id: `j_${selectedEmp.id}`,
+    user_id: selectedEmp.id,
+    start_lat: 18.5204,
+    start_lng: 73.8567,
+    destination_lat: null,
+    destination_lng: null,
+    latestLocation: null,
+    locationHistory: [],
+    address: null,
+  } : null);
 
   // Compute live polyline that ALWAYS starts at the exact live employee location and connects to destination
   const displayedPolyline = React.useMemo(() => {
@@ -660,7 +671,7 @@ const AdminTrackingScreen = () => {
         )}
 
         {/* MAP VIEW */}
-        {selectedEmployeeId && selectedJourney && (
+        {selectedEmployeeId && (
           <View style={{ flex: 1 }}>
             {/* Map Controls Floating Overlay */}
             <View style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, flexDirection: 'row', gap: 10 }}>

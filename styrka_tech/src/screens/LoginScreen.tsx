@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useAppState } from '../store/useAppState';
 import { supabase } from '../config/supabase';
 import { TrackingDataService } from '../services/TrackingDataService';
@@ -115,7 +116,7 @@ const LoginScreen = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>S</Text>
+            <Feather name="navigation" size={34} color="#10B981" />
           </View>
           
           <Text style={styles.title}>STYRKA Live Tracker</Text>
@@ -216,17 +217,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   logoBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: '#F59E0B',
+    width: 76,
+    height: 76,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
 
     borderWidth: 2,
-    borderColor: '#D97706',
-    shadowColor: '#000',
+    borderColor: '#10B981',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     elevation: 6,

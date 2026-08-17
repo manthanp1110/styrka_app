@@ -13,30 +13,37 @@ const LoginScreen = () => {
 
   const signInWithSupabase = async (loginEmail: string, loginPassword: string) => {
     const cleanEmail = loginEmail.trim().toLowerCase();
-    
-    // 1. Try signing in with Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password: loginPassword,
-    });
+    let authErrorMsg = '';
 
-    if (!error && data.user) {
-      // Fetch profile from users table
-      const { data: profile } = await supabase
-        .from('users')
-        .select('id, name, role, email')
-        .eq('id', data.user.id)
-        .single();
-      const name = profile?.name || data.user.email?.split('@')[0] || 'User';
-      const role: 'admin' | 'employee' = (profile?.role === 'admin') ? 'admin' : 'employee';
-      await setSession(data.user.id, role, name, profile?.email || data.user.email || '');
-      return;
+    // 1. Try signing in with Supabase Auth
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: loginPassword,
+      });
+
+      if (!error && data.user) {
+        // Fetch profile from users table
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id, name, role, email')
+          .eq('id', data.user.id)
+          .maybeSingle();
+        const name = profile?.name || data.user.email?.split('@')[0] || 'User';
+        const role: 'admin' | 'employee' = profile?.role === 'admin' ? 'admin' : 'employee';
+        await setSession(data.user.id, role, name, profile?.email || data.user.email || '');
+        return;
+      } else if (error) {
+        authErrorMsg = error.message;
+      }
+    } catch (e: any) {
+      authErrorMsg = e.message || '';
     }
 
-    // 2. Fallback: check configured local/admin users
+    // 2. Fallback: check configured local / database employee profiles
     const matchedUser = await TrackingDataService.getUser(cleanEmail);
     if (matchedUser) {
-      // Try background signup so account gets created in Supabase Auth automatically
+      // Try background signup so account gets registered in Supabase Auth if needed
       try {
         await supabase.auth.signUp({
           email: cleanEmail,
@@ -54,7 +61,7 @@ const LoginScreen = () => {
       return;
     }
 
-    throw new Error(error?.message || 'Invalid login credentials. Please create this user in Supabase Auth.');
+    throw new Error(authErrorMsg || 'Invalid login credentials. Please verify your email and password.');
   };
 
   const handleLogin = async () => {

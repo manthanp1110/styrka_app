@@ -147,35 +147,26 @@ export class TrackingDataService {
       console.warn('[TrackingDataService] Supabase Auth signUp failed, attempting direct table insert', e);
     }
 
-    if (!createdId) {
-      try {
-        // 2. Direct insert into public.users table if Auth signup is skipped or restricted
-        const tempId = `emp_${Date.now()}`;
-        const { data, error } = await supabase
-          .from('users')
-          .insert([
-            {
-              id: tempId,
-              name: cleanName,
-              email: cleanEmail,
-              role: 'employee',
-            },
-          ])
-          .select()
-          .single();
+    const finalId = createdId || `emp_${Date.now()}`;
 
-        if (!error && data) {
-          createdId = data.id;
-        } else {
-          createdId = tempId;
-        }
-      } catch {
-        createdId = `emp_${Date.now()}`;
-      }
+    // 2. Always upsert profile into public.users table
+    try {
+      await supabase
+        .from('users')
+        .upsert([
+          {
+            id: finalId,
+            name: cleanName,
+            email: cleanEmail,
+            role: 'employee',
+          },
+        ]);
+    } catch (e) {
+      console.warn('[TrackingDataService] Error upserting user into public.users table:', e);
     }
 
     const newEmp: User = {
-      id: createdId || `emp_${Date.now()}`,
+      id: finalId,
       name: cleanName,
       email: cleanEmail,
       role: 'employee',
@@ -225,16 +216,18 @@ export class TrackingDataService {
     }
   }
 
-  // Get user by email or ID from Supabase
+  // Get user by email or ID from Supabase or local storage
   static async getUser(emailOrId: string): Promise<User | null> {
+    const cleanStr = emailOrId.trim().toLowerCase();
+
+    // 1. Check Supabase users table by email
     try {
-      const cleanStr = emailOrId.trim().toLowerCase();
       const { data, error } = await supabase
         .from('users')
         .select('id, name, email, role')
-        .or(`email.eq.${cleanStr},id.eq.${emailOrId}`)
-        .limit(1)
-        .single();
+        .eq('email', cleanStr)
+        .maybeSingle();
+
       if (!error && data) {
         return {
           id: data.id,
@@ -244,16 +237,57 @@ export class TrackingDataService {
         };
       }
     } catch {}
-    // Fallback: check local defaults
-    const cleanStr = emailOrId.trim().toLowerCase();
+
+    // 2. Check Supabase users table by ID
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, role')
+        .eq('id', emailOrId)
+        .maybeSingle();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          name: data.name || data.email,
+          email: data.email,
+          role: data.role as 'admin' | 'employee',
+        };
+      }
+    } catch {}
+
+    // 3. Check local custom employees in AsyncStorage
+    try {
+      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
+      if (raw) {
+        const customList: User[] = JSON.parse(raw);
+        const matchedLocal = customList.find(
+          (e) => e.email.toLowerCase() === cleanStr || e.id === cleanStr
+        );
+        if (matchedLocal) return matchedLocal;
+      }
+    } catch {}
+
+    // 4. Fallback: check admin defaults
     const matchedAdmin = DEFAULT_ADMINS.find(
       (a) => a.email.toLowerCase() === cleanStr || a.id === cleanStr
     );
     if (matchedAdmin) return matchedAdmin;
     if (cleanStr.includes('admin')) return DEFAULT_ADMIN;
-    return DEFAULT_EMPLOYEES.find(
-      (e) => e.email.toLowerCase() === cleanStr || e.id === cleanStr
-    ) || DEFAULT_EMPLOYEES[0];
+
+    // 5. Fallback: if it's an email address or valid employee identifier
+    if (cleanStr.includes('@')) {
+      const namePart = cleanStr.split('@')[0];
+      const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+      return {
+        id: `emp_${cleanStr.replace(/[^a-z0-9]/g, '_')}`,
+        name: formattedName,
+        email: cleanStr,
+        role: 'employee',
+      };
+    }
+
+    return null;
   }
 
   // Assign a new destination

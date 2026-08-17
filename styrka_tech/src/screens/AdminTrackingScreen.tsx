@@ -357,7 +357,7 @@ const AdminTrackingScreen = () => {
         || (journey.latestLocation.timestamp && Date.now() - new Date(journey.latestLocation.timestamp).getTime() > 5 * 60 * 1000);
 
       if (isOffline) {
-        return { label: 'Tracking Interrupted / Offline', color: '#9CA3AF', canTrack: false, isOffline: true };
+        return { label: 'Offline (Last Known Location)', color: '#6B7280', canTrack: true, isOffline: true };
       }
       if (journey.status === 'arrived') {
         return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true, isOffline: false };
@@ -368,7 +368,7 @@ const AdminTrackingScreen = () => {
       return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
     }
     
-    return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: false, isOffline: true };
+    return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: true, isOffline: true };
   };
 
   const filteredEmployees = employees.filter(emp => 
@@ -835,8 +835,8 @@ const AdminTrackingScreen = () => {
                   )}
                   <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600' }}>STATUS</Text>
-                    <Text style={{ color: selectedJourney?.latestLocation ? '#10B981' : '#F59E0B', fontSize: 16, fontWeight: 'bold', marginTop: 2 }}>
-                      {selectedJourney?.latestLocation ? '● LIVE' : '○ Waiting'}
+                    <Text style={{ color: selectedJourney?.latestLocation?.status === 'offline' ? '#6B7280' : (selectedJourney?.latestLocation ? '#10B981' : '#F59E0B'), fontSize: 13, fontWeight: 'bold', marginTop: 2 }}>
+                      {selectedJourney?.latestLocation?.status === 'offline' ? '○ OFFLINE (SAVED)' : (selectedJourney?.latestLocation ? '● LIVE' : '○ Waiting')}
                     </Text>
                   </View>
                 </View>

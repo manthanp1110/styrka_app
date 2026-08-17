@@ -94,15 +94,50 @@ export const useAppState = create<AppState>((set, get) => ({
         }
       } catch (e) {}
 
-      // 2. Notify Supabase & WebSocket that employee has gone offline
+      // 2. Notify Supabase & WebSocket that employee has gone offline (preserving last known location & destination)
       if (userId) {
+        let lat = 0;
+        let lng = 0;
+        let heading = 0;
+        let destLat: number | undefined = undefined;
+        let destLng: number | undefined = undefined;
+        let destAddress: string | undefined = undefined;
+
+        try {
+          const lastLoc = await TrackingDataService.getLiveLocation(userId);
+          if (lastLoc && lastLoc.latitude !== 0 && lastLoc.longitude !== 0) {
+            lat = Number(lastLoc.latitude);
+            lng = Number(lastLoc.longitude);
+            heading = Number(lastLoc.heading || 0);
+            destLat = lastLoc.destination_lat != null ? Number(lastLoc.destination_lat) : undefined;
+            destLng = lastLoc.destination_lng != null ? Number(lastLoc.destination_lng) : undefined;
+            destAddress = lastLoc.destination_address || undefined;
+          }
+        } catch (e) {}
+
         await TrackingDataService.updateLiveLocation({
           userId,
-          latitude: 0,
-          longitude: 0,
+          latitude: lat,
+          longitude: lng,
+          heading,
+          speed: 0,
+          destination_lat: destLat,
+          destination_lng: destLng,
+          destination_address: destAddress,
           status: 'offline',
         }).catch(() => {});
-        SocketService.updateLocation({ userId, latitude: 0, longitude: 0, status: 'offline' });
+
+        SocketService.updateLocation({
+          userId,
+          latitude: lat,
+          longitude: lng,
+          heading,
+          speed: 0,
+          destination_lat: destLat,
+          destination_lng: destLng,
+          destination_address: destAddress,
+          status: 'offline',
+        });
       }
 
       // 3. Clear local storage keys

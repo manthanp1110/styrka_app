@@ -492,15 +492,17 @@ export class TrackingDataService {
       let locMap: Record<string, any> = raw ? JSON.parse(raw) : {};
 
       const existingLoc = locMap[location.userId];
+      const finalLat = (location.latitude !== 0 && location.latitude != null) ? location.latitude : (existingLoc?.latitude || 0);
+      const finalLng = (location.longitude !== 0 && location.longitude != null) ? location.longitude : (existingLoc?.longitude || 0);
       const destLat = location.destination_lat ?? existingLoc?.destination_lat ?? null;
       const destLng = location.destination_lng ?? existingLoc?.destination_lng ?? null;
       const destAddress = location.destination_address ?? existingLoc?.destination_address ?? null;
 
       locMap[location.userId] = {
         user_id: location.userId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        heading: location.heading || 0,
+        latitude: finalLat,
+        longitude: finalLng,
+        heading: location.heading || existingLoc?.heading || 0,
         speed: location.speed || 0,
         status: location.status || 'online',
         timestamp,
@@ -516,9 +518,9 @@ export class TrackingDataService {
       try {
         await supabase.from('live_locations').upsert({
           user_id: String(location.userId),
-          latitude: Number(location.latitude),
-          longitude: Number(location.longitude),
-          heading: Number(location.heading || 0),
+          latitude: Number(finalLat),
+          longitude: Number(finalLng),
+          heading: Number(location.heading || existingLoc?.heading || 0),
           speed: Number(location.speed || 0),
           status: location.status || 'online',
           destination_lat: destLat != null ? Number(destLat) : null,

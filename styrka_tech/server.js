@@ -88,32 +88,30 @@ io.on('connection', (socket) => {
         timestamp: payload.timestamp
       });
 
+      const existing = activeEmployees.get(empId)?.latestLoc;
+      const finalLat = (payload.latitude !== 0 && payload.latitude != null) ? payload.latitude : (existing?.latitude || 0);
+      const finalLng = (payload.longitude !== 0 && payload.longitude != null) ? payload.longitude : (existing?.longitude || 0);
+
       const locationRecord = {
         employee_id: empId,
         user_id: payload.userId || empId,
-        email: payload.email || '',
-        name: payload.name || '',
-        latitude: payload.latitude,
-        longitude: payload.longitude,
-        heading: payload.heading || 0,
-        speed: payload.speed || 0,
+        email: payload.email || existing?.email || '',
+        name: payload.name || existing?.name || '',
+        latitude: finalLat,
+        longitude: finalLng,
+        heading: payload.heading || existing?.heading || 0,
+        speed: isOffline ? 0 : (payload.speed || 0),
         accuracy: payload.accuracy || 0,
         status: isOffline ? 'offline' : 'online',
         timestamp: payload.timestamp || new Date().toISOString(),
-        destination_lat: isOffline ? null : (payload.destination_lat != null ? Number(payload.destination_lat) : null),
-        destination_lng: isOffline ? null : (payload.destination_lng != null ? Number(payload.destination_lng) : null),
-        destination_address: isOffline ? null : (payload.destination_address || null),
+        destination_lat: payload.destination_lat != null ? Number(payload.destination_lat) : (existing?.destination_lat != null ? Number(existing.destination_lat) : null),
+        destination_lng: payload.destination_lng != null ? Number(payload.destination_lng) : (existing?.destination_lng != null ? Number(existing.destination_lng) : null),
+        destination_address: payload.destination_address || existing?.destination_address || null,
       };
 
-      if (isOffline) {
-        activeEmployees.delete(empId);
-        if (payload.email) activeEmployees.delete(payload.email);
-        if (payload.name) activeEmployees.delete(payload.name);
-      } else {
-        activeEmployees.set(empId, { latestLoc: locationRecord, status: 'online' });
-        if (payload.email) activeEmployees.set(payload.email, { latestLoc: locationRecord, status: 'online' });
-        if (payload.name) activeEmployees.set(payload.name, { latestLoc: locationRecord, status: 'online' });
-      }
+      activeEmployees.set(empId, { latestLoc: locationRecord, status: isOffline ? 'offline' : 'online' });
+      if (payload.email) activeEmployees.set(payload.email, { latestLoc: locationRecord, status: isOffline ? 'offline' : 'online' });
+      if (payload.name) activeEmployees.set(payload.name, { latestLoc: locationRecord, status: isOffline ? 'offline' : 'online' });
 
       console.log('[SERVER LOCATION] employee_location_changed broadcast:', {
         employeeId: empId,

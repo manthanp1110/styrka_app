@@ -87,39 +87,6 @@ const LoginScreen = () => {
     }
   };
 
-  const loginAsRole = async (role: 'admin' | 'employee') => {
-    setIsLoading(true);
-    setErrorMsg('');
-    try {
-      if (email.trim()) {
-        const matched = await TrackingDataService.getUser(email.trim());
-        if (matched) {
-          await setSession(matched.id, role, matched.name, matched.email);
-          return;
-        }
-      }
-
-      const emps = await TrackingDataService.getEmployees();
-      const targetEmps = role === 'admin' 
-        ? [{ id: 'admin_1', name: 'Admin Portal', email: 'manthanpandhare1110@gmail.com', role: 'admin' as const }]
-        : emps;
-
-      if (targetEmps.length === 0) {
-        throw new Error(`No ${role} account found. Create an employee first.`);
-      }
-
-      const selected = email.trim() 
-        ? (targetEmps.find(e => e.email.toLowerCase().includes(email.trim().toLowerCase())) || targetEmps[0])
-        : targetEmps[0];
-
-      await setSession(selected.id, role, selected.name || selected.email || role, selected.email || '');
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Failed to sign in.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -179,21 +146,6 @@ const LoginScreen = () => {
             {isLoading && <ActivityIndicator color="white" style={{ marginRight: 8 }} />}
             <Text style={styles.loginBtnText}>{isLoading ? 'Signing In...' : 'Log In'}</Text>
           </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>QUICK DEMO ACCESS</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.demoButtonsRow}>
-            <TouchableOpacity 
-              style={[styles.demoBtn, { backgroundColor: '#F59E0B' }]}
-              onPress={() => loginAsRole('admin')}
-            >
-              <Text style={styles.demoBtnText}>Quick Admin Login</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </KeyboardAvoidingView>
       
@@ -319,38 +271,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
-  demoButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
-  demoBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  demoBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
   },
   footer: {
     paddingBottom: 24,

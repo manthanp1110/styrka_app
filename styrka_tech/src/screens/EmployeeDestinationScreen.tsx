@@ -59,7 +59,7 @@ const EmployeeDestinationScreen = () => {
       fetchDestinations();
     });
 
-    SocketService.connect(user.id || 'emp_1', 'employee');
+    SocketService.connect(user.id || user.email || 'employee', 'employee');
 
     return () => {
       unsubscribe?.();

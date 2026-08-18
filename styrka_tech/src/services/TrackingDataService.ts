@@ -37,26 +37,7 @@ export interface LiveLocation {
   destination_address?: string | null;
 }
 
-const DEFAULT_EMPLOYEES: User[] = [
-  {
-    id: 'emp_1',
-    name: 'Sangita',
-    email: 'sangita@styrka.com',
-    role: 'employee',
-  },
-  {
-    id: 'emp_2',
-    name: 'Rahul Sharma',
-    email: 'rahul@styrka.com',
-    role: 'employee',
-  },
-  {
-    id: 'emp_3',
-    name: 'Vikram Singh',
-    email: 'vikram@styrka.com',
-    role: 'employee',
-  },
-];
+const DEFAULT_EMPLOYEES: User[] = [];
 
 const DEFAULT_ADMINS: User[] = [
   {
@@ -68,7 +49,7 @@ const DEFAULT_ADMINS: User[] = [
   {
     id: 'admin_2',
     name: 'Pravin Dagade',
-    email: 'dagadepravin55@gmail.com',
+    email: 'pravindagade007@gmail.com',
     role: 'admin',
   },
   {
@@ -145,7 +126,7 @@ export class TrackingDataService {
       }
     } catch {}
 
-    const all = [...supabaseEmployees, ...customEmployees, ...liveLocationEmployees, ...DEFAULT_EMPLOYEES];
+    const all = [...supabaseEmployees, ...customEmployees, ...liveLocationEmployees];
 
     const seenIds = new Set<string>();
     const seenEmails = new Set<string>();
@@ -180,18 +161,6 @@ export class TrackingDataService {
     // Sync back to local storage so offline access is instant
     try {
       await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(resultList));
-    } catch {}
-
-    // Ensure default employees exist in Supabase users table
-    try {
-      supabase.from('users').upsert(
-        DEFAULT_EMPLOYEES.map((e) => ({
-          id: e.id,
-          name: e.name,
-          email: e.email,
-          role: 'employee',
-        }))
-      ).then(() => {});
     } catch {}
 
     return resultList;

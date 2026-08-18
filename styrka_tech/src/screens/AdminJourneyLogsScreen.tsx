@@ -146,10 +146,7 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
       );
     });
 
-    if (matched.length > 0) return matched;
-
-    // Fallback: If no strict ID match, return all destinations so Admin always sees active logs
-    return allDestinations;
+    return matched;
   }, [selectedEmployee, allDestinations]);
 
   // Extract list of dates that have journey records for calendar markers

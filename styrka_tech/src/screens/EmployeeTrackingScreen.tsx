@@ -208,7 +208,7 @@ const EmployeeTrackingScreen = () => {
       } catch {}
 
       // Always connect SocketService for employee
-      SocketService.connect(user.id || 'emp_1', 'employee');
+      SocketService.connect(user.id || user.email || 'employee', 'employee');
 
       // 2. Fetch real initial device location immediately
       const initialLoc = await getDeviceLocation();
@@ -216,7 +216,7 @@ const EmployeeTrackingScreen = () => {
         setCurrentLocation(initialLoc);
         fetchAddress(initialLoc.latitude, initialLoc.longitude);
         TrackingDataService.updateLiveLocation({
-          userId: user.id || 'emp_1',
+          userId: user.id || user.email || 'employee',
           latitude: initialLoc.latitude,
           longitude: initialLoc.longitude,
         });

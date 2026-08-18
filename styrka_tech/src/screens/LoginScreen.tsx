@@ -189,14 +189,7 @@ const LoginScreen = () => {
               style={[styles.demoBtn, { backgroundColor: '#F59E0B' }]}
               onPress={() => loginAsRole('admin')}
             >
-              <Text style={styles.demoBtnText}>Admin Portal</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.demoBtn, { backgroundColor: '#047857' }]}
-              onPress={() => loginAsRole('employee')}
-            >
-              <Text style={styles.demoBtnText}>Employee Portal</Text>
+              <Text style={styles.demoBtnText}>Quick Admin Login</Text>
             </TouchableOpacity>
           </View>
         </View>

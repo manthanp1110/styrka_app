@@ -26,7 +26,11 @@ class LocationUploadService {
           }
         } catch (e) {}
       }
-      if (!userId) userId = 'emp_1';
+
+      if (!userId) {
+        this.isProcessing = false;
+        return;
+      }
 
       const rawJourney = await AsyncStorage.getItem('active_journey');
       let destLat: number | undefined = undefined;

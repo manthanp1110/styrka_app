@@ -117,13 +117,25 @@ const AdminTrackingScreen = () => {
       if (
         (empId && locUserId === empId) ||
         (empEmail && locUserId === empEmail) ||
-        (empName && locUserId.includes(empName))
+        (empName && (locUserId.includes(empName) || empName.includes(locUserId)))
       ) {
         if (!candidateJourneys.includes(j)) candidateJourneys.push(j);
       }
     });
 
-    if (candidateJourneys.length === 0) return null;
+    if (candidateJourneys.length === 0) {
+      // Fallback: If no candidate matched by ID/email/name, check active journeys with location/destination
+      const activeJourneysList = Object.values(journeysMap).filter((j: any) => j && (j.latestLocation || j.destination_lat));
+      if (activeJourneysList.length > 0) {
+        const sorted = [...activeJourneysList].sort((a, b) => {
+          const tA = new Date(a.latestLocation?.timestamp || 0).getTime();
+          const tB = new Date(b.latestLocation?.timestamp || 0).getTime();
+          return tB - tA;
+        });
+        return sorted[0];
+      }
+      return null;
+    }
 
     // Merge candidates so destination details & latest location are cleanly combined
     const base = { ...candidateJourneys[0] };
@@ -142,6 +154,11 @@ const AdminTrackingScreen = () => {
         base.destination_lng = c.destination_lng;
         base.address = c.address;
       }
+    }
+
+    if (base.latestLocation && base.latestLocation.latitude != null) {
+      base.start_lat = Number(base.latestLocation.latitude);
+      base.start_lng = Number(base.latestLocation.longitude);
     }
     return base;
   };
@@ -184,16 +201,18 @@ const AdminTrackingScreen = () => {
 
           // Preserve newer live Socket.IO ping if available in state
           let latestPing = existingJourney?.latestLocation || null;
-          if (fetchedTime > existingTime && loc) {
-            latestPing = {
-              user_id: loc.user_id || emp.id,
-              latitude: Number(loc.latitude),
-              longitude: Number(loc.longitude),
-              heading: Number(loc.heading || 0),
-              speed: Number(loc.speed || 0),
-              status: loc.status || 'online',
-              timestamp: loc.timestamp || new Date().toISOString(),
-            };
+          if (loc && loc.latitude != null && Number(loc.latitude) !== 0) {
+            if (!latestPing || fetchedTime >= existingTime) {
+              latestPing = {
+                user_id: loc.user_id || emp.id,
+                latitude: Number(loc.latitude),
+                longitude: Number(loc.longitude),
+                heading: Number(loc.heading || 0),
+                speed: Number(loc.speed || 0),
+                status: loc.status || 'online',
+                timestamp: loc.timestamp || new Date().toISOString(),
+              };
+            }
           }
 
           const destLat = dest ? Number(dest.latitude)
@@ -208,12 +227,19 @@ const AdminTrackingScreen = () => {
             || 'Custom destination';
 
           if (loc || dest || existingJourney) {
+            const startLat = latestPing?.latitude != null 
+              ? Number(latestPing.latitude) 
+              : (existingJourney?.start_lat != null ? Number(existingJourney.start_lat) : (destLat || 28.6139));
+            const startLng = latestPing?.longitude != null 
+              ? Number(latestPing.longitude) 
+              : (existingJourney?.start_lng != null ? Number(existingJourney.start_lng) : (destLng || 77.2090));
+
             const journeyObj = {
               ...(existingJourney || {}),
               id: existingJourney?.id || `j_${emp.id}`,
               user_id: emp.id,
-              start_lat: latestPing ? latestPing.latitude : (destLat || 28.6139),
-              start_lng: latestPing ? latestPing.longitude : (destLng || 77.2090),
+              start_lat: startLat,
+              start_lng: startLng,
               destination_lat: destLat,
               destination_lng: destLng,
               locationHistory: existingJourney?.locationHistory || (latestPing ? [latestPing] : []),
@@ -381,17 +407,28 @@ const AdminTrackingScreen = () => {
 
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
   const resolvedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
-  const selectedJourney = resolvedJourney || (selectedEmp ? {
-    id: `j_${selectedEmp.id}`,
-    user_id: selectedEmp.id,
-    start_lat: 18.5204,
-    start_lng: 73.8567,
-    destination_lat: null,
-    destination_lng: null,
-    latestLocation: null,
-    locationHistory: [],
-    address: null,
-  } : null);
+  
+  // Robust fallback: If resolvedJourney is null or missing latestLocation, check if there's any active journey with live location
+  const fallbackActiveJourney = (!resolvedJourney || !resolvedJourney.latestLocation)
+    ? Object.values(activeJourneys).find((j: any) => j?.latestLocation?.latitude != null)
+    : null;
+
+  const selectedJourney = resolvedJourney
+    ? {
+        ...resolvedJourney,
+        ...(fallbackActiveJourney?.latestLocation && !resolvedJourney.latestLocation ? { latestLocation: fallbackActiveJourney.latestLocation } : {}),
+      }
+    : (fallbackActiveJourney || (selectedEmp ? {
+        id: `j_${selectedEmp.id}`,
+        user_id: selectedEmp.id,
+        start_lat: 18.5204,
+        start_lng: 73.8567,
+        destination_lat: null,
+        destination_lng: null,
+        latestLocation: null,
+        locationHistory: [],
+        address: null,
+      } : null));
 
   // Compute live polyline that ALWAYS starts at the exact live employee location and connects to destination
   const displayedPolyline = React.useMemo(() => {

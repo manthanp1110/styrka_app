@@ -51,6 +51,9 @@ class SocketService {
   public register(userId: string, role: string) {
     if (this.socket) {
       this.socket.emit('register', { userId, role });
+      if (role === 'admin') {
+        this.socket.emit('get_active_employees', {});
+      }
     }
   }
 

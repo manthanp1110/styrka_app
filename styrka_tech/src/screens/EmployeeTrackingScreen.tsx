@@ -689,6 +689,8 @@ const EmployeeTrackingScreen = () => {
       // Also emit via Socket.IO so admin gets immediate update
       SocketService.updateLocation({
         userId,
+        email: user.email || undefined,
+        name: user.name || undefined,
         latitude: finalStartLat,
         longitude: finalStartLng,
         heading: 0,

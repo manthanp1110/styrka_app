@@ -117,9 +117,22 @@ const AppNavigator = () => {
     return <LoginScreen />;
   }
 
+  const ADMIN_EMAILS = [
+    'manthanpandhare1110@gmail.com',
+    'pravindagade007@gmail.com',
+    'rustumsayyed905@gmail.com',
+    'admin_1',
+    'admin_2',
+    'admin_3'
+  ];
+
+  const cleanEmail = (user.email || '').trim().toLowerCase();
+  const cleanId = String(user.id || '').trim().toLowerCase();
+  const isAdmin = user.role === 'admin' || ADMIN_EMAILS.includes(cleanEmail) || cleanId.startsWith('admin');
+
   return (
     <NavigationContainer ref={navigationRef}>
-      {user.role === 'admin' ? <AdminTabs /> : <EmployeeTabs />}
+      {isAdmin ? <AdminTabs /> : <EmployeeTabs />}
     </NavigationContainer>
   );
 };

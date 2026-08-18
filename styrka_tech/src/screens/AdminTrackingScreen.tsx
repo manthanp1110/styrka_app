@@ -575,8 +575,12 @@ const AdminTrackingScreen = () => {
     const emailStr = String(emp.email || '').toLowerCase();
     const nameStr = String(emp.name || emp.first_name || '').toLowerCase();
 
+    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
+
     const isAdmin =
       role === 'admin' ||
+      ADMIN_EMAILS.includes(emailStr) ||
+      ADMIN_EMAILS.includes(idStr) ||
       idStr.includes('admin') ||
       emailStr.includes('admin') ||
       nameStr.startsWith('admin');

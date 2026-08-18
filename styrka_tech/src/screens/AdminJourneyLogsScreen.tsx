@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TrackingDataService, User, AssignedDestination } from '../services/TrackingDataService';
+import { SocketService } from '../services/SocketService';
 
 export const AdminJourneyLogsScreen = ({ navigation }: any) => {
   const [employees, setEmployees] = useState<User[]>([]);
@@ -46,10 +47,27 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     loadData();
+
+    // Listen to real-time destination assignments & journey status completion events
+    const offDest = SocketService.onDestinationAssigned((data) => {
+      console.log('[AdminJourneyLogsScreen] Socket destination received:', data);
+      loadData();
+    });
+
+    const offStatus = SocketService.onJourneyStatusChanged((data) => {
+      console.log('[AdminJourneyLogsScreen] Socket status changed:', data);
+      loadData();
+    });
+
     const unsubscribe = navigation?.addListener?.('focus', () => {
       loadData();
     });
-    return unsubscribe;
+
+    return () => {
+      offDest?.();
+      offStatus?.();
+      unsubscribe?.();
+    };
   }, [navigation]);
 
   const handleRefresh = () => {
@@ -75,14 +93,24 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
     const empEmail = (selectedEmployee.email || '').toLowerCase();
     const empName = (selectedEmployee.name || '').toLowerCase();
 
-    return allDestinations.filter((d) => {
+    const matched = allDestinations.filter((d) => {
       const target = (d.employee_id || '').toLowerCase();
+      if (!target) return true;
       return (
         target === empId ||
         (empEmail && target === empEmail) ||
-        (empName && (target.includes(empName) || empName.includes(target)))
+        (empEmail && target.includes(empEmail)) ||
+        (empEmail && empEmail.includes(target)) ||
+        (empId && target.includes(empId)) ||
+        (empName && target.includes(empName)) ||
+        (empName && empName.includes(target))
       );
     });
+
+    if (matched.length > 0) return matched;
+
+    // Fallback: If no strict ID match, return all destinations so Admin always sees active logs
+    return allDestinations;
   }, [selectedEmployee, allDestinations]);
 
   // Extract list of dates that have journey records for calendar markers

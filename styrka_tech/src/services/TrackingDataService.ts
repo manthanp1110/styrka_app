@@ -476,6 +476,8 @@ export class TrackingDataService {
             longitude: Number(d.longitude),
             status: d.status || 'pending',
             created_at: d.created_at || new Date().toISOString(),
+            completed_at: d.completed_at || d.updated_at || undefined,
+            updated_at: d.updated_at || undefined,
           }));
 
           const destMap = new Map<string, AssignedDestination>();

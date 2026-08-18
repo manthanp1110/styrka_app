@@ -80,8 +80,65 @@ export class TrackingDataService {
     } catch (e) {}
   }
 
-  // Get list of employees from Supabase users table & local storage
+  // Get list of employees from Supabase destinations, users table & local storage
   static async getEmployees(): Promise<User[]> {
+    const DEMO_EMAILS = [
+      'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
+      'emp_1', 'emp_2', 'emp_3', 
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
+    ];
+    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
+
+    let destinationEmployees: User[] = [];
+    try {
+      const { data: dests } = await supabase.from('destinations').select('*').order('created_at', { ascending: false });
+      if (dests && dests.length > 0) {
+        dests.forEach((d: any) => {
+          const rawId = (d.employee_id || d.admin_id || '').trim();
+          if (!rawId) return;
+          const lowerId = rawId.toLowerCase();
+          if (DEMO_EMAILS.includes(lowerId) || ADMIN_EMAILS.includes(lowerId) || lowerId.startsWith('emp_17869')) return;
+
+          let email = '';
+          let name = '';
+
+          if (d.address && d.address.startsWith('Directory:')) {
+            const match = d.address.match(/Directory:\s*(.*?)\s*<([^>]+)>/);
+            if (match) {
+              name = match[1];
+              email = match[2].toLowerCase();
+            }
+          }
+
+          if (!email) {
+            if (rawId.startsWith('emp_') && rawId.includes('_gmail_com')) {
+              const withoutPrefix = rawId.replace(/^emp_/, '').replace(/_gmail_com$/, '');
+              email = `${withoutPrefix}@gmail.com`;
+            } else if (rawId.includes('@')) {
+              email = rawId.toLowerCase();
+            }
+          }
+
+          if (!name && email) {
+            const prefix = email.split('@')[0];
+            const letters = prefix.replace(/[^a-zA-Z]/g, '');
+            name = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (prefix.charAt(0).toUpperCase() + prefix.slice(1));
+          }
+
+          if (email && !DEMO_EMAILS.includes(email) && !ADMIN_EMAILS.includes(email)) {
+            destinationEmployees.push({
+              id: rawId,
+              name: name || 'Employee',
+              email: email,
+              role: 'employee',
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not fetch destinations for employee directory:', e);
+    }
+
     let supabaseEmployees: User[] = [];
     try {
       const { data, error } = await supabase
@@ -100,13 +157,6 @@ export class TrackingDataService {
     } catch (e) {
       console.warn('[TrackingDataService] Could not fetch employees from Supabase:', e);
     }
-
-    const DEMO_EMAILS = [
-      'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
-      'emp_1', 'emp_2', 'emp_3', 
-      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
-    ];
-    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
 
     // Filter out demo and admin users from Supabase users
     supabaseEmployees = supabaseEmployees.filter((e) => {
@@ -154,7 +204,7 @@ export class TrackingDataService {
       }
     } catch {}
 
-    const all = [...supabaseEmployees, ...customEmployees, ...liveLocationEmployees];
+    const all = [...destinationEmployees, ...supabaseEmployees, ...customEmployees, ...liveLocationEmployees];
 
     const seenIds = new Set<string>();
     const seenEmails = new Set<string>();
@@ -222,27 +272,20 @@ export class TrackingDataService {
       role: 'employee',
     };
 
-    // 1. Direct upsert into public.users table in Supabase (Global for all phones)
+    // 1. Direct insert directory record into Supabase destinations table (Global for all phones)
     try {
-      const { error: usersError } = await supabase
-        .from('users')
-        .upsert(
-          [
-            {
-              id: finalId,
-              name: cleanName,
-              email: cleanEmail,
-              role: 'employee',
-            },
-          ],
-          { onConflict: 'email' }
-        );
-
-      if (usersError) {
-        console.warn('[TrackingDataService] Supabase users table upsert warning:', usersError.message);
-      }
+      await supabase.from('destinations').insert([
+        {
+          admin_id: 'admin_directory',
+          employee_id: finalId,
+          address: `Directory: ${cleanName} <${cleanEmail}>`,
+          latitude: 0,
+          longitude: 0,
+          status: 'pending',
+        },
+      ]);
     } catch (e) {
-      console.warn('[TrackingDataService] Error upserting user into public.users table:', e);
+      console.warn('[TrackingDataService] Could not insert directory record into destinations table:', e);
     }
 
     // 2. Direct upsert into public.live_locations table in Supabase (Global for all phones)

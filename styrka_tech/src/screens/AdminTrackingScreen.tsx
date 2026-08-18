@@ -104,28 +104,34 @@ const AdminTrackingScreen = () => {
     if (!emp) return null;
 
     const candidateJourneys: any[] = [];
-    if (emp.id && journeysMap[emp.id]) candidateJourneys.push(journeysMap[emp.id]);
-    if (emp.email && journeysMap[emp.email]) candidateJourneys.push(journeysMap[emp.email]);
-    if (emp.name && journeysMap[emp.name]) candidateJourneys.push(journeysMap[emp.name]);
+    const empId = String(emp.id || '').toLowerCase();
+    const empEmail = String(emp.email || '').toLowerCase();
+    const emailPrefix = empEmail.split('@')[0];
+    const empName = String(emp.name || emp.first_name || '').toLowerCase();
 
-    Object.values(journeysMap).forEach((j: any) => {
-      const locUserId = String(j.latestLocation?.user_id || j.user_id || '').toLowerCase();
-      const empId = String(emp.id || '').toLowerCase();
-      const empEmail = String(emp.email || '').toLowerCase();
-      const empName = String(emp.name || '').toLowerCase();
+    Object.keys(journeysMap).forEach((key) => {
+      const j = journeysMap[key];
+      if (!j) return;
 
-      if (
-        (empId && locUserId === empId) ||
-        (empEmail && locUserId === empEmail) ||
-        (empName && (locUserId.includes(empName) || empName.includes(locUserId)))
-      ) {
-        if (!candidateJourneys.includes(j)) candidateJourneys.push(j);
+      const jUserId = String(j.user_id || key || '').toLowerCase();
+      const jEmpId = String(j.employee_id || '').toLowerCase();
+      const jEmail = String(j.email || j.latestLocation?.email || '').toLowerCase();
+      const jName = String(j.name || j.latestLocation?.name || '').toLowerCase();
+      const locUserId = String(j.latestLocation?.user_id || '').toLowerCase();
+
+      const isMatch =
+        (empId && (jUserId === empId || jEmpId === empId || locUserId === empId)) ||
+        (empEmail && (jEmail === empEmail || jUserId === empEmail || locUserId === empEmail)) ||
+        (emailPrefix && emailPrefix.length > 2 && (jUserId.includes(emailPrefix) || locUserId.includes(emailPrefix) || jEmail.includes(emailPrefix))) ||
+        (empName && empName.length > 2 && (jName.includes(empName) || empName.includes(jName) || jUserId.includes(empName) || locUserId.includes(empName)));
+
+      if (isMatch && !candidateJourneys.includes(j)) {
+        candidateJourneys.push(j);
       }
     });
 
     if (candidateJourneys.length === 0) {
       if (isSelectedMapContext) {
-        // Fallback ONLY when viewing selected map context
         const activeJourneysList = Object.values(journeysMap).filter((j: any) => j && (j.latestLocation || j.destination_lat));
         if (activeJourneysList.length > 0) {
           const sorted = [...activeJourneysList].sort((a, b) => {
@@ -139,9 +145,15 @@ const AdminTrackingScreen = () => {
       return null;
     }
 
-    // Merge candidates so destination details & latest location are cleanly combined
+    candidateJourneys.sort((a, b) => {
+      const tA = new Date(a.latestLocation?.timestamp || a.updated_at || a.created_at || 0).getTime();
+      const tB = new Date(b.latestLocation?.timestamp || b.updated_at || b.created_at || 0).getTime();
+      return tB - tA;
+    });
+
     const base = { ...candidateJourneys[0] };
     for (const c of candidateJourneys) {
+      if (c.status === 'in_progress' || c.status === 'started') base.status = c.status;
       if (!base.latestLocation && c.latestLocation) {
         base.latestLocation = c.latestLocation;
       } else if (base.latestLocation && c.latestLocation) {
@@ -554,15 +566,27 @@ const AdminTrackingScreen = () => {
         }
       }
 
-      return { label: 'Offline', color: '#6B7280', canTrack: true, isOffline: true };
+      return { label: 'Offline', color: '#6B7280', canTrack: false, isOffline: true };
     }
     
     return { label: 'Offline', color: '#6B7280', canTrack: false, isOffline: true };
   };
 
-  const filteredEmployees = employees.filter(emp => 
-    (emp.name || emp.first_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredEmployees = employees.filter(emp => {
+    const role = (emp.role || '').toLowerCase();
+    const idStr = String(emp.id || '').toLowerCase();
+    const emailStr = String(emp.email || '').toLowerCase();
+    const nameStr = String(emp.name || emp.first_name || '').toLowerCase();
+
+    const isAdmin =
+      role === 'admin' ||
+      idStr.includes('admin') ||
+      emailStr.includes('admin') ||
+      nameStr.startsWith('admin');
+
+    if (isAdmin) return false;
+    return nameStr.includes(searchQuery.trim().toLowerCase());
+  });
 
   const handleEmployeePress = (empId: string) => {
     setSelectedEmployeeId(empId);

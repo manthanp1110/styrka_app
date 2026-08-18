@@ -362,6 +362,10 @@ const AdminTrackingScreen = () => {
           if (empName) nextMap[empName] = updatedJourney;
           if (incomingId) nextMap[incomingId] = updatedJourney;
           return nextMap;
+        });
+      }
+    };
+
     const handleDestinationAssigned = (data: any) => {
       console.log('[ADMIN DESTINATION] received:', data);
       if (data && (data.latitude != null || data.address)) {

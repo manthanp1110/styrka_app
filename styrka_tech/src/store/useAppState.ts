@@ -84,7 +84,11 @@ export const useAppState = create<AppState>((set, get) => ({
 
   logout: async () => {
     try {
-      const userId = get().user.id || (await AsyncStorage.getItem('active_tracking_user_id'));
+      const currentUser = get().user;
+      const userId = currentUser.id || (await AsyncStorage.getItem('active_tracking_user_id'));
+      const userEmail = currentUser.email || (await AsyncStorage.getItem('active_tracking_user_email'));
+      const userName = currentUser.name || (await AsyncStorage.getItem('active_tracking_user_name'));
+      const nowIso = new Date().toISOString();
 
       // 1. Stop background GPS location task
       try {
@@ -94,7 +98,30 @@ export const useAppState = create<AppState>((set, get) => ({
         }
       } catch (e) {}
 
-      // 2. Notify Supabase & WebSocket that employee has gone offline (preserving last known location & destination)
+      // 2. Mark any active journey/destination as COMPLETED in Supabase & Local Storage
+      let activeDestId: string | null = null;
+      let activeJourneyId: string | null = null;
+      try {
+        const rawJourney = await AsyncStorage.getItem('active_journey');
+        if (rawJourney) {
+          const j = JSON.parse(rawJourney);
+          activeDestId = j.destination_id || j.id;
+          activeJourneyId = j.id;
+        }
+      } catch (e) {}
+
+      if (activeDestId) {
+        await TrackingDataService.updateDestinationStatus(activeDestId, 'completed', nowIso).catch(() => {});
+      }
+      if (userId) {
+        await TrackingDataService.updateDestinationStatus(userId, 'completed', nowIso).catch(() => {});
+      }
+      if (userEmail) {
+        const emailEmpId = `emp_${userEmail.replace(/[^a-z0-9]/g, '_')}`;
+        await TrackingDataService.updateDestinationStatus(emailEmpId, 'completed', nowIso).catch(() => {});
+      }
+
+      // 3. Notify Admin Dashboard & WebSocket server that employee has completed journey and gone offline
       if (userId) {
         let lat = 0;
         let lng = 0;
@@ -117,6 +144,8 @@ export const useAppState = create<AppState>((set, get) => ({
 
         await TrackingDataService.updateLiveLocation({
           userId,
+          email: userEmail || undefined,
+          name: userName || undefined,
           latitude: lat,
           longitude: lng,
           heading,
@@ -129,6 +158,8 @@ export const useAppState = create<AppState>((set, get) => ({
 
         SocketService.updateLocation({
           userId,
+          email: userEmail || undefined,
+          name: userName || undefined,
           latitude: lat,
           longitude: lng,
           heading,
@@ -137,12 +168,25 @@ export const useAppState = create<AppState>((set, get) => ({
           destination_lng: destLng,
           destination_address: destAddress,
           status: 'offline',
+          completed_at: nowIso,
+        });
+
+        SocketService.emitJourneyStatus({
+          journeyId: activeDestId || activeJourneyId || `journey_${userId}`,
+          destination_id: activeDestId || undefined,
+          userId,
+          email: userEmail || undefined,
+          name: userName || undefined,
+          status: 'completed',
+          completed_at: nowIso,
         });
       }
 
-      // 3. Clear local storage keys
+      // 4. Clear local storage keys
       await AsyncStorage.removeItem(AUTH_KEY);
       await AsyncStorage.removeItem('active_tracking_user_id');
+      await AsyncStorage.removeItem('active_tracking_user_email');
+      await AsyncStorage.removeItem('active_tracking_user_name');
       await AsyncStorage.removeItem('active_journey');
       await AsyncStorage.removeItem('active_journey_id');
     } catch (e) {}

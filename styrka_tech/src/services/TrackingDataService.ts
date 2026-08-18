@@ -719,14 +719,25 @@ export class TrackingDataService {
     const nowIso = completedAt || new Date().toISOString();
     // 1. Supabase update
     try {
-      await supabase
-        .from('destinations')
-        .update({
-          status,
-          ...(status === 'completed' ? { completed_at: nowIso } : {}),
-          updated_at: nowIso,
-        })
-        .or(`id.eq.${destinationId},employee_id.eq.${destinationId}`);
+      if (destinationId) {
+        await supabase
+          .from('destinations')
+          .update({
+            status,
+            ...(status === 'completed' ? { completed_at: nowIso } : {}),
+            updated_at: nowIso,
+          })
+          .eq('id', destinationId);
+
+        await supabase
+          .from('destinations')
+          .update({
+            status,
+            ...(status === 'completed' ? { completed_at: nowIso } : {}),
+            updated_at: nowIso,
+          })
+          .eq('employee_id', destinationId);
+      }
     } catch (e) {}
 
     // 2. Local update

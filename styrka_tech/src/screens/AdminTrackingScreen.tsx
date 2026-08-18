@@ -233,17 +233,22 @@ const AdminTrackingScreen = () => {
                  ))
                );
 
-          // Get employee destinations sorted descending by latest timestamp
-          const empDests = allDestinations.filter((d) => (
-            d.employee_id === emp.id || 
-            (emp.email && d.employee_id === emp.email) ||
-            (d.employee_id && (
-              d.employee_id.toLowerCase() === (emp.id || '').toLowerCase() ||
-              d.employee_id.toLowerCase() === (emp.email || '').toLowerCase() ||
-              (emp.name && d.employee_id.toLowerCase().includes(emp.name.toLowerCase())) ||
-              (emp.name && emp.name.toLowerCase().includes(d.employee_id.toLowerCase()))
-            ))
-          ));
+          // Get employee destinations sorted descending by latest timestamp using strict exact matching
+          const empIdStr = (emp.id || '').trim().toLowerCase();
+          const empEmailStr = (emp.email || '').trim().toLowerCase();
+          const emailPrefix = empEmailStr ? empEmailStr.split('@')[0] : '';
+          const empNameStr = (emp.name || (emp as any).first_name || '').trim().toLowerCase();
+
+          const empDests = allDestinations.filter((d) => {
+            const destEmpId = (d.employee_id || '').trim().toLowerCase();
+            if (!destEmpId) return false;
+
+            if (empIdStr && destEmpId === empIdStr) return true;
+            if (empEmailStr && destEmpId === empEmailStr) return true;
+            if (emailPrefix && emailPrefix.length > 2 && destEmpId === emailPrefix) return true;
+            if (empNameStr && empNameStr.length > 3 && destEmpId === empNameStr) return true;
+            return false;
+          });
 
           empDests.sort((a, b) => new Date(b.updated_at || b.completed_at || b.created_at).getTime() - new Date(a.updated_at || a.completed_at || a.created_at).getTime());
           const dest = empDests[0];
@@ -300,9 +305,11 @@ const AdminTrackingScreen = () => {
               ? Number(latestPing.longitude) 
               : (existingJourney?.start_lng != null ? Number(existingJourney.start_lng) : (destLng || 77.2090));
 
-            const resolvedStatus = (existingJourney?.status === 'completed' || dest?.status === 'completed')
+            const resolvedStatus = (dest?.status === 'completed' || existingJourney?.status === 'completed')
               ? 'completed'
-              : (dest?.status || existingJourney?.status || (latestPing?.status === 'offline' ? 'completed' : 'in_progress'));
+              : (dest?.status === 'in_progress' || (dest?.status as any) === 'started' || existingJourney?.status === 'in_progress' || latestPing?.status === 'online'
+                ? 'in_progress'
+                : 'offline');
 
             const journeyObj = {
               ...(existingJourney || {}),

@@ -214,7 +214,7 @@ export class TrackingDataService {
 
     const finalId = createdId || `emp_${Date.now()}`;
 
-    // 2. Always upsert profile into public.users table
+    // 2. Always upsert profile into public.users and live_locations tables in Supabase
     try {
       await supabase
         .from('users')
@@ -228,6 +228,24 @@ export class TrackingDataService {
         ]);
     } catch (e) {
       console.warn('[TrackingDataService] Error upserting user into public.users table:', e);
+    }
+
+    try {
+      await supabase
+        .from('live_locations')
+        .upsert([
+          {
+            user_id: finalId,
+            name: cleanName,
+            email: cleanEmail,
+            latitude: 0,
+            longitude: 0,
+            status: 'offline',
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+    } catch (e) {
+      console.warn('[TrackingDataService] Error upserting user into live_locations table:', e);
     }
 
     const newEmp: User = {

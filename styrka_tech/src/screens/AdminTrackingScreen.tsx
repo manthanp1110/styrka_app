@@ -385,6 +385,9 @@ const AdminTrackingScreen = () => {
               start_lat: Number(loc.latitude),
               start_lng: Number(loc.longitude),
             }),
+            status: (currentJourney?.status === 'completed' && (loc.status === 'online' || incomingDestLat != null))
+              ? 'in_progress'
+              : (currentJourney?.status || 'in_progress'),
             ...(incomingDestLat != null ? { destination_lat: incomingDestLat } : {}),
             ...(incomingDestLng != null ? { destination_lng: incomingDestLng } : {}),
             ...(incomingDestAddr != null ? { address: incomingDestAddr } : {}),
@@ -411,13 +414,12 @@ const AdminTrackingScreen = () => {
         const targetEmpId = data.employee_id || data.user_id;
         const targetEmail = data.email;
         const targetName = data.name;
+        const destLat = data.latitude != null ? Number(data.latitude) : null;
+        const destLng = data.longitude != null ? Number(data.longitude) : null;
+        const destAddr = data.address || null;
 
         setActiveJourneys((prev) => {
           const nextMap: Record<string, any> = { ...prev };
-          const destLat = data.latitude != null ? Number(data.latitude) : null;
-          const destLng = data.longitude != null ? Number(data.longitude) : null;
-          const destAddr = data.address || 'Custom destination';
-
           Object.keys(nextMap).forEach((key) => {
             if (
               !targetEmpId ||
@@ -431,6 +433,7 @@ const AdminTrackingScreen = () => {
                 destination_lat: destLat ?? nextMap[key]?.destination_lat,
                 destination_lng: destLng ?? nextMap[key]?.destination_lng,
                 address: destAddr || nextMap[key]?.address,
+                status: 'in_progress',
               };
             }
           });
@@ -443,6 +446,7 @@ const AdminTrackingScreen = () => {
               destination_lat: destLat,
               destination_lng: destLng,
               address: destAddr,
+              status: 'in_progress',
             };
           }
           if (targetEmail) {
@@ -453,6 +457,7 @@ const AdminTrackingScreen = () => {
               destination_lat: destLat,
               destination_lng: destLng,
               address: destAddr,
+              status: 'in_progress',
             };
           }
           return nextMap;

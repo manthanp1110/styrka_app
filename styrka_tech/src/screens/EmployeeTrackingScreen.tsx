@@ -704,6 +704,15 @@ const EmployeeTrackingScreen = () => {
         status: 'online',
       });
 
+      // Reset journey status on Admin dashboard to started
+      SocketService.emitJourneyStatus({
+        journeyId: journeyData.id,
+        userId,
+        email: user.email || undefined,
+        name: user.name || undefined,
+        status: 'started',
+      });
+
       setTrackingSessionId(journeyData.id);
       sequenceNumberRef.current = 1;
       activeJourneyRef.current = journeyData;

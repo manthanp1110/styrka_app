@@ -186,6 +186,15 @@ const EmployeeDestinationScreen = () => {
         longitude: targetPlace.longitude,
       });
 
+      // Emit new journey started status to reset Admin state from completed to active
+      SocketService.emitJourneyStatus({
+        journeyId: created.id,
+        userId: user.id || 'emp_1',
+        email: user.email || undefined,
+        name: user.name || undefined,
+        status: 'started',
+      });
+
       // Reset state
       setSelectedPlace(null);
       setSearchQuery('');

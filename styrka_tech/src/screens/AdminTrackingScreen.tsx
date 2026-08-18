@@ -461,9 +461,57 @@ const AdminTrackingScreen = () => {
       fetchTrackingData();
     };
 
+    const handleJourneyStatusChanged = (data: any) => {
+      console.log('[ADMIN JOURNEY STATUS] received:', data);
+      if (data && data.status) {
+        const targetEmpId = data.user_id || data.employee_id;
+        const targetEmail = data.email;
+        const targetName = data.name;
+
+        setActiveJourneys((prev) => {
+          const nextMap: Record<string, any> = { ...prev };
+          Object.keys(nextMap).forEach((key) => {
+            if (
+              !targetEmpId ||
+              key === targetEmpId ||
+              (targetEmail && key === targetEmail) ||
+              (targetName && key === targetName) ||
+              key.toLowerCase().includes(String(targetEmpId).toLowerCase())
+            ) {
+              nextMap[key] = {
+                ...nextMap[key],
+                status: data.status,
+                latestLocation: nextMap[key]?.latestLocation ? {
+                  ...nextMap[key].latestLocation,
+                  status: data.status === 'completed' ? 'offline' : nextMap[key].latestLocation.status,
+                } : null,
+              };
+            }
+          });
+
+          if (targetEmpId) {
+            nextMap[targetEmpId] = {
+              ...(nextMap[targetEmpId] || {}),
+              user_id: targetEmpId,
+              status: data.status,
+            };
+          }
+          if (targetEmail) {
+            nextMap[targetEmail] = {
+              ...(nextMap[targetEmail] || {}),
+              user_id: targetEmpId || targetEmail,
+              status: data.status,
+            };
+          }
+          return nextMap;
+        });
+      }
+      fetchTrackingData();
+    };
+
     SocketService.on('employee_location_changed', handleLocationChange);
     SocketService.on('destination_assigned', handleDestinationAssigned);
-    SocketService.on('journey_status_changed', fetchTrackingData);
+    SocketService.on('journey_status_changed', handleJourneyStatusChanged);
 
     const interval = setInterval(() => {
       fetchTrackingData();
@@ -473,7 +521,7 @@ const AdminTrackingScreen = () => {
       clearInterval(interval);
       SocketService.off('employee_location_changed', handleLocationChange);
       SocketService.off('destination_assigned', handleDestinationAssigned);
-      SocketService.off('journey_status_changed', fetchTrackingData);
+      SocketService.off('journey_status_changed', handleJourneyStatusChanged);
     };
   }, []);
 
@@ -481,23 +529,29 @@ const AdminTrackingScreen = () => {
     const emp = employees.find(e => e.id === empId || e.email === empId);
     const journey = emp ? resolveEmployeeJourney(emp, activeJourneys, false) : (activeJourneys[empId]?.latestLocation ? activeJourneys[empId] : null);
 
-    if (journey && (journey.latestLocation || journey.destination_lat)) {
-      const pingAgeMs = journey.latestLocation?.timestamp ? Date.now() - new Date(journey.latestLocation.timestamp).getTime() : Infinity;
-      const isRecentlyActive = pingAgeMs < 10 * 60 * 1000;
-      const isOffline = !journey.latestLocation
-        || (journey.latestLocation.status === 'offline' && !isRecentlyActive)
-        || pingAgeMs > 10 * 60 * 1000;
+    if (journey) {
+      if (journey.status === 'completed') {
+        return { label: 'Journey Completed', color: '#3B82F6', canTrack: true, isOffline: true };
+      }
 
-      if (isOffline) {
-        return { label: 'Offline (Last Known Location)', color: '#6B7280', canTrack: true, isOffline: true };
+      if (journey.latestLocation || journey.destination_lat) {
+        const pingAgeMs = journey.latestLocation?.timestamp ? Date.now() - new Date(journey.latestLocation.timestamp).getTime() : Infinity;
+        const isRecentlyActive = pingAgeMs < 10 * 60 * 1000;
+        const isOffline = !journey.latestLocation
+          || (journey.latestLocation.status === 'offline' && !isRecentlyActive)
+          || pingAgeMs > 10 * 60 * 1000;
+
+        if (isOffline) {
+          return { label: 'Offline (Last Known Location)', color: '#6B7280', canTrack: true, isOffline: true };
+        }
+        if (journey.status === 'arrived') {
+          return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true, isOffline: false };
+        }
+        if (journey.status === 'visiting') {
+          return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true, isOffline: false };
+        }
+        return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
       }
-      if (journey.status === 'arrived') {
-        return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true, isOffline: false };
-      }
-      if (journey.status === 'visiting') {
-        return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true, isOffline: false };
-      }
-      return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
     }
     
     return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: true, isOffline: true };
@@ -969,13 +1023,14 @@ const AdminTrackingScreen = () => {
                   <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600' }}>STATUS</Text>
                     {(() => {
-                      const isLive = selectedJourney?.latestLocation && (
+                      const isCompleted = selectedJourney?.status === 'completed';
+                      const isLive = !isCompleted && selectedJourney?.latestLocation && (
                         selectedJourney.latestLocation.status === 'online' ||
                         (selectedJourney.latestLocation.timestamp && (Date.now() - new Date(selectedJourney.latestLocation.timestamp).getTime()) < 10 * 60 * 1000)
                       );
                       return (
-                        <Text style={{ color: isLive ? '#10B981' : '#6B7280', fontSize: 13, fontWeight: 'bold', marginTop: 2 }}>
-                          {isLive ? '● LIVE' : '○ OFFLINE (SAVED)'}
+                        <Text style={{ color: isCompleted ? '#3B82F6' : (isLive ? '#10B981' : '#6B7280'), fontSize: 13, fontWeight: 'bold', marginTop: 2 }}>
+                          {isCompleted ? '✓ COMPLETED' : (isLive ? '● LIVE' : '○ OFFLINE (SAVED)')}
                         </Text>
                       );
                     })()}

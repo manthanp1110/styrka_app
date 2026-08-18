@@ -735,6 +735,8 @@ const EmployeeTrackingScreen = () => {
       // Notify Render server & Admin dashboard that employee tracking has stopped / completed
       SocketService.updateLocation({
         userId,
+        email: user.email || undefined,
+        name: user.name || undefined,
         latitude: currentLocation?.latitude || 0,
         longitude: currentLocation?.longitude || 0,
         status: 'offline',
@@ -742,6 +744,8 @@ const EmployeeTrackingScreen = () => {
       SocketService.emitJourneyStatus({
         journeyId,
         userId,
+        email: user.email || undefined,
+        name: user.name || undefined,
         status: 'completed',
       });
 

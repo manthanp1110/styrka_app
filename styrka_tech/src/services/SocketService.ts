@@ -103,6 +103,8 @@ class SocketService {
   public emitJourneyStatus(payload: {
     journeyId: string;
     userId: string;
+    email?: string;
+    name?: string;
     status: 'started' | 'arrived' | 'completed';
   }) {
     if (this.socket) {

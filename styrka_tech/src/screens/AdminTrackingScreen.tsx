@@ -284,6 +284,8 @@ const AdminTrackingScreen = () => {
               ? Number(latestPing.longitude) 
               : (existingJourney?.start_lng != null ? Number(existingJourney.start_lng) : (destLng || 77.2090));
 
+            const resolvedStatus = dest?.status || existingJourney?.status || (latestPing?.status === 'offline' ? 'completed' : 'in_progress');
+
             const journeyObj = {
               ...(existingJourney || {}),
               id: existingJourney?.id || `j_${emp.id}`,
@@ -295,6 +297,7 @@ const AdminTrackingScreen = () => {
               locationHistory: existingJourney?.locationHistory || (latestPing ? [latestPing] : []),
               latestLocation: latestPing,
               address: destAddress,
+              status: resolvedStatus,
             };
 
             nextMap[emp.id] = journeyObj;

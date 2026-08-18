@@ -152,12 +152,12 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
 
           <View style={styles.statusRow}>
             <Feather
-              name={isOnline ? 'activity' : 'clock'}
+              name={isOnline ? 'navigation' : 'slash'}
               size={12}
               color={isOnline ? '#10B981' : '#6B7280'}
             />
             <Text style={[styles.statusText, { color: isOnline ? '#10B981' : '#6B7280' }]}>
-              {isOnline ? 'Active / Online' : 'Offline'}
+              {isOnline ? 'Journey Started / On Route' : 'Offline'}
             </Text>
           </View>
         </View>

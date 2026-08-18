@@ -539,27 +539,18 @@ const AdminTrackingScreen = () => {
         return { label: 'Journey Completed', color: '#3B82F6', canTrack: true, isOffline: true };
       }
 
-      if (journey.latestLocation || journey.destination_lat) {
+      if (journey.status === 'in_progress' || journey.status === 'started' || journey.latestLocation?.status === 'online') {
         const pingAgeMs = journey.latestLocation?.timestamp ? Date.now() - new Date(journey.latestLocation.timestamp).getTime() : Infinity;
-        const isRecentlyActive = pingAgeMs < 10 * 60 * 1000;
-        const isOffline = !journey.latestLocation
-          || (journey.latestLocation.status === 'offline' && !isRecentlyActive)
-          || pingAgeMs > 10 * 60 * 1000;
-
-        if (isOffline) {
-          return { label: 'Offline (Last Known Location)', color: '#6B7280', canTrack: true, isOffline: true };
+        const isOnline = journey.latestLocation?.status === 'online' || pingAgeMs < 5 * 60 * 1000;
+        if (isOnline) {
+          return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
         }
-        if (journey.status === 'arrived') {
-          return { label: 'Arrived at Destination', color: '#3B82F6', canTrack: true, isOffline: false };
-        }
-        if (journey.status === 'visiting') {
-          return { label: 'Visit in Progress', color: '#8B5CF6', canTrack: true, isOffline: false };
-        }
-        return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
       }
+
+      return { label: 'Offline', color: '#6B7280', canTrack: true, isOffline: true };
     }
     
-    return { label: 'Assigned / Ready', color: '#F59E0B', canTrack: true, isOffline: true };
+    return { label: 'Offline', color: '#6B7280', canTrack: false, isOffline: true };
   };
 
   const filteredEmployees = employees.filter(emp => 

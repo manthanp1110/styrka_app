@@ -89,17 +89,28 @@ const LoginScreen = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      // Fetch all profiles and pick first one matching the role
-      const { data: profiles, error } = await supabase
-        .from('users')
-        .select('id, name, role, email')
-        .eq('role', role)
-        .limit(1);
-      if (error || !profiles || profiles.length === 0) {
-        throw new Error(`No ${role} account found in Supabase. Check your profiles table.`);
+      if (email.trim()) {
+        const matched = await TrackingDataService.getUser(email.trim());
+        if (matched) {
+          await setSession(matched.id, role, matched.name, matched.email);
+          return;
+        }
       }
-      const profile = profiles[0];
-      await setSession(profile.id, role, profile.name || profile.email || role, profile.email || '');
+
+      const emps = await TrackingDataService.getEmployees();
+      const targetEmps = role === 'admin' 
+        ? [{ id: 'admin_1', name: 'Admin Portal', email: 'manthanpandhare1110@gmail.com', role: 'admin' as const }]
+        : emps;
+
+      if (targetEmps.length === 0) {
+        throw new Error(`No ${role} account found. Create an employee first.`);
+      }
+
+      const selected = email.trim() 
+        ? (targetEmps.find(e => e.email.toLowerCase().includes(email.trim().toLowerCase())) || targetEmps[0])
+        : targetEmps[0];
+
+      await setSession(selected.id, role, selected.name || selected.email || role, selected.email || '');
     } catch (e: any) {
       setErrorMsg(e.message || 'Failed to sign in.');
     } finally {

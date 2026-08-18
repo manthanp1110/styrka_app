@@ -149,19 +149,32 @@ export class TrackingDataService {
 
     const seenIds = new Set<string>();
     const seenEmails = new Set<string>();
+    const seenPrefixes = new Set<string>();
     const resultList: User[] = [];
 
     all.forEach((emp) => {
       const cleanId = (emp.id || '').trim().toLowerCase();
       const cleanEmail = (emp.email || '').trim().toLowerCase();
+      const emailPrefix = cleanEmail 
+        ? cleanEmail.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '') 
+        : '';
 
       if (cleanId && seenIds.has(cleanId)) return;
       if (cleanEmail && seenEmails.has(cleanEmail)) return;
+      if (emailPrefix && emailPrefix.length > 2 && seenPrefixes.has(emailPrefix)) return;
 
       if (cleanId) seenIds.add(cleanId);
       if (cleanEmail) seenEmails.add(cleanEmail);
+      if (emailPrefix) seenPrefixes.add(emailPrefix);
 
-      resultList.push(emp);
+      const displayName = (emp.name && !emp.name.toLowerCase().startsWith('emp_'))
+        ? emp.name
+        : (cleanEmail.includes('@') ? cleanEmail.split('@')[0].charAt(0).toUpperCase() + cleanEmail.split('@')[0].slice(1) : (emp.name || 'Employee'));
+
+      resultList.push({
+        ...emp,
+        name: displayName,
+      });
     });
 
     // Sync back to local storage so offline access is instant

@@ -188,9 +188,21 @@ const AdminTrackingScreen = () => {
 
       setEmployees((prevEmps) => {
         const mergedMap = new Map<string, any>();
-        fetchedEmployees.forEach((e) => mergedMap.set(e.id, e));
+        const seenPrefixes = new Set<string>();
+
+        fetchedEmployees.forEach((e) => {
+          const emailPrefix = (e.email || '').split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase();
+          if (emailPrefix && emailPrefix.length > 2) seenPrefixes.add(emailPrefix);
+          mergedMap.set(e.id, e);
+        });
+
         (prevEmps || []).forEach((e) => {
-          if (!mergedMap.has(e.id)) mergedMap.set(e.id, e);
+          const emailPrefix = (e.email || '').split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase();
+          if (emailPrefix && emailPrefix.length > 2 && seenPrefixes.has(emailPrefix)) return;
+          if (!mergedMap.has(e.id)) {
+            if (emailPrefix) seenPrefixes.add(emailPrefix);
+            mergedMap.set(e.id, e);
+          }
         });
 
         // Synthesize any active employees from live location records
@@ -198,12 +210,20 @@ const AdminTrackingScreen = () => {
           const loc = allLocations[key];
           if (loc && loc.latitude != null) {
             const locId = loc.user_id || key;
+            const locEmail = loc.email || (locId.includes('@') ? locId : '');
+            const emailPrefix = locEmail 
+              ? locEmail.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase() 
+              : locId.replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase();
+
+            if (emailPrefix && emailPrefix.length > 2 && seenPrefixes.has(emailPrefix)) return;
+
             const existingMatch = Array.from(mergedMap.values()).find(
               (e: any) => e.id === locId || e.email === locId || (e.email && locId.includes(e.email))
             );
             if (!existingMatch) {
               const rawName = loc.name || (locId.includes('@') ? locId.split('@')[0] : locId);
               const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+              if (emailPrefix) seenPrefixes.add(emailPrefix);
               mergedMap.set(locId, {
                 id: locId,
                 name: formattedName,

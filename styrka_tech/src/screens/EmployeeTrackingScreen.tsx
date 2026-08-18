@@ -559,13 +559,18 @@ const EmployeeTrackingScreen = () => {
           const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
           if (!isBackgroundRunning) {
             await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-              accuracy: Location.Accuracy.High,
-              distanceInterval: 10,
+              accuracy: Location.Accuracy.BestForNavigation,
+              timeInterval: 2000,
+              distanceInterval: 2,
+              deferredUpdatesInterval: 2000,
+              deferredUpdatesDistance: 2,
               showsBackgroundLocationIndicator: true,
               pausesUpdatesAutomatically: false,
               foregroundService: {
                 notificationTitle: "Styrka Tracking Active",
-                notificationBody: "Your location is being tracked."
+                notificationBody: "Live journey tracking is running in background.",
+                notificationColor: "#0F4C3A",
+                killServiceOnDestroy: false,
               }
             }).catch(e => console.log('Background location error:', e));
           }
@@ -679,6 +684,8 @@ const EmployeeTrackingScreen = () => {
 
       await AsyncStorage.setItem('active_journey', JSON.stringify(journeyData));
       await AsyncStorage.setItem('active_tracking_user_id', userId);
+      if (user.email) await AsyncStorage.setItem('active_tracking_user_email', user.email);
+      if (user.name) await AsyncStorage.setItem('active_tracking_user_name', user.name);
       await AsyncStorage.setItem('active_journey_id', journeyData.id);
 
       if (route.params?.assignedDestination?.id) {

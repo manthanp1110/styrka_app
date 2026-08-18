@@ -26,6 +26,8 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
       
       try {
         const userId = await AsyncStorage.getItem('active_tracking_user_id');
+        const userEmail = await AsyncStorage.getItem('active_tracking_user_email');
+        const userName = await AsyncStorage.getItem('active_tracking_user_name');
 
         if (userId) {
           const timestamp = new Date(loc.timestamp || Date.now()).toISOString();
@@ -75,6 +77,8 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           try {
             await TrackingDataService.updateLiveLocation({
               userId,
+              email: userEmail || undefined,
+              name: userName || undefined,
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
               heading: loc.coords.heading || 0,
@@ -91,6 +95,8 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
             SocketService.connect(userId, 'employee');
             SocketService.updateLocation({
               userId,
+              email: userEmail || undefined,
+              name: userName || undefined,
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
               heading: loc.coords.heading || 0,

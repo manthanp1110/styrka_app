@@ -221,16 +221,20 @@ const AdminTrackingScreen = () => {
                  ))
                );
 
-          const dest = allDestinations.find((d) => 
-            (d.employee_id === emp.id || 
+          // Get employee destinations sorted descending by latest timestamp
+          const empDests = allDestinations.filter((d) => (
+            d.employee_id === emp.id || 
             (emp.email && d.employee_id === emp.email) ||
             (d.employee_id && (
               d.employee_id.toLowerCase() === (emp.id || '').toLowerCase() ||
               d.employee_id.toLowerCase() === (emp.email || '').toLowerCase() ||
               (emp.name && d.employee_id.toLowerCase().includes(emp.name.toLowerCase())) ||
               (emp.name && emp.name.toLowerCase().includes(d.employee_id.toLowerCase()))
-            ))) && d.status !== 'completed'
-          );
+            ))
+          ));
+
+          empDests.sort((a, b) => new Date(b.updated_at || b.completed_at || b.created_at).getTime() - new Date(a.updated_at || a.completed_at || a.created_at).getTime());
+          const dest = empDests[0];
 
           const existingJourney = prev[emp.id] 
             || (emp.email ? prev[emp.email] : null) 
@@ -284,7 +288,9 @@ const AdminTrackingScreen = () => {
               ? Number(latestPing.longitude) 
               : (existingJourney?.start_lng != null ? Number(existingJourney.start_lng) : (destLng || 77.2090));
 
-            const resolvedStatus = dest?.status || existingJourney?.status || (latestPing?.status === 'offline' ? 'completed' : 'in_progress');
+            const resolvedStatus = (existingJourney?.status === 'completed' || dest?.status === 'completed')
+              ? 'completed'
+              : (dest?.status || existingJourney?.status || (latestPing?.status === 'offline' ? 'completed' : 'in_progress'));
 
             const journeyObj = {
               ...(existingJourney || {}),

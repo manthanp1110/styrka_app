@@ -25,8 +25,27 @@ const LoginScreen = () => {
       throw new Error('This demo account is disabled. Please log in with a registered employee account.');
     }
 
-    // 1. Verify user exists in active database directory or synthesize employee profile
-    const matchedUser = await TrackingDataService.getUser(cleanEmail);
+    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
+    const isAdmin = ADMIN_EMAILS.includes(cleanEmail) || cleanEmail.startsWith('admin');
+
+    // 1. Verify user exists in active database directory or synthesize employee/admin profile
+    let matchedUser = await TrackingDataService.getUser(cleanEmail);
+    if (isAdmin) {
+      const adminName = cleanEmail === 'pravindagade007@gmail.com' 
+        ? 'Pravin Dagade' 
+        : (cleanEmail === 'rustumsayyed905@gmail.com' ? 'Rustum Sayyed' : 'Manthan Pandhare');
+      const adminId = cleanEmail === 'pravindagade007@gmail.com' 
+        ? 'admin_2' 
+        : (cleanEmail === 'rustumsayyed905@gmail.com' ? 'admin_3' : 'admin_1');
+      
+      matchedUser = {
+        id: (matchedUser?.id && matchedUser.id.startsWith('admin')) ? matchedUser.id : adminId,
+        name: matchedUser?.name || adminName,
+        email: cleanEmail,
+        role: 'admin',
+      };
+    }
+
     if (!matchedUser) {
       throw new Error('No active employee account found for this email. Please ask your Admin to add you.');
     }
@@ -44,7 +63,7 @@ const LoginScreen = () => {
       }
     } catch (e: any) {}
 
-    // 3. Authenticate with employee credentials
+    // 3. Authenticate with credentials
     if (loginPassword.length >= 4) {
       // Background sync with Supabase Auth if needed
       try {

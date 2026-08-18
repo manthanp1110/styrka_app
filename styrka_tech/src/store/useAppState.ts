@@ -46,7 +46,15 @@ export const useAppState = create<AppState>((set, get) => ({
 
       if (raw) {
         const savedUser = JSON.parse(raw as string);
-        if (savedUser && savedUser.id && savedUser.role) {
+        if (savedUser && savedUser.id) {
+          const cleanEmail = (savedUser.email || '').trim().toLowerCase();
+          const cleanId = String(savedUser.id || '').toLowerCase();
+          const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
+          
+          if (ADMIN_EMAILS.includes(cleanEmail) || cleanId.startsWith('admin')) {
+            savedUser.role = 'admin';
+          }
+
           set({
             user: savedUser,
             isAuthenticated: true,
@@ -70,7 +78,12 @@ export const useAppState = create<AppState>((set, get) => ({
   },
 
   setSession: async (userId, role, name, email) => {
-    const userObj = { id: userId, role, name, email: email || '' };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanId = String(userId || '').toLowerCase();
+    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
+    
+    const finalRole: UserRole = (ADMIN_EMAILS.includes(cleanEmail) || cleanId.startsWith('admin')) ? 'admin' : (role || 'employee');
+    const userObj = { id: userId, role: finalRole, name, email: cleanEmail };
     try {
       await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userObj));
       await AsyncStorage.setItem('active_tracking_user_id', userId);

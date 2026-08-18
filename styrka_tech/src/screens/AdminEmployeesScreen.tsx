@@ -128,7 +128,18 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
     );
   };
 
+  const DEMO_KEYS = [
+    'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
+    'emp_1', 'emp_2', 'emp_3', 
+    'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
+    'sangita', 'rahul', 'vikram'
+  ];
+
   const filteredEmployees = employees.filter((emp) => {
+    const eId = (emp.id || '').toLowerCase().trim();
+    const eEmail = (emp.email || '').toLowerCase().trim();
+    if (DEMO_KEYS.includes(eId) || DEMO_KEYS.includes(eEmail) || emp.role === 'admin') return false;
+
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
     return emp.name.toLowerCase().includes(query) || emp.email.toLowerCase().includes(query);

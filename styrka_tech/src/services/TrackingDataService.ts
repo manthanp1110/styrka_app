@@ -100,8 +100,13 @@ export class TrackingDataService {
       console.warn('[TrackingDataService] Could not fetch employees from Supabase:', e);
     }
 
-    const DEMO_EMAILS = ['sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 'emp_1', 'emp_2', 'emp_3', 'emp_sangita_styrka_com'];
-    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com'];
+    const DEMO_EMAILS = [
+      'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
+      'emp_1', 'emp_2', 'emp_3', 
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
+      'sangita', 'rahul', 'vikram'
+    ];
+    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
 
     // Filter out demo and admin users from Supabase users
     supabaseEmployees = supabaseEmployees.filter((e) => {
@@ -176,9 +181,17 @@ export class TrackingDataService {
       if (cleanEmail) seenEmails.add(cleanEmail);
       if (emailPrefix) seenPrefixes.add(emailPrefix);
 
-      const displayName = (emp.name && !emp.name.toLowerCase().startsWith('emp_'))
+      let displayName = (emp.name && !emp.name.toLowerCase().startsWith('emp_') && !emp.name.toLowerCase().includes('_styrka_com'))
         ? emp.name
-        : (cleanEmail.includes('@') ? cleanEmail.split('@')[0].charAt(0).toUpperCase() + cleanEmail.split('@')[0].slice(1) : (emp.name || 'Employee'));
+        : '';
+
+      if (!displayName && cleanEmail.includes('@')) {
+        const pref = cleanEmail.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
+        const letters = pref.replace(/[^a-zA-Z]/g, '');
+        displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (pref.charAt(0).toUpperCase() + pref.slice(1));
+      }
+
+      if (!displayName) displayName = 'Employee';
 
       resultList.push({
         ...emp,

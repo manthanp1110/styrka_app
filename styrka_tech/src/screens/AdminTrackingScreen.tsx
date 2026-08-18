@@ -174,52 +174,38 @@ const AdminTrackingScreen = () => {
 
       const fetchedEmployees = usersData || [];
 
-      setEmployees((prevEmps) => {
+      setEmployees(() => {
         const mergedMap = new Map<string, any>();
         const seenPrefixes = new Set<string>();
 
-        fetchedEmployees.forEach((e) => {
-          const emailPrefix = (e.email || '').split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase();
-          if (emailPrefix && emailPrefix.length > 2) seenPrefixes.add(emailPrefix);
-          mergedMap.set(e.id, e);
-        });
+        const DEMO_KEYS = ['emp_1', 'emp_2', 'emp_3', 'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'];
+        const ADMIN_KEYS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
 
-        (prevEmps || []).forEach((e) => {
-          const emailPrefix = (e.email || '').split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase();
+        (fetchedEmployees || []).forEach((e) => {
+          const em = (e.email || '').toLowerCase().trim();
+          const id = (e.id || '').toLowerCase().trim();
+          if (DEMO_KEYS.includes(em) || DEMO_KEYS.includes(id) || ADMIN_KEYS.includes(em) || ADMIN_KEYS.includes(id) || e.role === 'admin') return;
+
+          const emailPrefix = em ? em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '') : '';
           if (emailPrefix && emailPrefix.length > 2 && seenPrefixes.has(emailPrefix)) return;
-          if (!mergedMap.has(e.id)) {
-            if (emailPrefix) seenPrefixes.add(emailPrefix);
-            mergedMap.set(e.id, e);
+          if (emailPrefix && emailPrefix.length > 2) seenPrefixes.add(emailPrefix);
+
+          let displayName = (e.name && !e.name.toLowerCase().startsWith('emp_') && !e.name.toLowerCase().includes('_styrka_com'))
+            ? e.name
+            : '';
+
+          if (!displayName && em.includes('@')) {
+            const pref = em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
+            const letters = pref.replace(/[^a-zA-Z]/g, '');
+            displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (pref.charAt(0).toUpperCase() + pref.slice(1));
           }
-        });
 
-        // Synthesize any active employees from live location records
-        Object.keys(allLocations || {}).forEach((key) => {
-          const loc = allLocations[key];
-          if (loc && loc.latitude != null) {
-            const locId = loc.user_id || key;
-            const locEmail = loc.email || (locId.includes('@') ? locId : '');
-            const emailPrefix = locEmail 
-              ? locEmail.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase() 
-              : locId.replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '').toLowerCase();
+          if (!displayName) displayName = 'Employee';
 
-            if (emailPrefix && emailPrefix.length > 2 && seenPrefixes.has(emailPrefix)) return;
-
-            const existingMatch = Array.from(mergedMap.values()).find(
-              (e: any) => e.id === locId || e.email === locId || (e.email && locId.includes(e.email))
-            );
-            if (!existingMatch) {
-              const rawName = loc.name || (locId.includes('@') ? locId.split('@')[0] : locId);
-              const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-              if (emailPrefix) seenPrefixes.add(emailPrefix);
-              mergedMap.set(locId, {
-                id: locId,
-                name: formattedName,
-                email: locId.includes('@') ? locId : `${locId}@styrka.com`,
-                role: 'employee',
-              });
-            }
-          }
+          mergedMap.set(e.id, {
+            ...e,
+            name: displayName,
+          });
         });
 
         return Array.from(mergedMap.values());

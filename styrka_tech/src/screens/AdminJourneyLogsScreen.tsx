@@ -114,11 +114,24 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
     loadData();
   };
 
+  const DEMO_KEYS = [
+    'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
+    'emp_1', 'emp_2', 'emp_3', 
+    'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
+    'sangita', 'rahul', 'vikram'
+  ];
+
   // Filter employees by search query
   const filteredEmployees = useMemo(() => {
-    if (!searchQuery.trim()) return employees;
+    const cleanList = employees.filter((e) => {
+      const eId = (e.id || '').toLowerCase().trim();
+      const eEmail = (e.email || '').toLowerCase().trim();
+      return !DEMO_KEYS.includes(eId) && !DEMO_KEYS.includes(eEmail) && e.role !== 'admin';
+    });
+
+    if (!searchQuery.trim()) return cleanList;
     const q = searchQuery.toLowerCase();
-    return employees.filter(
+    return cleanList.filter(
       (e) =>
         (e.name || '').toLowerCase().includes(q) ||
         (e.email || '').toLowerCase().includes(q)

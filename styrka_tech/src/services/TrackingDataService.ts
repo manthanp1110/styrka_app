@@ -671,6 +671,8 @@ export class TrackingDataService {
     longitude: number;
     heading?: number;
     speed?: number;
+    name?: string;
+    email?: string;
     destination_lat?: number;
     destination_lng?: number;
     destination_address?: string;
@@ -688,9 +690,13 @@ export class TrackingDataService {
       const destLat = location.destination_lat ?? existingLoc?.destination_lat ?? null;
       const destLng = location.destination_lng ?? existingLoc?.destination_lng ?? null;
       const destAddress = location.destination_address ?? existingLoc?.destination_address ?? null;
+      const empName = location.name || existingLoc?.name;
+      const empEmail = location.email || existingLoc?.email;
 
       locMap[location.userId] = {
         user_id: location.userId,
+        name: empName,
+        email: empEmail,
         latitude: finalLat,
         longitude: finalLng,
         heading: location.heading || existingLoc?.heading || 0,
@@ -709,6 +715,8 @@ export class TrackingDataService {
       try {
         await supabase.from('live_locations').upsert({
           user_id: String(location.userId),
+          name: empName,
+          email: empEmail,
           latitude: Number(finalLat),
           longitude: Number(finalLng),
           heading: Number(location.heading || existingLoc?.heading || 0),

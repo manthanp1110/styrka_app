@@ -221,7 +221,9 @@ const EmployeeTrackingScreen = () => {
           longitude: initialLoc.longitude,
         });
         SocketService.updateLocation({
-          userId: user.id || 'emp_1',
+          userId: user.id || user.email || 'employee',
+          name: user.name || undefined,
+          email: user.email || undefined,
           latitude: initialLoc.latitude,
           longitude: initialLoc.longitude,
         });
@@ -229,10 +231,12 @@ const EmployeeTrackingScreen = () => {
 
       // 3. Process assigned destination or active journey
       const assigned = route.params?.assignedDestination;
+      const currentEmpId = user.id || user.email || 'employee';
+
       if (assigned) {
         const newJourney: any = {
-          id: `j_${user.id || 'emp_1'}`,
-          user_id: user.id || 'emp_1',
+          id: `j_${currentEmpId}`,
+          user_id: currentEmpId,
           start_lat: initialLoc ? initialLoc.latitude : (Number(assigned.latitude) - 0.015),
           start_lng: initialLoc ? initialLoc.longitude : (Number(assigned.longitude) - 0.015),
           destination_lat: Number(assigned.latitude),
@@ -261,7 +265,9 @@ const EmployeeTrackingScreen = () => {
 
         // Broadcast current location WITH destination metadata immediately to Supabase & Socket.IO
         await TrackingDataService.updateLiveLocation({
-          userId: user.id || 'emp_1',
+          userId: currentEmpId,
+          name: user.name || undefined,
+          email: user.email || undefined,
           latitude: currentLat,
           longitude: currentLng,
           destination_lat: Number(assigned.latitude),
@@ -270,7 +276,9 @@ const EmployeeTrackingScreen = () => {
         });
 
         SocketService.updateLocation({
-          userId: user.id || 'emp_1',
+          userId: currentEmpId,
+          name: user.name || undefined,
+          email: user.email || undefined,
           latitude: currentLat,
           longitude: currentLng,
           destination_lat: Number(assigned.latitude),
@@ -292,7 +300,9 @@ const EmployeeTrackingScreen = () => {
           fetchRoute(currentLocation.latitude, currentLocation.longitude, Number(journey.destination_lat), Number(journey.destination_lng));
 
           await TrackingDataService.updateLiveLocation({
-            userId: user.id || 'emp_1',
+            userId: currentEmpId,
+            name: user.name || undefined,
+            email: user.email || undefined,
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,
             destination_lat: Number(journey.destination_lat),
@@ -301,7 +311,9 @@ const EmployeeTrackingScreen = () => {
           });
 
           SocketService.updateLocation({
-            userId: user.id || 'emp_1',
+            userId: currentEmpId,
+            name: user.name || undefined,
+            email: user.email || undefined,
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,
             destination_lat: Number(journey.destination_lat),
@@ -649,12 +661,7 @@ const EmployeeTrackingScreen = () => {
       setCurrentLocation({ latitude: finalStartLat, longitude: finalStartLng });
       fetchAddress(finalStartLat, finalStartLng);
 
-      if (!user.id) {
-        alert("User session not found. Please log in again.");
-        setIsProcessing(false);
-        return;
-      }
-      const userId = user.id || 'emp_1';
+      const userId = user.id || user.email || 'employee';
 
       const destAddress = assignedDestination?.address || 'Custom destination';
 
@@ -681,6 +688,8 @@ const EmployeeTrackingScreen = () => {
       // Send initial live location WITH destination to Supabase so admin can see polyline
       await TrackingDataService.updateLiveLocation({
         userId,
+        name: user.name || undefined,
+        email: user.email || undefined,
         latitude: finalStartLat,
         longitude: finalStartLng,
         destination_lat: destLat,

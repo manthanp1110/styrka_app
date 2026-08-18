@@ -86,6 +86,7 @@ class SocketService {
     destination_lng?: number;
     destination_address?: string;
     status?: 'online' | 'offline';
+    completed_at?: string;
   }) {
     if (this.socket) {
       console.log('[SOCKET DEBUG] Emitting update_location:', {
@@ -102,10 +103,12 @@ class SocketService {
 
   public emitJourneyStatus(payload: {
     journeyId: string;
+    destination_id?: string;
     userId: string;
     email?: string;
     name?: string;
     status: 'started' | 'arrived' | 'completed';
+    completed_at?: string;
   }) {
     if (this.socket) {
       this.socket.emit('journey_status', payload);

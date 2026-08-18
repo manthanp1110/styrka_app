@@ -72,24 +72,21 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
       if (data) {
         const destId = data.journeyId || data.destination_id;
         const status = data.status || 'completed';
-        const nowIso = new Date().toISOString();
+        const nowIso = data.completed_at || new Date().toISOString();
 
         setAllDestinations((prev) =>
           prev.map((d) => {
-            if (destId && (d.id === destId || d.id.includes(destId) || destId.includes(d.id))) {
+            const isMatch =
+              (destId && (d.id === destId || d.id.includes(destId) || destId.includes(d.id))) ||
+              (data.userId && (d.employee_id === data.userId || (d.employee_id || '').includes(data.userId)));
+
+            if (isMatch || (status === 'completed' && d.status === 'in_progress')) {
               return {
                 ...d,
                 status: status as any,
                 completed_at: status === 'completed' ? (d.completed_at || nowIso) : d.completed_at,
                 updated_at: nowIso,
               };
-            }
-            const empTarget = (d.employee_id || '').toLowerCase();
-            const targetUser = (data.userId || data.employee_id || '').toLowerCase();
-            if (targetUser && (empTarget === targetUser || empTarget.includes(targetUser))) {
-              if (status === 'completed' && d.status !== 'completed') {
-                return { ...d, status: 'completed', completed_at: d.completed_at || nowIso, updated_at: nowIso };
-              }
             }
             return d;
           })

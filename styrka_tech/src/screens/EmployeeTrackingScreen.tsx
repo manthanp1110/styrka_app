@@ -748,10 +748,12 @@ const EmployeeTrackingScreen = () => {
         heartbeatTimerRef.current = null;
       }
 
+      const nowIso = new Date().toISOString();
+
       // 2. Mark destination status as completed in local storage & database
       const destId = route.params?.assignedDestination?.id || activeJourney.destination_id || activeJourney.id;
       if (destId) {
-        await TrackingDataService.updateDestinationStatus(destId, 'completed');
+        await TrackingDataService.updateDestinationStatus(destId, 'completed', nowIso);
       }
 
       // 3. Notify Render server & Admin dashboard that employee tracking has stopped / completed
@@ -762,13 +764,16 @@ const EmployeeTrackingScreen = () => {
         latitude: currentLocation?.latitude || 0,
         longitude: currentLocation?.longitude || 0,
         status: 'offline',
+        completed_at: nowIso,
       });
       SocketService.emitJourneyStatus({
         journeyId: destId || journeyId,
+        destination_id: destId,
         userId,
         email: user.email || undefined,
         name: user.name || undefined,
         status: 'completed',
+        completed_at: nowIso,
       });
 
       // Clear storage & state

@@ -533,9 +533,10 @@ export class TrackingDataService {
   // Update destination status
   static async updateDestinationStatus(
     destinationId: string,
-    status: 'pending' | 'in_progress' | 'completed'
+    status: 'pending' | 'in_progress' | 'completed',
+    completedAt?: string
   ): Promise<void> {
-    const nowIso = new Date().toISOString();
+    const nowIso = completedAt || new Date().toISOString();
     // 1. Supabase update
     try {
       await supabase
@@ -545,17 +546,23 @@ export class TrackingDataService {
           ...(status === 'completed' ? { completed_at: nowIso } : {}),
           updated_at: nowIso,
         })
-        .eq('id', destinationId);
+        .or(`id.eq.${destinationId},employee_id.eq.${destinationId}`);
     } catch (e) {}
 
     // 2. Local update
     const all = await this.getAllDestinations();
-    const updated = all.map((d) => (d.id === destinationId ? {
-      ...d,
-      status,
-      completed_at: status === 'completed' ? (d.completed_at || nowIso) : d.completed_at,
-      updated_at: nowIso,
-    } : d));
+    const updated = all.map((d) => {
+      const isTarget = d.id === destinationId || d.employee_id === destinationId || (status === 'completed' && d.status === 'in_progress');
+      if (isTarget) {
+        return {
+          ...d,
+          status,
+          completed_at: status === 'completed' ? (d.completed_at || nowIso) : d.completed_at,
+          updated_at: nowIso,
+        };
+      }
+      return d;
+    });
     await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
   }
 

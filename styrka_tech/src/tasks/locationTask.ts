@@ -5,6 +5,8 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
+import { TrackingDataService } from '../services/TrackingDataService';
+import SocketService from '../services/SocketService';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -28,6 +30,11 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
         if (userId) {
           const timestamp = new Date(loc.timestamp || Date.now()).toISOString();
           let journeyId = (await AsyncStorage.getItem('active_journey_id')) || 'default_journey';
+          let journeyObj: any = null;
+          try {
+            const rawJourney = await AsyncStorage.getItem('active_journey');
+            if (rawJourney) journeyObj = JSON.parse(rawJourney);
+          } catch (e) {}
 
           let batteryLevel = 1.0;
           try {
@@ -64,7 +71,40 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           // Enqueue coordinate
           await TelemetryQueue.enqueue(payload);
 
-          // Attempt immediate local upload
+          // 1. Update Supabase live_locations directly in background
+          try {
+            await TrackingDataService.updateLiveLocation({
+              userId,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              heading: loc.coords.heading || 0,
+              speed: loc.coords.speed || 0,
+              destination_lat: journeyObj?.destination_lat ? Number(journeyObj.destination_lat) : undefined,
+              destination_lng: journeyObj?.destination_lng ? Number(journeyObj.destination_lng) : undefined,
+              destination_address: journeyObj?.address || undefined,
+              status: 'online',
+            });
+          } catch (e) {}
+
+          // 2. Broadcast Socket.IO location update in background to Render server
+          try {
+            SocketService.connect(userId, 'employee');
+            SocketService.updateLocation({
+              userId,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              heading: loc.coords.heading || 0,
+              speed: loc.coords.speed || 0,
+              accuracy: loc.coords.accuracy || 0,
+              timestamp,
+              destination_lat: journeyObj?.destination_lat ? Number(journeyObj.destination_lat) : undefined,
+              destination_lng: journeyObj?.destination_lng ? Number(journeyObj.destination_lng) : undefined,
+              destination_address: journeyObj?.address || undefined,
+              status: 'online',
+            });
+          } catch (e) {}
+
+          // 3. Attempt immediate queue process
           await LocationUploadService.processQueue();
         }
       } catch (err: any) {

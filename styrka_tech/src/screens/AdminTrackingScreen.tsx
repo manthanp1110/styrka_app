@@ -197,7 +197,7 @@ const AdminTrackingScreen = () => {
               (emp.name && d.employee_id.toLowerCase().includes(emp.name.toLowerCase())) ||
               (emp.name && emp.name.toLowerCase().includes(d.employee_id.toLowerCase()))
             ))) && d.status !== 'completed'
-          ) || allDestinations.find((d) => d.status !== 'completed');
+          );
 
           const existingJourney = prev[emp.id] 
             || (emp.email ? prev[emp.email] : null) 
@@ -224,16 +224,24 @@ const AdminTrackingScreen = () => {
             }
           }
 
-          const destLat = dest ? Number(dest.latitude)
-            : (existingJourney?.destination_lat != null ? Number(existingJourney.destination_lat)
-            : (loc?.destination_lat != null ? Number(loc.destination_lat) : null));
-          const destLng = dest ? Number(dest.longitude)
-            : (existingJourney?.destination_lng != null ? Number(existingJourney.destination_lng)
-            : (loc?.destination_lng != null ? Number(loc.destination_lng) : null));
-          const destAddress = dest?.address
-            || existingJourney?.address
-            || (loc as any)?.destination_address
-            || 'Custom destination';
+          // Prioritize ACTIVE live journey destination from Socket ping / live_locations over static fallback table
+          const destLat = (existingJourney?.destination_lat != null && Number(existingJourney.destination_lat) !== 0)
+            ? Number(existingJourney.destination_lat)
+            : ((loc?.destination_lat != null && Number(loc.destination_lat) !== 0)
+            ? Number(loc.destination_lat)
+            : (dest ? Number(dest.latitude) : null));
+
+          const destLng = (existingJourney?.destination_lng != null && Number(existingJourney.destination_lng) !== 0)
+            ? Number(existingJourney.destination_lng)
+            : ((loc?.destination_lng != null && Number(loc.destination_lng) !== 0)
+            ? Number(loc.destination_lng)
+            : (dest ? Number(dest.longitude) : null));
+
+          const destAddress = (existingJourney?.address && existingJourney.address !== 'Custom destination')
+            ? existingJourney.address
+            : ((loc as any)?.destination_address
+            ? (loc as any).destination_address
+            : (dest?.address || existingJourney?.address || 'Custom destination'));
 
           if (loc || dest || existingJourney) {
             const startLat = latestPing?.latitude != null 
@@ -937,9 +945,17 @@ const AdminTrackingScreen = () => {
                   )}
                   <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600' }}>STATUS</Text>
-                    <Text style={{ color: selectedJourney?.latestLocation?.status === 'offline' ? '#6B7280' : (selectedJourney?.latestLocation ? '#10B981' : '#F59E0B'), fontSize: 13, fontWeight: 'bold', marginTop: 2 }}>
-                      {selectedJourney?.latestLocation?.status === 'offline' ? '○ OFFLINE (SAVED)' : (selectedJourney?.latestLocation ? '● LIVE' : '○ Waiting')}
-                    </Text>
+                    {(() => {
+                      const isLive = selectedJourney?.latestLocation && (
+                        selectedJourney.latestLocation.status === 'online' ||
+                        (selectedJourney.latestLocation.timestamp && (Date.now() - new Date(selectedJourney.latestLocation.timestamp).getTime()) < 10 * 60 * 1000)
+                      );
+                      return (
+                        <Text style={{ color: isLive ? '#10B981' : '#6B7280', fontSize: 13, fontWeight: 'bold', marginTop: 2 }}>
+                          {isLive ? '● LIVE' : '○ OFFLINE (SAVED)'}
+                        </Text>
+                      );
+                    })()}
                   </View>
                 </View>
               )}

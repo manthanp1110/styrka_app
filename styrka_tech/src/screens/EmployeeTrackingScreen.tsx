@@ -466,6 +466,7 @@ const EmployeeTrackingScreen = () => {
               destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
               destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
               destination_address: journey?.address || undefined,
+              status: 'online',
             });
 
             SocketService.updateLocation({
@@ -481,6 +482,7 @@ const EmployeeTrackingScreen = () => {
               destination_lat: journey?.destination_lat ? Number(journey.destination_lat) : undefined,
               destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
               destination_address: journey?.address || undefined,
+              status: 'online',
             });
           }
           
@@ -684,6 +686,7 @@ const EmployeeTrackingScreen = () => {
         destination_lat: destLat,
         destination_lng: destLng,
         destination_address: destAddress,
+        status: 'online',
       });
 
       // Also emit via Socket.IO so admin gets immediate update
@@ -698,6 +701,7 @@ const EmployeeTrackingScreen = () => {
         destination_lat: destLat,
         destination_lng: destLng,
         destination_address: destAddress,
+        status: 'online',
       });
 
       setTrackingSessionId(journeyData.id);

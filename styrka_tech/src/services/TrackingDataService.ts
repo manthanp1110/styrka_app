@@ -365,74 +365,90 @@ export class TrackingDataService {
 
   // Get user by email or ID from Supabase or local storage
   static async getUser(emailOrId: string): Promise<User | null> {
-    const cleanStr = emailOrId.trim().toLowerCase();
+    const cleanStr = (emailOrId || '').trim().toLowerCase();
+    if (!cleanStr) return null;
 
-    // 1. Check Supabase users table by email
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email, role')
-        .eq('email', cleanStr)
-        .maybeSingle();
+    const DEMO_EMAILS = [
+      'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
+      'emp_1', 'emp_2', 'emp_3', 
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
+      'sangita', 'rahul', 'vikram'
+    ];
+    if (DEMO_EMAILS.includes(cleanStr)) {
+      return null;
+    }
 
-      if (!error && data) {
-        return {
-          id: data.id,
-          name: data.name || data.email,
-          email: data.email,
-          role: data.role as 'admin' | 'employee',
-        };
-      }
-    } catch {}
-
-    // 2. Check Supabase users table by ID
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email, role')
-        .eq('id', emailOrId)
-        .maybeSingle();
-
-      if (!error && data) {
-        return {
-          id: data.id,
-          name: data.name || data.email,
-          email: data.email,
-          role: data.role as 'admin' | 'employee',
-        };
-      }
-    } catch {}
-
-    // 3. Check local custom employees in AsyncStorage
-    try {
-      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
-      if (raw) {
-        const customList: User[] = JSON.parse(raw);
-        const matchedLocal = customList.find(
-          (e) => e.email.toLowerCase() === cleanStr || e.id === cleanStr
-        );
-        if (matchedLocal) return matchedLocal;
-      }
-    } catch {}
-
-    // 4. Fallback: check admin defaults
+    // 1. Check admin defaults
     const matchedAdmin = DEFAULT_ADMINS.find(
-      (a) => a.email.toLowerCase() === cleanStr || a.id === cleanStr
+      (a) => a.email.toLowerCase() === cleanStr || a.id.toLowerCase() === cleanStr
     );
     if (matchedAdmin) return matchedAdmin;
-    if (cleanStr.includes('admin')) return DEFAULT_ADMIN;
 
-    // 5. Fallback: if it's an email address or valid employee identifier
-    if (cleanStr.includes('@')) {
-      const namePart = cleanStr.split('@')[0];
-      const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-      return {
-        id: `emp_${cleanStr.replace(/[^a-z0-9]/g, '_')}`,
-        name: formattedName,
-        email: cleanStr,
-        role: 'employee',
-      };
-    }
+    // 2. Check Supabase users table by email or ID
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, role')
+        .or(`email.eq.${cleanStr},id.eq.${cleanStr}`)
+        .maybeSingle();
+
+      if (!error && data) {
+        const em = (data.email || '').toLowerCase();
+        const id = (data.id || '').toLowerCase();
+        if (DEMO_EMAILS.includes(em) || DEMO_EMAILS.includes(id)) {
+          return null;
+        }
+
+        let displayName = (data.name && !data.name.toLowerCase().startsWith('emp_') && !data.name.toLowerCase().includes('_styrka_com'))
+          ? data.name
+          : '';
+
+        if (!displayName && em.includes('@')) {
+          const pref = em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
+          const letters = pref.replace(/[^a-zA-Z]/g, '');
+          displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (pref.charAt(0).toUpperCase() + pref.slice(1));
+        }
+
+        return {
+          id: String(data.id),
+          name: displayName || 'Employee',
+          email: data.email || cleanStr,
+          role: data.role as 'admin' | 'employee',
+        };
+      }
+    } catch {}
+
+    // 3. Check Supabase live_locations table
+    try {
+      const { data: locData } = await supabase
+        .from('live_locations')
+        .select('user_id, name, email')
+        .or(`email.eq.${cleanStr},user_id.eq.${cleanStr}`)
+        .maybeSingle();
+
+      if (locData) {
+        const em = (locData.email || '').toLowerCase();
+        const id = (locData.user_id || '').toLowerCase();
+        if (!DEMO_EMAILS.includes(em) && !DEMO_EMAILS.includes(id)) {
+          let displayName = (locData.name && !locData.name.toLowerCase().startsWith('emp_'))
+            ? locData.name
+            : '';
+
+          if (!displayName && em.includes('@')) {
+            const pref = em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
+            const letters = pref.replace(/[^a-zA-Z]/g, '');
+            displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (pref.charAt(0).toUpperCase() + pref.slice(1));
+          }
+
+          return {
+            id: String(locData.user_id),
+            name: displayName || 'Employee',
+            email: locData.email || cleanStr,
+            role: 'employee',
+          };
+        }
+      }
+    } catch {}
 
     return null;
   }

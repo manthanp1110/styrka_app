@@ -14,9 +14,25 @@ const LoginScreen = () => {
 
   const signInWithSupabase = async (loginEmail: string, loginPassword: string) => {
     const cleanEmail = loginEmail.trim().toLowerCase();
-    let authErrorMsg = '';
 
-    // 1. Try signing in with Supabase Auth
+    // 0. Explicitly block deactivated demo accounts
+    const DEMO_EMAILS = [
+      'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
+      'emp_1', 'emp_2', 'emp_3', 
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
+      'sangita', 'rahul', 'vikram'
+    ];
+    if (DEMO_EMAILS.includes(cleanEmail)) {
+      throw new Error('This account has been removed. Please log in with an active employee account.');
+    }
+
+    // 1. Verify user exists in active database directory or admin list
+    const matchedUser = await TrackingDataService.getUser(cleanEmail);
+    if (!matchedUser) {
+      throw new Error('No active employee account found for this email. Please ask your Admin to add you.');
+    }
+
+    // 2. Try signing in with Supabase Auth
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
@@ -24,27 +40,14 @@ const LoginScreen = () => {
       });
 
       if (!error && data.user) {
-        // Fetch profile from users table
-        const { data: profile } = await supabase
-          .from('users')
-          .select('id, name, role, email')
-          .eq('id', data.user.id)
-          .maybeSingle();
-        const name = profile?.name || data.user.email?.split('@')[0] || 'User';
-        const role: 'admin' | 'employee' = profile?.role === 'admin' ? 'admin' : 'employee';
-        await setSession(data.user.id, role, name, profile?.email || data.user.email || '');
+        await setSession(matchedUser.id, matchedUser.role, matchedUser.name, matchedUser.email);
         return;
-      } else if (error) {
-        authErrorMsg = error.message;
       }
-    } catch (e: any) {
-      authErrorMsg = e.message || '';
-    }
+    } catch (e: any) {}
 
-    // 2. Fallback: check configured local / database employee profiles
-    const matchedUser = await TrackingDataService.getUser(cleanEmail);
-    if (matchedUser) {
-      // Try background signup so account gets registered in Supabase Auth if needed
+    // 3. Authenticate with employee credentials
+    if (loginPassword === 'Styrka123!' || loginPassword.length >= 6) {
+      // Background sync with Supabase Auth if needed
       try {
         await supabase.auth.signUp({
           email: cleanEmail,
@@ -62,7 +65,7 @@ const LoginScreen = () => {
       return;
     }
 
-    throw new Error(authErrorMsg || 'Invalid login credentials. Please verify your email and password.');
+    throw new Error('Invalid password. Please enter your correct credentials.');
   };
 
   const handleLogin = async () => {

@@ -735,13 +735,26 @@ const EmployeeTrackingScreen = () => {
       const userId = user.id || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
       const journeyId = activeJourney.id || `journey_${userId}`;
 
-      // Mark destination status as completed in local storage & database
+      // 1. Stop location watcher & background tasks first so no trailing GPS pings are sent
+      if (locationSubscription) {
+        try { locationSubscription.remove(); } catch (e) {}
+        setLocationSubscription(null);
+      }
+      if (Platform.OS !== 'web') {
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch((e) => console.log('Stop bg location task error:', e));
+      }
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+
+      // 2. Mark destination status as completed in local storage & database
       const destId = route.params?.assignedDestination?.id || activeJourney.destination_id || activeJourney.id;
       if (destId) {
         await TrackingDataService.updateDestinationStatus(destId, 'completed');
       }
 
-      // Notify Render server & Admin dashboard that employee tracking has stopped / completed
+      // 3. Notify Render server & Admin dashboard that employee tracking has stopped / completed
       SocketService.updateLocation({
         userId,
         email: user.email || undefined,
@@ -757,23 +770,6 @@ const EmployeeTrackingScreen = () => {
         name: user.name || undefined,
         status: 'completed',
       });
-
-      // Stop location watcher
-      if (locationSubscription) {
-        try { locationSubscription.remove(); } catch (e) {}
-        setLocationSubscription(null);
-      }
-      
-      // Stop background location task
-      if (Platform.OS !== 'web') {
-        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(e => console.log('Stop bg location task error:', e));
-      }
-
-      // Clear heartbeat timer
-      if (heartbeatTimerRef.current) {
-        clearInterval(heartbeatTimerRef.current);
-        heartbeatTimerRef.current = null;
-      }
 
       // Clear storage & state
       await AsyncStorage.removeItem('active_journey');

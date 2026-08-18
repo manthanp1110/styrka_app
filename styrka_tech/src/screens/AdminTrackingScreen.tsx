@@ -388,9 +388,7 @@ const AdminTrackingScreen = () => {
               start_lat: Number(loc.latitude),
               start_lng: Number(loc.longitude),
             }),
-            status: (currentJourney?.status === 'completed' && (loc.status === 'online' || incomingDestLat != null))
-              ? 'in_progress'
-              : (currentJourney?.status || 'in_progress'),
+            status: currentJourney?.status === 'completed' ? 'completed' : (currentJourney?.status || 'in_progress'),
             ...(incomingDestLat != null ? { destination_lat: incomingDestLat } : {}),
             ...(incomingDestLng != null ? { destination_lng: incomingDestLng } : {}),
             ...(incomingDestAddr != null ? { address: incomingDestAddr } : {}),

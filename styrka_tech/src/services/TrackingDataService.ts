@@ -17,6 +17,8 @@ export interface AssignedDestination {
   longitude: number;
   status: 'pending' | 'in_progress' | 'completed';
   created_at: string;
+  completed_at?: string;
+  updated_at?: string;
 }
 
 export interface LiveLocation {
@@ -518,17 +520,27 @@ export class TrackingDataService {
     destinationId: string,
     status: 'pending' | 'in_progress' | 'completed'
   ): Promise<void> {
+    const nowIso = new Date().toISOString();
     // 1. Supabase update
     try {
       await supabase
         .from('destinations')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({
+          status,
+          ...(status === 'completed' ? { completed_at: nowIso } : {}),
+          updated_at: nowIso,
+        })
         .eq('id', destinationId);
     } catch (e) {}
 
     // 2. Local update
     const all = await this.getAllDestinations();
-    const updated = all.map((d) => (d.id === destinationId ? { ...d, status } : d));
+    const updated = all.map((d) => (d.id === destinationId ? {
+      ...d,
+      status,
+      completed_at: status === 'completed' ? (d.completed_at || nowIso) : d.completed_at,
+      updated_at: nowIso,
+    } : d));
     await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(updated));
   }
 

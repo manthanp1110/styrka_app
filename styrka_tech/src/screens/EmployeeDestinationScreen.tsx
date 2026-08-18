@@ -276,38 +276,66 @@ const EmployeeDestinationScreen = () => {
               <Text style={styles.emptyCardSub}>Use the search bar above to select your destination.</Text>
             </View>
           ) : (
-            destinations.map((item) => (
+            destinations.map((item) => {
+            const isCompleted = item.status === 'completed';
+            const timestampToUse = isCompleted
+              ? (item.completed_at || item.updated_at || item.created_at)
+              : item.created_at;
+            const dateObj = new Date(timestampToUse);
+            const dateStr = dateObj.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+
+            return (
               <View key={item.id} style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <View style={[styles.statusBadge, item.status === 'completed' ? styles.statusCompleted : styles.statusPending]}>
-                    <Text style={[styles.statusText, item.status === 'completed' ? styles.statusTextCompleted : styles.statusTextPending]}>
-                      {item.status === 'completed' ? 'COMPLETED' : 'READY'}
+                  <View style={[styles.statusBadge, isCompleted ? styles.statusCompleted : styles.statusPending]}>
+                    <Feather name={isCompleted ? "check-circle" : "clock"} size={12} color={isCompleted ? "#059669" : "#D97706"} style={{ marginRight: 4 }} />
+                    <Text style={[styles.statusText, isCompleted ? styles.statusTextCompleted : styles.statusTextPending]}>
+                      {isCompleted ? 'COMPLETED' : 'READY'}
                     </Text>
                   </View>
-                  <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString()}</Text>
+
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.dateText}>
+                      {isCompleted ? `Completed: ${dateStr}` : `Created: ${dateStr}`}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '600', marginTop: 1 }}>
+                      🕒 {timeStr}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.addressContainer}>
-                  <Feather name="map-pin" size={20} color="#F59E0B" style={{ marginTop: 2 }} />
+                  <Feather name="map-pin" size={20} color={isCompleted ? "#059669" : "#F59E0B"} style={{ marginTop: 2 }} />
                   <Text style={styles.addressText}>{item.address}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.reselectBtn}
-                  disabled={isStartingJourney}
-                  onPress={() => {
-                    handleStartJourney({
-                      address: item.address,
-                      latitude: item.latitude,
-                      longitude: item.longitude,
-                    });
-                  }}
-                >
-                  <Feather name="play-circle" size={18} color="white" />
-                  <Text style={styles.reselectBtnText}>Select & Start Journey</Text>
-                </TouchableOpacity>
+                {isCompleted ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
+                    <Feather name="check-circle" size={15} color="#059669" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#059669', fontWeight: '700', fontSize: 12 }}>
+                      Drop-off Completed on {dateStr} at {timeStr}
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.reselectBtn}
+                    disabled={isStartingJourney}
+                    onPress={() => {
+                      handleStartJourney({
+                        address: item.address,
+                        latitude: item.latitude,
+                        longitude: item.longitude,
+                      });
+                    }}
+                  >
+                    <Feather name="play-circle" size={18} color="white" />
+                    <Text style={styles.reselectBtnText}>Select & Start Journey</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            ))
+            );
+          })
           )}
 
         </ScrollView>

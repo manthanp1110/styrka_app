@@ -252,28 +252,62 @@ export class TrackingDataService {
 
   // Delete an employee from Supabase and local storage
   static async deleteEmployee(employeeId: string): Promise<void> {
+    const cleanKey = (employeeId || '').trim().toLowerCase();
+    if (!cleanKey) return;
+
+    const emailPrefix = cleanKey.includes('@') ? cleanKey.split('@')[0] : cleanKey;
+
     try {
-      // 1. Delete from Supabase
+      // 1. Delete from Supabase users table
       await supabase.from('users').delete().eq('id', employeeId);
+      await supabase.from('users').delete().eq('email', cleanKey);
+
+      // 2. Delete from Supabase live_locations table so it isn't re-synthesized on fetch!
+      await supabase.from('live_locations').delete().eq('user_id', employeeId);
+      await supabase.from('live_locations').delete().eq('email', cleanKey);
+      if (emailPrefix && emailPrefix.length > 2) {
+        await supabase.from('live_locations').delete().ilike('user_id', `%${emailPrefix}%`);
+        await supabase.from('users').delete().ilike('email', `%${emailPrefix}%`);
+      }
+
+      // 3. Delete from Supabase destinations table
       await supabase.from('destinations').delete().eq('employee_id', employeeId);
+      await supabase.from('destinations').delete().eq('employee_id', cleanKey);
     } catch (e) {
-      console.warn('[TrackingDataService] Could not delete employee from Supabase:', e);
+      console.warn('[TrackingDataService] Error deleting employee from Supabase:', e);
     }
 
-    // 2. Delete from local storage
+    // 4. Delete from local storage cache
     try {
       const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
       if (raw) {
         const list: User[] = JSON.parse(raw);
-        const filtered = list.filter((e) => e.id !== employeeId && e.email !== employeeId);
+        const filtered = list.filter((e) => {
+          const eId = (e.id || '').toLowerCase();
+          const eEmail = (e.email || '').toLowerCase();
+          return eId !== cleanKey && eEmail !== cleanKey && (!emailPrefix || (!eId.includes(emailPrefix) && !eEmail.includes(emailPrefix)));
+        });
         await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(filtered));
       }
 
-      // Clear assigned destinations for this employee locally
+      const locRaw = await AsyncStorage.getItem(LOCATIONS_KEY);
+      if (locRaw) {
+        const locMap = JSON.parse(locRaw);
+        Object.keys(locMap).forEach((k) => {
+          if ((emailPrefix && k.toLowerCase().includes(emailPrefix)) || k.toLowerCase() === cleanKey) {
+            delete locMap[k];
+          }
+        });
+        await AsyncStorage.setItem(LOCATIONS_KEY, JSON.stringify(locMap));
+      }
+
       const destRaw = await AsyncStorage.getItem(DESTINATIONS_KEY);
       if (destRaw) {
         const destList: AssignedDestination[] = JSON.parse(destRaw);
-        const filteredDest = destList.filter((d) => d.employee_id !== employeeId);
+        const filteredDest = destList.filter((d) => {
+          const dEmpId = (d.employee_id || '').toLowerCase();
+          return dEmpId !== cleanKey && (!emailPrefix || !dEmpId.includes(emailPrefix));
+        });
         await AsyncStorage.setItem(DESTINATIONS_KEY, JSON.stringify(filteredDest));
       }
     } catch (e) {

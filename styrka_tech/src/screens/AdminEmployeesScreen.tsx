@@ -110,7 +110,8 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await TrackingDataService.deleteEmployee(item.id);
+              if (item.id) await TrackingDataService.deleteEmployee(item.id);
+              if (item.email) await TrackingDataService.deleteEmployee(item.email);
               Alert.alert('Deleted', `Employee "${item.name}" was successfully removed.`);
               loadData();
             } catch (e: any) {

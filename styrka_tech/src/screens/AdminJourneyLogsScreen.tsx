@@ -247,7 +247,7 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
           ) : (
             <FlatList
               data={filteredEmployees}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item, index) => item.id ? `${item.id}_${index}` : `emp_${index}`}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#0F4C3A']} />}
               renderItem={({ item }) => {
                 const empDests = allDestinations.filter((d) => {

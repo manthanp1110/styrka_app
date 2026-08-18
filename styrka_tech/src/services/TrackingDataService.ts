@@ -147,18 +147,22 @@ export class TrackingDataService {
 
     const all = [...supabaseEmployees, ...customEmployees, ...liveLocationEmployees, ...DEFAULT_EMPLOYEES];
 
-    // Remove duplicates by id or email
-    const uniqueMap = new Map<string, User>();
-    all.forEach((emp) => {
-      if (emp.id && !uniqueMap.has(emp.id)) {
-        uniqueMap.set(emp.id, emp);
-      }
-      if (emp.email && !uniqueMap.has(emp.email)) {
-        uniqueMap.set(emp.email, emp);
-      }
-    });
+    const seenIds = new Set<string>();
+    const seenEmails = new Set<string>();
+    const resultList: User[] = [];
 
-    const resultList = Array.from(uniqueMap.values());
+    all.forEach((emp) => {
+      const cleanId = (emp.id || '').trim().toLowerCase();
+      const cleanEmail = (emp.email || '').trim().toLowerCase();
+
+      if (cleanId && seenIds.has(cleanId)) return;
+      if (cleanEmail && seenEmails.has(cleanEmail)) return;
+
+      if (cleanId) seenIds.add(cleanId);
+      if (cleanEmail) seenEmails.add(cleanEmail);
+
+      resultList.push(emp);
+    });
 
     // Sync back to local storage so offline access is instant
     try {

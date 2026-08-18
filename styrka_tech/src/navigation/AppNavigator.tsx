@@ -10,6 +10,7 @@ import { useAppState } from '../store/useAppState';
 import LoginScreen from '../screens/LoginScreen';
 import AdminTrackingScreen from '../screens/AdminTrackingScreen';
 import AdminEmployeesScreen from '../screens/AdminEmployeesScreen';
+import AdminJourneyLogsScreen from '../screens/AdminJourneyLogsScreen';
 import EmployeeDestinationScreen from '../screens/EmployeeDestinationScreen';
 import EmployeeTrackingScreen from '../screens/EmployeeTrackingScreen';
 
@@ -45,6 +46,7 @@ const AdminTabs = () => {
           let iconName: any = 'map';
           if (route.name === 'Manage Employees') iconName = 'users';
           else if (route.name === 'Live Tracking') iconName = 'map';
+          else if (route.name === 'Journey Logs') iconName = 'calendar';
           return <Feather name={iconName} size={22} color={color} />;
         },
         tabBarLabelStyle: {
@@ -54,6 +56,7 @@ const AdminTabs = () => {
       })}
     >
       <Tab.Screen name="Live Tracking" component={AdminTrackingScreen} options={{ title: 'Live Employee Tracking' }} />
+      <Tab.Screen name="Journey Logs" component={AdminJourneyLogsScreen} options={{ title: 'Journey Logs & History' }} />
       <Tab.Screen name="Manage Employees" component={AdminEmployeesScreen} options={{ title: 'Employees' }} />
     </Tab.Navigator>
   );

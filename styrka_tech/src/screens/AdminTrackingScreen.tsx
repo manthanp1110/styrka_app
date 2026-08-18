@@ -170,7 +170,38 @@ const AdminTrackingScreen = () => {
       const allLocations = await TrackingDataService.getAllLiveLocations();
       const allDestinations = await TrackingDataService.getAllDestinations();
 
-      setEmployees(usersData || []);
+      const fetchedEmployees = usersData || [];
+
+      setEmployees((prevEmps) => {
+        const mergedMap = new Map<string, any>();
+        fetchedEmployees.forEach((e) => mergedMap.set(e.id, e));
+        (prevEmps || []).forEach((e) => {
+          if (!mergedMap.has(e.id)) mergedMap.set(e.id, e);
+        });
+
+        // Synthesize any active employees from live location records
+        Object.keys(allLocations || {}).forEach((key) => {
+          const loc = allLocations[key];
+          if (loc && loc.latitude != null) {
+            const locId = loc.user_id || key;
+            const existingMatch = Array.from(mergedMap.values()).find(
+              (e: any) => e.id === locId || e.email === locId || (e.email && locId.includes(e.email))
+            );
+            if (!existingMatch) {
+              const rawName = loc.name || (locId.includes('@') ? locId.split('@')[0] : locId);
+              const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+              mergedMap.set(locId, {
+                id: locId,
+                name: formattedName,
+                email: locId.includes('@') ? locId : `${locId}@styrka.com`,
+                role: 'employee',
+              });
+            }
+          }
+        });
+
+        return Array.from(mergedMap.values());
+      });
 
       setActiveJourneys((prev) => {
         const nextMap: Record<string, any> = { ...prev };

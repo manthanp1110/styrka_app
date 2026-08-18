@@ -21,6 +21,8 @@ export interface AssignedDestination {
 
 export interface LiveLocation {
   user_id: string;
+  name?: string;
+  email?: string;
   latitude: number;
   longitude: number;
   heading?: number;
@@ -33,7 +35,26 @@ export interface LiveLocation {
   destination_address?: string | null;
 }
 
-const DEFAULT_EMPLOYEES: User[] = [];
+const DEFAULT_EMPLOYEES: User[] = [
+  {
+    id: 'emp_1',
+    name: 'Sangita',
+    email: 'sangita@styrka.com',
+    role: 'employee',
+  },
+  {
+    id: 'emp_2',
+    name: 'Rahul Sharma',
+    email: 'rahul@styrka.com',
+    role: 'employee',
+  },
+  {
+    id: 'emp_3',
+    name: 'Vikram Singh',
+    email: 'vikram@styrka.com',
+    role: 'employee',
+  },
+];
 
 const DEFAULT_ADMINS: User[] = [
   {
@@ -86,9 +107,9 @@ export class TrackingDataService {
         .eq('role', 'employee');
       if (!error && data && data.length > 0) {
         supabaseEmployees = data.map((p: any) => ({
-          id: p.id,
+          id: String(p.id),
           name: p.name || p.email,
-          email: p.email,
+          email: p.email || `${p.id}@styrka.com`,
           role: 'employee' as const,
         }));
       }
@@ -103,17 +124,55 @@ export class TrackingDataService {
       if (raw) customEmployees = JSON.parse(raw);
     } catch {}
 
-    const all = [...supabaseEmployees, ...customEmployees];
+    // ALSO merge with live locations in Supabase
+    let liveLocationEmployees: User[] = [];
+    try {
+      const { data: locData } = await supabase.from('live_locations').select('*');
+      if (locData && locData.length > 0) {
+        locData.forEach((item: any) => {
+          const uId = String(item.user_id);
+          const rawName = item.name || (uId.includes('@') ? uId.split('@')[0] : uId);
+          const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+          liveLocationEmployees.push({
+            id: uId,
+            name: formattedName,
+            email: item.email || (uId.includes('@') ? uId : `${uId}@styrka.com`),
+            role: 'employee',
+          });
+        });
+      }
+    } catch {}
+
+    const all = [...supabaseEmployees, ...customEmployees, ...liveLocationEmployees, ...DEFAULT_EMPLOYEES];
 
     // Remove duplicates by id or email
     const uniqueMap = new Map<string, User>();
-    all.forEach((emp) => uniqueMap.set(emp.id, emp));
+    all.forEach((emp) => {
+      if (emp.id && !uniqueMap.has(emp.id)) {
+        uniqueMap.set(emp.id, emp);
+      }
+      if (emp.email && !uniqueMap.has(emp.email)) {
+        uniqueMap.set(emp.email, emp);
+      }
+    });
 
     const resultList = Array.from(uniqueMap.values());
 
     // Sync back to local storage so offline access is instant
     try {
       await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(resultList));
+    } catch {}
+
+    // Ensure default employees exist in Supabase users table
+    try {
+      supabase.from('users').upsert(
+        DEFAULT_EMPLOYEES.map((e) => ({
+          id: e.id,
+          name: e.name,
+          email: e.email,
+          role: 'employee',
+        }))
+      ).then(() => {});
     } catch {}
 
     return resultList;
@@ -583,6 +642,8 @@ export class TrackingDataService {
         data.forEach((item: any) => {
           resultMap[String(item.user_id)] = {
             user_id: String(item.user_id),
+            name: item.name || undefined,
+            email: item.email || undefined,
             latitude: Number(item.latitude),
             longitude: Number(item.longitude),
             heading: Number(item.heading || 0),

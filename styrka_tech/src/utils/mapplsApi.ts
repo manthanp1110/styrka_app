@@ -56,68 +56,110 @@ export const MapplsApi = {
   /**
    * Address AutoSuggest / Search (Restricted to Maharashtra State)
    */
+  /**
+   * Address AutoSuggest / Search (Restricted to Maharashtra State & Pan-India)
+   */
   autoSuggest: async (params: { query: string }) => {
     if (!params.query || params.query.trim().length < 2) {
       return { suggestedLocations: [] };
     }
 
-    const searchQuery = params.query.toLowerCase().includes('maharashtra') 
-      ? params.query 
-      : `${params.query}, Maharashtra`;
+    const rawQuery = params.query.trim();
+    const searchQuery = rawQuery.toLowerCase().includes('maharashtra') 
+      ? rawQuery 
+      : `${rawQuery}, Maharashtra`;
 
-    // 1. Try Mappls AutoSuggest API
+    const results: any[] = [];
+
+    // 1. Try Photon Geocoding Engine (Fast, OpenStreetMap powered, zero rate limits)
     try {
-      const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/autosuggest?query=${encodeURIComponent(searchQuery)}&filter=bounds:15.60,72.65;22.03,80.90`;
-      const res = await fetch(url);
-      const text = await res.text();
-      if (text) {
-        const data = JSON.parse(text);
-        if (data && data.suggestedLocations && data.suggestedLocations.length > 0) {
-          // Filter results strictly within Maharashtra
-          const filtered = data.suggestedLocations.filter((item: any) => {
-            const addr = (item.placeAddress || item.placeName || '').toLowerCase();
-            return addr.includes('maharashtra') || addr.includes('pune') || addr.includes('mumbai') || addr.includes('nagpur') || addr.includes('nashik') || addr.includes('kolhapur');
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(searchQuery)}&limit=10`;
+      const photonRes = await fetch(photonUrl);
+      if (photonRes.ok) {
+        const photonData = await photonRes.json();
+        if (photonData && photonData.features && photonData.features.length > 0) {
+          photonData.features.forEach((feat: any) => {
+            const coords = feat.geometry?.coordinates;
+            const props = feat.properties || {};
+            if (coords && coords.length >= 2) {
+              const lng = Number(coords[0]);
+              const lat = Number(coords[1]);
+              const name = props.name || props.street || props.city || rawQuery;
+              const addressParts = [props.name, props.street, props.city, props.state, props.country].filter(Boolean);
+              const address = Array.from(new Set(addressParts)).join(', ');
+
+              results.push({
+                mapplsPin: `${lat},${lng}`,
+                placeName: name,
+                placeAddress: address || searchQuery,
+                latitude: lat,
+                longitude: lng,
+              });
+            }
           });
-          return { suggestedLocations: filtered.length > 0 ? filtered : data.suggestedLocations };
         }
       }
     } catch (e) {
-      console.log('[MapplsApi] Mappls autoSuggest error, using Nominatim fallback:', e);
+      console.warn('[MapplsApi] Photon search error:', e);
     }
 
-    // 2. Nominatim / OpenStreetMap Search Fallback (Bounded to Maharashtra)
-    try {
-      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10&viewbox=72.65,22.03,80.90,15.60&bounded=1`;
-      const nomRes = await fetch(nomUrl, {
-        headers: { 'User-Agent': 'StyrkaApp/1.0 (contact: admin@styrka.com)' }
-      });
-      const text = await nomRes.text();
-      if (text && text.trim().startsWith('[')) {
-        const nomData = JSON.parse(text);
-        if (Array.isArray(nomData) && nomData.length > 0) {
-          const suggestedLocations = nomData
-            .filter((item: any) => {
-              const lat = parseFloat(item.lat);
-              const lon = parseFloat(item.lon);
-              const isMHCoords = lat >= 15.60 && lat <= 22.03 && lon >= 72.65 && lon <= 80.90;
-              const isMHAddress = (item.display_name || '').toLowerCase().includes('maharashtra');
-              return isMHCoords || isMHAddress;
-            })
-            .map((item: any) => ({
-              mapplsPin: `${item.lat},${item.lon}`,
-              placeName: item.display_name.split(',')[0],
-              placeAddress: item.display_name,
-              latitude: parseFloat(item.lat),
-              longitude: parseFloat(item.lon)
-            }));
-          return { suggestedLocations };
+    // 2. Nominatim / OpenStreetMap Search Fallback
+    if (results.length === 0) {
+      try {
+        const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10`;
+        const nomRes = await fetch(nomUrl, {
+          headers: { 'User-Agent': 'StyrkaApp/1.0 (contact: admin@styrka.com)' }
+        });
+        if (nomRes.ok) {
+          const text = await nomRes.text();
+          if (text && text.trim().startsWith('[')) {
+            const nomData = JSON.parse(text);
+            if (Array.isArray(nomData) && nomData.length > 0) {
+              nomData.forEach((item: any) => {
+                const lat = parseFloat(item.lat);
+                const lon = parseFloat(item.lon);
+                results.push({
+                  mapplsPin: `${lat},${lon}`,
+                  placeName: item.display_name.split(',')[0],
+                  placeAddress: item.display_name,
+                  latitude: lat,
+                  longitude: lon,
+                });
+              });
+            }
+          }
         }
+      } catch (e) {
+        console.warn('[MapplsApi] Nominatim autoSuggest fallback error:', e);
       }
-    } catch (e) {
-      console.warn('[MapplsApi] Nominatim autoSuggest fallback error:', e);
     }
 
-    return { suggestedLocations: [] };
+    // 3. Mappls AutoSuggest API
+    if (results.length === 0) {
+      try {
+        const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/autosuggest?query=${encodeURIComponent(searchQuery)}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const text = await res.text();
+          if (text && text.trim().startsWith('{')) {
+            const data = JSON.parse(text);
+            if (data && data.suggestedLocations && data.suggestedLocations.length > 0) {
+              data.suggestedLocations.forEach((item: any) => {
+                results.push({
+                  mapplsPin: item.mapplsPin || item.eLoc,
+                  placeName: item.placeName || rawQuery,
+                  placeAddress: item.placeAddress ? `${item.placeName}, ${item.placeAddress}` : item.placeName,
+                  latitude: item.latitude,
+                  longitude: item.longitude,
+                });
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    return { suggestedLocations: results };
   },
 
   /**
@@ -138,7 +180,7 @@ export const MapplsApi = {
       const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/place_detail?eloc=${encodeURIComponent(params.mapplsPin)}`;
       const res = await fetch(url);
       const text = await res.text();
-      if (text) {
+      if (text && text.trim().startsWith('{')) {
         const data = JSON.parse(text);
         if (data && data.latitude && data.longitude) return data;
       }
@@ -157,7 +199,7 @@ export const MapplsApi = {
       const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/rev_geocode?lat=${params.latitude}&lng=${params.longitude}`;
       const res = await fetch(url);
       const text = await res.text();
-      if (text) {
+      if (text && text.trim().startsWith('{')) {
         const data = JSON.parse(text);
         if (data && data.results) return data;
       }
@@ -168,57 +210,84 @@ export const MapplsApi = {
     // Fallback to OpenStreetMap Nominatim
     try {
       const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${params.latitude}&lon=${params.longitude}&format=json`;
-      const nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'StyrkaApp/1.0' } });
-      const nomData = await nomRes.json();
-      return {
-        results: [{ formatted_address: nomData.display_name || `${params.latitude}, ${params.longitude}` }]
-      };
-    } catch (e) {
-      return {
-        results: [{ formatted_address: `${params.latitude.toFixed(4)}, ${params.longitude.toFixed(4)}` }]
-      };
-    }
+      const nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'StyrkaApp/1.0 (contact: admin@styrka.com)' } });
+      const text = await nomRes.text();
+      if (text && text.trim().startsWith('{')) {
+        const nomData = JSON.parse(text);
+        return {
+          results: [{ formatted_address: nomData.display_name || `${params.latitude}, ${params.longitude}` }]
+        };
+      }
+    } catch (e) {}
+
+    return {
+      results: [{ formatted_address: `${params.latitude.toFixed(4)}, ${params.longitude.toFixed(4)}` }]
+    };
   },
 
   /**
-   * Geocode (Address to Lat/Lng - Restricted to Maharashtra State)
+   * Geocode (Address to Lat/Lng - Multi-Engine Fallback)
    */
   geocode: async (params: { address: string }) => {
     const geoQuery = params.address.toLowerCase().includes('maharashtra')
       ? params.address
       : `${params.address}, Maharashtra`;
 
+    // 1. Try Photon Geocoding Engine
+    try {
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(geoQuery)}&limit=1`;
+      const photonRes = await fetch(photonUrl);
+      if (photonRes.ok) {
+        const photonData = await photonRes.json();
+        if (photonData && photonData.features && photonData.features.length > 0) {
+          const coords = photonData.features[0].geometry?.coordinates;
+          if (coords && coords.length >= 2) {
+            return {
+              results: [{
+                latitude: Number(coords[1]),
+                longitude: Number(coords[0]),
+                formatted_address: params.address,
+              }]
+            };
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 2. Try Mappls API
     try {
       const url = `https://apis.mappls.com/advancedmaps/v1/${MAPPLS_KEY}/geocode?address=${encodeURIComponent(geoQuery)}`;
       const res = await fetch(url);
       const text = await res.text();
-      if (text) {
+      if (text && text.trim().startsWith('{')) {
         const data = JSON.parse(text);
-        if (data && data.results) return data;
+        if (data && data.results && data.results.length > 0) return data;
       }
-    } catch (e) {
-      console.log('[MapplsApi] Mappls geocode error, using Nominatim fallback');
-    }
+    } catch (e) {}
 
-    // Fallback to Nominatim bounded to Maharashtra
+    // 3. Try Nominatim API
     try {
-      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(geoQuery)}&format=json&limit=1&viewbox=72.65,22.03,80.90,15.60&bounded=1`;
-      const nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'StyrkaApp/1.0' } });
-      const nomData = await nomRes.json();
-      if (Array.isArray(nomData) && nomData.length > 0) {
-        return {
-          results: [{
-            latitude: parseFloat(nomData[0].lat),
-            longitude: parseFloat(nomData[0].lon)
-          }]
-        };
+      const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(geoQuery)}&format=json&limit=1`;
+      const nomRes = await fetch(nomUrl, { headers: { 'User-Agent': 'StyrkaApp/1.0 (contact: admin@styrka.com)' } });
+      if (nomRes.ok) {
+        const text = await nomRes.text();
+        if (text && text.trim().startsWith('[')) {
+          const nomData = JSON.parse(text);
+          if (Array.isArray(nomData) && nomData.length > 0) {
+            return {
+              results: [{
+                latitude: parseFloat(nomData[0].lat),
+                longitude: parseFloat(nomData[0].lon),
+                formatted_address: nomData[0].display_name,
+              }]
+            };
+          }
+        }
       }
-    } catch (e) {
-      console.error('[MapplsApi] Geocode fallback error:', e);
-    }
+    } catch (e) {}
 
     return null;
-  }
+  },
 };
 
 export default MapplsApi;

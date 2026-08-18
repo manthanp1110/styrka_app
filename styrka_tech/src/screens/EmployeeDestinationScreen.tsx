@@ -74,7 +74,7 @@ const EmployeeDestinationScreen = () => {
   // Handle place address search
   const handleSearchAddress = async (text: string) => {
     setSearchQuery(text);
-    if (text.length < 3) {
+    if (text.trim().length < 2) {
       setSearchResults([]);
       return;
     }
@@ -82,16 +82,32 @@ const EmployeeDestinationScreen = () => {
     setSearching(true);
     try {
       const res = await MapplsApi.autoSuggest({ query: text });
-      if (res && res.suggestedLocations) {
-        const formatted = res.suggestedLocations.map((item: any) => ({
-          place_id: item.mapplsPin || item.eLoc,
+      let formatted: any[] = [];
+      if (res && res.suggestedLocations && res.suggestedLocations.length > 0) {
+        formatted = res.suggestedLocations.map((item: any) => ({
+          place_id: item.mapplsPin || `${item.latitude},${item.longitude}`,
           description: item.placeAddress ? `${item.placeName}, ${item.placeAddress}` : item.placeName,
-          mapplsPin: item.mapplsPin || item.eLoc,
+          mapplsPin: item.mapplsPin,
           latitude: item.latitude,
           longitude: item.longitude,
         }));
-        setSearchResults(formatted);
       }
+
+      // Add direct search item if query is at least 3 chars
+      if (text.trim().length >= 3) {
+        const customItem = {
+          place_id: `custom_${text.trim()}`,
+          description: text.trim().toLowerCase().includes('maharashtra') ? text.trim() : `${text.trim()}, Maharashtra`,
+          mapplsPin: null,
+          latitude: null,
+          longitude: null,
+        };
+        if (!formatted.some((f) => f.description.toLowerCase() === customItem.description.toLowerCase())) {
+          formatted.unshift(customItem);
+        }
+      }
+
+      setSearchResults(formatted);
     } catch (e) {
       console.error('[EmployeeDestinationScreen] Search place error:', e);
     } finally {

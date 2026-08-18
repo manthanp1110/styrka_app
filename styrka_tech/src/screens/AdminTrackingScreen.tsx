@@ -338,14 +338,13 @@ const AdminTrackingScreen = () => {
         const matched = currentEmployees.find(
           (e) => e.id === incomingId || 
                  (e.email && e.email.toLowerCase() === String(incomingId).toLowerCase()) || 
-                 (e.name && String(incomingId).toLowerCase().includes(e.name.toLowerCase())) ||
-                 (e.name && String(e.name).toLowerCase().includes(String(incomingId).toLowerCase()))
+                 (loc.email && e.email && e.email.toLowerCase() === String(loc.email).toLowerCase()) ||
+                 (loc.name && e.name && e.name.toLowerCase() === String(loc.name).toLowerCase())
         );
         const primaryEmpId = matched ? matched.id : incomingId;
-        const empEmail = matched?.email;
-        const empName = matched?.name;
+        const empEmail = matched?.email || loc.email;
 
-        console.log('[ADMIN LOCATION] employee matched:', { primaryEmpId, matchedName: empName || matched?.name || 'none' });
+        console.log('[ADMIN LOCATION] employee matched:', { primaryEmpId, matchedName: matched?.name || 'none' });
 
         setActiveJourneys((prev) => {
           const currentJourney = prev[primaryEmpId] || (empEmail ? prev[empEmail] : null) || prev[incomingId];
@@ -400,7 +399,6 @@ const AdminTrackingScreen = () => {
             [primaryEmpId]: updatedJourney,
           };
           if (empEmail) nextMap[empEmail] = updatedJourney;
-          if (empName) nextMap[empName] = updatedJourney;
           if (incomingId) nextMap[incomingId] = updatedJourney;
           return nextMap;
         });
@@ -514,29 +512,19 @@ const AdminTrackingScreen = () => {
   };
 
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
-  const resolvedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys, true) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
-  
-  // Robust fallback: If resolvedJourney is null or missing latestLocation, check if there's any active journey with live location
-  const fallbackActiveJourney = (!resolvedJourney || !resolvedJourney.latestLocation)
-    ? Object.values(activeJourneys).find((j: any) => j?.latestLocation?.latitude != null)
-    : null;
+  const resolvedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys, false) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
 
-  const selectedJourney = resolvedJourney
-    ? {
-        ...resolvedJourney,
-        ...(fallbackActiveJourney?.latestLocation && !resolvedJourney.latestLocation ? { latestLocation: fallbackActiveJourney.latestLocation } : {}),
-      }
-    : (fallbackActiveJourney || (selectedEmp ? {
-        id: `j_${selectedEmp.id}`,
-        user_id: selectedEmp.id,
-        start_lat: 18.5204,
-        start_lng: 73.8567,
-        destination_lat: null,
-        destination_lng: null,
-        latestLocation: null,
-        locationHistory: [],
-        address: null,
-      } : null));
+  const selectedJourney = resolvedJourney || (selectedEmp ? {
+    id: `j_${selectedEmp.id}`,
+    user_id: selectedEmp.id,
+    start_lat: 18.5204,
+    start_lng: 73.8567,
+    destination_lat: null,
+    destination_lng: null,
+    latestLocation: null,
+    locationHistory: [],
+    address: null,
+  } : null);
 
   // Compute live polyline that ALWAYS starts at the exact live employee location and connects to destination
   const displayedPolyline = React.useMemo(() => {

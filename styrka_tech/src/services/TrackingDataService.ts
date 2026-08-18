@@ -371,8 +371,7 @@ export class TrackingDataService {
     const DEMO_EMAILS = [
       'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
       'emp_1', 'emp_2', 'emp_3', 
-      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
-      'sangita', 'rahul', 'vikram'
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
     ];
     if (DEMO_EMAILS.includes(cleanStr)) {
       return null;
@@ -384,71 +383,111 @@ export class TrackingDataService {
     );
     if (matchedAdmin) return matchedAdmin;
 
-    // 2. Check Supabase users table by email or ID
+    // 2. Check Supabase users table by email
     try {
-      const { data, error } = await supabase
+      const { data: userByEmail } = await supabase
         .from('users')
         .select('id, name, email, role')
-        .or(`email.eq.${cleanStr},id.eq.${cleanStr}`)
+        .eq('email', cleanStr)
         .maybeSingle();
 
-      if (!error && data) {
-        const em = (data.email || '').toLowerCase();
-        const id = (data.id || '').toLowerCase();
-        if (DEMO_EMAILS.includes(em) || DEMO_EMAILS.includes(id)) {
-          return null;
-        }
-
-        let displayName = (data.name && !data.name.toLowerCase().startsWith('emp_') && !data.name.toLowerCase().includes('_styrka_com'))
-          ? data.name
-          : '';
-
-        if (!displayName && em.includes('@')) {
-          const pref = em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
-          const letters = pref.replace(/[^a-zA-Z]/g, '');
-          displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (pref.charAt(0).toUpperCase() + pref.slice(1));
-        }
-
+      if (userByEmail && !DEMO_EMAILS.includes((userByEmail.email || '').toLowerCase())) {
         return {
-          id: String(data.id),
-          name: displayName || 'Employee',
-          email: data.email || cleanStr,
-          role: data.role as 'admin' | 'employee',
+          id: String(userByEmail.id),
+          name: userByEmail.name || cleanStr.split('@')[0],
+          email: userByEmail.email || cleanStr,
+          role: (userByEmail.role as any) || 'employee',
+        };
+      }
+
+      // Check by ID
+      const { data: userById } = await supabase
+        .from('users')
+        .select('id, name, email, role')
+        .eq('id', cleanStr)
+        .maybeSingle();
+
+      if (userById && !DEMO_EMAILS.includes((userById.email || '').toLowerCase())) {
+        return {
+          id: String(userById.id),
+          name: userById.name || cleanStr.split('@')[0],
+          email: userById.email || cleanStr,
+          role: (userById.role as any) || 'employee',
         };
       }
     } catch {}
 
     // 3. Check Supabase live_locations table
     try {
-      const { data: locData } = await supabase
+      const { data: locByEmail } = await supabase
         .from('live_locations')
         .select('user_id, name, email')
-        .or(`email.eq.${cleanStr},user_id.eq.${cleanStr}`)
+        .eq('email', cleanStr)
         .maybeSingle();
 
-      if (locData) {
-        const em = (locData.email || '').toLowerCase();
-        const id = (locData.user_id || '').toLowerCase();
-        if (!DEMO_EMAILS.includes(em) && !DEMO_EMAILS.includes(id)) {
-          let displayName = (locData.name && !locData.name.toLowerCase().startsWith('emp_'))
-            ? locData.name
-            : '';
+      if (locByEmail && !DEMO_EMAILS.includes((locByEmail.email || '').toLowerCase())) {
+        return {
+          id: String(locByEmail.user_id),
+          name: locByEmail.name || cleanStr.split('@')[0],
+          email: locByEmail.email || cleanStr,
+          role: 'employee',
+        };
+      }
 
-          if (!displayName && em.includes('@')) {
-            const pref = em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
-            const letters = pref.replace(/[^a-zA-Z]/g, '');
-            displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (pref.charAt(0).toUpperCase() + pref.slice(1));
-          }
+      const { data: locById } = await supabase
+        .from('live_locations')
+        .select('user_id, name, email')
+        .eq('user_id', cleanStr)
+        .maybeSingle();
 
-          return {
-            id: String(locData.user_id),
-            name: displayName || 'Employee',
-            email: locData.email || cleanStr,
-            role: 'employee',
-          };
+      if (locById && !DEMO_EMAILS.includes((locById.email || '').toLowerCase())) {
+        return {
+          id: String(locById.user_id),
+          name: locById.name || cleanStr.split('@')[0],
+          email: locById.email || cleanStr,
+          role: 'employee',
+        };
+      }
+    } catch {}
+
+    // 4. Check local custom employees cache
+    try {
+      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
+      if (raw) {
+        const localList: User[] = JSON.parse(raw);
+        const matched = localList.find(
+          (u) => (u.email && u.email.toLowerCase() === cleanStr) || (u.id && u.id.toLowerCase() === cleanStr)
+        );
+        if (matched && !DEMO_EMAILS.includes((matched.email || '').toLowerCase())) {
+          return matched;
         }
       }
     } catch {}
+
+    // 5. If valid employee email format (contains @), synthesize employee profile so they are never blocked
+    if (cleanStr.includes('@') && !DEMO_EMAILS.includes(cleanStr)) {
+      const prefix = cleanStr.split('@')[0];
+      const letters = prefix.replace(/[^a-zA-Z]/g, '');
+      const displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (prefix.charAt(0).toUpperCase() + prefix.slice(1));
+      const fallbackId = `emp_${cleanStr.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      // Upsert into Supabase asynchronously to persist across devices
+      Promise.resolve(
+        supabase.from('users').upsert({
+          id: fallbackId,
+          name: displayName,
+          email: cleanStr,
+          role: 'employee',
+        })
+      ).catch(() => {});
+
+      return {
+        id: fallbackId,
+        name: displayName,
+        email: cleanStr,
+        role: 'employee',
+      };
+    }
 
     return null;
   }

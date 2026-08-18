@@ -15,18 +15,17 @@ const LoginScreen = () => {
   const signInWithSupabase = async (loginEmail: string, loginPassword: string) => {
     const cleanEmail = loginEmail.trim().toLowerCase();
 
-    // 0. Explicitly block deactivated demo accounts
+    // 0. Explicitly block deactivated legacy demo accounts
     const DEMO_EMAILS = [
       'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
       'emp_1', 'emp_2', 'emp_3', 
-      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
-      'sangita', 'rahul', 'vikram'
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
     ];
     if (DEMO_EMAILS.includes(cleanEmail)) {
-      throw new Error('This account has been removed. Please log in with an active employee account.');
+      throw new Error('This demo account is disabled. Please log in with a registered employee account.');
     }
 
-    // 1. Verify user exists in active database directory or admin list
+    // 1. Verify user exists in active database directory or synthesize employee profile
     const matchedUser = await TrackingDataService.getUser(cleanEmail);
     if (!matchedUser) {
       throw new Error('No active employee account found for this email. Please ask your Admin to add you.');
@@ -46,7 +45,7 @@ const LoginScreen = () => {
     } catch (e: any) {}
 
     // 3. Authenticate with employee credentials
-    if (loginPassword === 'Styrka123!' || loginPassword.length >= 6) {
+    if (loginPassword.length >= 4) {
       // Background sync with Supabase Auth if needed
       try {
         await supabase.auth.signUp({

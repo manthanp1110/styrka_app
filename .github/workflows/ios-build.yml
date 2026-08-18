@@ -5,12 +5,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'styrka_tech/**'
-      - 'App.tsx'
-      - 'app.json'
-      - 'package.json'
-      - '.github/workflows/ios-build.yml'
 
 jobs:
   build-ios:

@@ -89,30 +89,32 @@ export const MapplsApi = {
     try {
       const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10&viewbox=72.65,22.03,80.90,15.60&bounded=1`;
       const nomRes = await fetch(nomUrl, {
-        headers: { 'User-Agent': 'StyrkaApp/1.0' }
+        headers: { 'User-Agent': 'StyrkaApp/1.0 (contact: admin@styrka.com)' }
       });
-      const nomData = await nomRes.json();
-
-      if (Array.isArray(nomData) && nomData.length > 0) {
-        const suggestedLocations = nomData
-          .filter((item: any) => {
-            const lat = parseFloat(item.lat);
-            const lon = parseFloat(item.lon);
-            const isMHCoords = lat >= 15.60 && lat <= 22.03 && lon >= 72.65 && lon <= 80.90;
-            const isMHAddress = (item.display_name || '').toLowerCase().includes('maharashtra');
-            return isMHCoords || isMHAddress;
-          })
-          .map((item: any) => ({
-            mapplsPin: `${item.lat},${item.lon}`,
-            placeName: item.display_name.split(',')[0],
-            placeAddress: item.display_name,
-            latitude: parseFloat(item.lat),
-            longitude: parseFloat(item.lon)
-          }));
-        return { suggestedLocations };
+      const text = await nomRes.text();
+      if (text && text.trim().startsWith('[')) {
+        const nomData = JSON.parse(text);
+        if (Array.isArray(nomData) && nomData.length > 0) {
+          const suggestedLocations = nomData
+            .filter((item: any) => {
+              const lat = parseFloat(item.lat);
+              const lon = parseFloat(item.lon);
+              const isMHCoords = lat >= 15.60 && lat <= 22.03 && lon >= 72.65 && lon <= 80.90;
+              const isMHAddress = (item.display_name || '').toLowerCase().includes('maharashtra');
+              return isMHCoords || isMHAddress;
+            })
+            .map((item: any) => ({
+              mapplsPin: `${item.lat},${item.lon}`,
+              placeName: item.display_name.split(',')[0],
+              placeAddress: item.display_name,
+              latitude: parseFloat(item.lat),
+              longitude: parseFloat(item.lon)
+            }));
+          return { suggestedLocations };
+        }
       }
     } catch (e) {
-      console.error('[MapplsApi] Nominatim autoSuggest error:', e);
+      console.warn('[MapplsApi] Nominatim autoSuggest fallback error:', e);
     }
 
     return { suggestedLocations: [] };

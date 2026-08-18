@@ -89,12 +89,22 @@ const withMapplsOlf = (config) => {
       fs.copyFileSync(path.join(projectRoot, olfFile), path.join(destDir, olfFile));
       fs.copyFileSync(path.join(projectRoot, confFile), path.join(destDir, confFile));
 
-      const xcodeProject = config.modResults;
-      // Add files to the xcode project
-      xcodeProject.addResourceFile(path.join(projectName, olfFile), { target: xcodeProject.getFirstTarget().uuid });
-      xcodeProject.addResourceFile(path.join(projectName, confFile), { target: xcodeProject.getFirstTarget().uuid });
-      
-      console.log(`[Mappls Config] Copied and linked ${olfFile} and ${confFile} for iOS`);
+      try {
+        const xcodeProject = config.modResults;
+        const targetUuid = xcodeProject.getFirstTarget()?.uuid;
+        const groupKey = xcodeProject.findPBXGroupKey({ name: projectName }) || xcodeProject.findPBXGroupKey({ path: projectName });
+
+        if (groupKey) {
+          xcodeProject.addResourceFile(olfFile, targetUuid ? { target: targetUuid } : undefined, groupKey);
+          xcodeProject.addResourceFile(confFile, targetUuid ? { target: targetUuid } : undefined, groupKey);
+        } else {
+          xcodeProject.addFile(olfFile);
+          xcodeProject.addFile(confFile);
+        }
+        console.log(`[Mappls Config] Copied and linked ${olfFile} and ${confFile} for iOS`);
+      } catch (e) {
+        console.warn(`[Mappls Config] Copied files to ios/${projectName}/. Note: Xcode PBX link warning:`, e.message);
+      }
     } else {
       console.warn(`[Mappls Config] Warning: .i.olf or .i.conf file not found in project root!`);
     }

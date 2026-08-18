@@ -100,7 +100,7 @@ const AdminTrackingScreen = () => {
 
 
   // Helper: Resolve journey using emp.id -> emp.email -> live_locations.user_id -> fuzzy match
-  const resolveEmployeeJourney = (emp: any, journeysMap: Record<string, any>) => {
+  const resolveEmployeeJourney = (emp: any, journeysMap: Record<string, any>, isSelectedMapContext: boolean = false) => {
     if (!emp) return null;
 
     const candidateJourneys: any[] = [];
@@ -124,15 +124,17 @@ const AdminTrackingScreen = () => {
     });
 
     if (candidateJourneys.length === 0) {
-      // Fallback: If no candidate matched by ID/email/name, check active journeys with location/destination
-      const activeJourneysList = Object.values(journeysMap).filter((j: any) => j && (j.latestLocation || j.destination_lat));
-      if (activeJourneysList.length > 0) {
-        const sorted = [...activeJourneysList].sort((a, b) => {
-          const tA = new Date(a.latestLocation?.timestamp || 0).getTime();
-          const tB = new Date(b.latestLocation?.timestamp || 0).getTime();
-          return tB - tA;
-        });
-        return sorted[0];
+      if (isSelectedMapContext) {
+        // Fallback ONLY when viewing selected map context
+        const activeJourneysList = Object.values(journeysMap).filter((j: any) => j && (j.latestLocation || j.destination_lat));
+        if (activeJourneysList.length > 0) {
+          const sorted = [...activeJourneysList].sort((a, b) => {
+            const tA = new Date(a.latestLocation?.timestamp || 0).getTime();
+            const tB = new Date(b.latestLocation?.timestamp || 0).getTime();
+            return tB - tA;
+          });
+          return sorted[0];
+        }
       }
       return null;
     }
@@ -479,12 +481,14 @@ const AdminTrackingScreen = () => {
 
   const getEmployeeStatus = (empId: string) => {
     const emp = employees.find(e => e.id === empId || e.email === empId);
-    const journey = emp ? resolveEmployeeJourney(emp, activeJourneys) : activeJourneys[empId];
+    const journey = emp ? resolveEmployeeJourney(emp, activeJourneys, false) : (activeJourneys[empId]?.latestLocation ? activeJourneys[empId] : null);
 
-    if (journey) {
+    if (journey && (journey.latestLocation || journey.destination_lat)) {
+      const pingAgeMs = journey.latestLocation?.timestamp ? Date.now() - new Date(journey.latestLocation.timestamp).getTime() : Infinity;
+      const isRecentlyActive = pingAgeMs < 10 * 60 * 1000;
       const isOffline = !journey.latestLocation
-        || journey.latestLocation.status === 'offline'
-        || (journey.latestLocation.timestamp && Date.now() - new Date(journey.latestLocation.timestamp).getTime() > 5 * 60 * 1000);
+        || (journey.latestLocation.status === 'offline' && !isRecentlyActive)
+        || pingAgeMs > 10 * 60 * 1000;
 
       if (isOffline) {
         return { label: 'Offline (Last Known Location)', color: '#6B7280', canTrack: true, isOffline: true };
@@ -510,7 +514,7 @@ const AdminTrackingScreen = () => {
   };
 
   const selectedEmp = selectedEmployeeId ? employees.find(e => e.id === selectedEmployeeId || e.email === selectedEmployeeId) : null;
-  const resolvedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
+  const resolvedJourney = selectedEmp ? resolveEmployeeJourney(selectedEmp, activeJourneys, true) : (selectedEmployeeId ? activeJourneys[selectedEmployeeId] : null);
   
   // Robust fallback: If resolvedJourney is null or missing latestLocation, check if there's any active journey with live location
   const fallbackActiveJourney = (!resolvedJourney || !resolvedJourney.latestLocation)

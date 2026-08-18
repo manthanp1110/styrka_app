@@ -167,13 +167,30 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
     return set;
   }, [employeeDestinations]);
 
-  // Filter employee destinations by selected date
-  const filteredDestinations = useMemo(() => {
-    if (!selectedDate) return employeeDestinations;
-    return employeeDestinations.filter((d) => {
-      const createdIso = d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : null;
-      const completedIso = d.completed_at ? new Date(d.completed_at).toISOString().split('T')[0] : null;
-      return createdIso === selectedDate || completedIso === selectedDate;
+  // Filter & Sort employee destinations by selected date and recent timestamp
+  const sortedDestinations = useMemo(() => {
+    let list = employeeDestinations;
+    const nowMs = Date.now();
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+
+    if (selectedDate === 'recent') {
+      list = list.filter((d) => {
+        const timeMs = new Date(d.updated_at || d.completed_at || d.created_at).getTime();
+        return nowMs - timeMs <= twentyFourHoursMs;
+      });
+    } else if (selectedDate) {
+      list = list.filter((d) => {
+        const createdIso = d.created_at ? new Date(d.created_at).toISOString().split('T')[0] : null;
+        const completedIso = d.completed_at ? new Date(d.completed_at).toISOString().split('T')[0] : null;
+        return createdIso === selectedDate || completedIso === selectedDate;
+      });
+    }
+
+    // Sort descending by most recent timestamp
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.updated_at || a.completed_at || a.created_at).getTime();
+      const timeB = new Date(b.updated_at || b.completed_at || b.created_at).getTime();
+      return timeB - timeA;
     });
   }, [employeeDestinations, selectedDate]);
 
@@ -181,6 +198,7 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
   const formatDateTime = (isoString?: string) => {
     if (!isoString) return { dateStr: 'N/A', timeStr: 'N/A' };
     const dt = new Date(isoString);
+    if (isNaN(dt.getTime())) return { dateStr: 'N/A', timeStr: 'N/A' };
     const dateStr = dt.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
     return { dateStr, timeStr };
@@ -340,6 +358,16 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
           <View style={styles.dateSelectorRow}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
               <TouchableOpacity
+                style={[styles.dateChip, selectedDate === 'recent' && styles.dateChipActive]}
+                onPress={() => setSelectedDate('recent')}
+              >
+                <Feather name="zap" size={13} color={selectedDate === 'recent' ? '#FFFFFF' : '#10B981'} style={{ marginRight: 4 }} />
+                <Text style={[styles.dateChipText, selectedDate === 'recent' && styles.dateChipTextActive]}>
+                  Recent Journeys (24h)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.dateChip, selectedDate === null && styles.dateChipActive]}
                 onPress={() => setSelectedDate(null)}
               >
@@ -367,12 +395,12 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.calendarBtn, selectedDate !== null && selectedDate !== todayIso && selectedDate !== yesterdayIso && styles.calendarBtnActive]}
+                style={[styles.calendarBtn, selectedDate !== null && selectedDate !== 'recent' && selectedDate !== todayIso && selectedDate !== yesterdayIso && styles.calendarBtnActive]}
                 onPress={() => setIsCalendarOpen(true)}
               >
                 <Feather name="calendar" size={16} color={selectedDate ? '#FFFFFF' : '#0F4C3A'} style={{ marginRight: 6 }} />
                 <Text style={[styles.calendarBtnText, selectedDate ? { color: '#FFFFFF' } : {}]}>
-                  {selectedDate ? selectedDate : 'Calendar Filter'}
+                  {selectedDate && selectedDate !== 'recent' ? selectedDate : 'Calendar Filter'}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -382,26 +410,27 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
           {selectedDate ? (
             <View style={styles.filterNoticeBar}>
               <Text style={styles.filterNoticeText}>
-                Showing logs for: <Text style={{ fontWeight: 'bold' }}>{selectedDate}</Text>
+                Showing logs for: <Text style={{ fontWeight: 'bold' }}>{selectedDate === 'recent' ? 'Recent (Last 24 Hours)' : selectedDate}</Text>
               </Text>
               <TouchableOpacity onPress={() => setSelectedDate(null)}>
-                <Text style={styles.clearFilterText}>Clear Date</Text>
+                <Text style={styles.clearFilterText}>Clear Filter</Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
           {/* Journey Logs List */}
           <FlatList
-            data={filteredDestinations}
+            data={sortedDestinations}
             keyExtractor={(item) => item.id}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#0F4C3A']} />}
             renderItem={({ item }) => {
               const isCompleted = item.status === 'completed';
               const isInProgress = item.status === 'in_progress';
 
+              const completedTimestamp = item.completed_at || item.updated_at || (isCompleted ? item.created_at : undefined);
               const startInfo = formatDateTime(item.created_at);
-              const endInfo = isCompleted ? formatDateTime(item.completed_at || item.updated_at) : null;
-              const durationStr = isCompleted ? calculateDuration(item.created_at, item.completed_at || item.updated_at) : null;
+              const endInfo = isCompleted ? formatDateTime(completedTimestamp) : null;
+              const durationStr = isCompleted ? calculateDuration(item.created_at, completedTimestamp) : null;
 
               return (
                 <View style={styles.journeyCard}>

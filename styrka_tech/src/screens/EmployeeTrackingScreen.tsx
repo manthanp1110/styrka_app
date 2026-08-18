@@ -751,7 +751,7 @@ const EmployeeTrackingScreen = () => {
         status: 'offline',
       });
       SocketService.emitJourneyStatus({
-        journeyId,
+        journeyId: destId || journeyId,
         userId,
         email: user.email || undefined,
         name: user.name || undefined,

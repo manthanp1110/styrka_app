@@ -485,7 +485,16 @@ export class TrackingDataService {
           }));
 
           const destMap = new Map<string, AssignedDestination>();
-          [...remoteList, ...localList].forEach((item) => destMap.set(item.id, item));
+          [...localList, ...remoteList].forEach((item) => {
+            const existing = destMap.get(item.id);
+            if (!existing) {
+              destMap.set(item.id, item);
+            } else {
+              if (item.status === 'completed' || new Date(item.updated_at || item.created_at).getTime() >= new Date(existing.updated_at || existing.created_at).getTime()) {
+                destMap.set(item.id, item);
+              }
+            }
+          });
           return Array.from(destMap.values());
         }
       } catch {}

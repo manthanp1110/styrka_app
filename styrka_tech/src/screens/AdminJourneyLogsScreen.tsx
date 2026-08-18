@@ -51,11 +51,50 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
     // Listen to real-time destination assignments & journey status completion events
     const handleDestAssigned = (data: any) => {
       console.log('[AdminJourneyLogsScreen] Socket destination received:', data);
+      if (data && (data.destination_id || data.address)) {
+        const newDest: AssignedDestination = {
+          id: data.destination_id || `d_${Date.now()}`,
+          admin_id: data.admin_id || 'admin_1',
+          employee_id: data.employee_id || data.user_id || 'emp_1',
+          address: data.address || 'Custom destination',
+          latitude: Number(data.latitude || 0),
+          longitude: Number(data.longitude || 0),
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        };
+        setAllDestinations((prev) => [newDest, ...prev.filter((d) => d.id !== newDest.id)]);
+      }
       loadData();
     };
 
     const handleStatusChanged = (data: any) => {
       console.log('[AdminJourneyLogsScreen] Socket status changed:', data);
+      if (data) {
+        const destId = data.journeyId || data.destination_id;
+        const status = data.status || 'completed';
+        const nowIso = new Date().toISOString();
+
+        setAllDestinations((prev) =>
+          prev.map((d) => {
+            if (destId && (d.id === destId || d.id.includes(destId) || destId.includes(d.id))) {
+              return {
+                ...d,
+                status: status as any,
+                completed_at: status === 'completed' ? (d.completed_at || nowIso) : d.completed_at,
+                updated_at: nowIso,
+              };
+            }
+            const empTarget = (d.employee_id || '').toLowerCase();
+            const targetUser = (data.userId || data.employee_id || '').toLowerCase();
+            if (targetUser && (empTarget === targetUser || empTarget.includes(targetUser))) {
+              if (status === 'completed' && d.status !== 'completed') {
+                return { ...d, status: 'completed', completed_at: d.completed_at || nowIso, updated_at: nowIso };
+              }
+            }
+            return d;
+          })
+        );
+      }
       loadData();
     };
 

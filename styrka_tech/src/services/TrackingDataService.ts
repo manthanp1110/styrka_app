@@ -674,7 +674,7 @@ export class TrackingDataService {
       const { data, error } = await supabase.from('live_locations').select('*');
       if (!error && data && data.length > 0) {
         data.forEach((item: any) => {
-          resultMap[String(item.user_id)] = {
+          const locObj: LiveLocation = {
             user_id: String(item.user_id),
             name: item.name || undefined,
             email: item.email || undefined,
@@ -689,6 +689,11 @@ export class TrackingDataService {
             destination_lng: item.destination_lng != null ? Number(item.destination_lng) : null,
             destination_address: item.destination_address || null,
           };
+
+          const keyPrimary = String(item.user_id);
+          resultMap[keyPrimary] = locObj;
+          if (item.email) resultMap[String(item.email)] = locObj;
+          if (item.name) resultMap[String(item.name)] = locObj;
         });
       }
     } catch (e) {

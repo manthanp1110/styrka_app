@@ -117,8 +117,7 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
   const DEMO_KEYS = [
     'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
     'emp_1', 'emp_2', 'emp_3', 
-    'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
-    'sangita', 'rahul', 'vikram'
+    'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
   ];
 
   // Filter employees by search query

@@ -86,15 +86,16 @@ export class TrackingDataService {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, email, role')
-        .eq('role', 'employee');
+        .select('id, name, email, role');
       if (!error && data && data.length > 0) {
-        supabaseEmployees = data.map((p: any) => ({
-          id: String(p.id),
-          name: p.name || p.email,
-          email: p.email || `${p.id}@styrka.com`,
-          role: 'employee' as const,
-        }));
+        supabaseEmployees = data
+          .filter((p: any) => p.role !== 'admin')
+          .map((p: any) => ({
+            id: String(p.id),
+            name: p.name || p.email,
+            email: p.email || `${p.id}@styrka.com`,
+            role: 'employee' as const,
+          }));
       }
     } catch (e) {
       console.warn('[TrackingDataService] Could not fetch employees from Supabase:', e);
@@ -103,8 +104,7 @@ export class TrackingDataService {
     const DEMO_EMAILS = [
       'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
       'emp_1', 'emp_2', 'emp_3', 
-      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
-      'sangita', 'rahul', 'vikram'
+      'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
     ];
     const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
 

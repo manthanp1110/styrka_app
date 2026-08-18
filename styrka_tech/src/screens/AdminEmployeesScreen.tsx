@@ -51,10 +51,34 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     loadData();
+
+    // 1. Re-fetch whenever screen comes into focus
     const unsubscribe = navigation?.addListener?.('focus', () => {
       loadData();
     });
-    return unsubscribe;
+
+    // 2. Poll Supabase every 3 seconds so new employees added on other devices appear automatically
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 3000);
+
+    // 3. Listen to real-time socket events for instant cross-device updates
+    const handleEmpCreated = () => {
+      loadData();
+    };
+    const handleEmpDeleted = () => {
+      loadData();
+    };
+
+    SocketService.on('employee_created', handleEmpCreated);
+    SocketService.on('employee_deleted', handleEmpDeleted);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      clearInterval(pollInterval);
+      SocketService.off('employee_created', handleEmpCreated);
+      SocketService.off('employee_deleted', handleEmpDeleted);
+    };
   }, [loadData, navigation]);
 
   const handleRefresh = () => {
@@ -117,6 +141,9 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
             try {
               if (item.id) await TrackingDataService.deleteEmployee(item.id);
               if (item.email) await TrackingDataService.deleteEmployee(item.email);
+              try {
+                SocketService.emit('employee_deleted', { id: item.id, email: item.email });
+              } catch (e) {}
               Alert.alert('Deleted', `Employee "${item.name}" was successfully removed.`);
               loadData();
             } catch (e: any) {
@@ -131,8 +158,7 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
   const DEMO_KEYS = [
     'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
     'emp_1', 'emp_2', 'emp_3', 
-    'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com',
-    'sangita', 'rahul', 'vikram'
+    'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'
   ];
 
   const filteredEmployees = employees.filter((emp) => {

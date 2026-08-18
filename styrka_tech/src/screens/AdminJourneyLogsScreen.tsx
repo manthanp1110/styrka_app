@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TrackingDataService, User, AssignedDestination } from '../services/TrackingDataService';
-import { SocketService } from '../services/SocketService';
+import SocketService from '../services/SocketService';
 
 export const AdminJourneyLogsScreen = ({ navigation }: any) => {
   const [employees, setEmployees] = useState<User[]>([]);
@@ -49,23 +49,26 @@ export const AdminJourneyLogsScreen = ({ navigation }: any) => {
     loadData();
 
     // Listen to real-time destination assignments & journey status completion events
-    const offDest = SocketService.onDestinationAssigned((data) => {
+    const handleDestAssigned = (data: any) => {
       console.log('[AdminJourneyLogsScreen] Socket destination received:', data);
       loadData();
-    });
+    };
 
-    const offStatus = SocketService.onJourneyStatusChanged((data) => {
+    const handleStatusChanged = (data: any) => {
       console.log('[AdminJourneyLogsScreen] Socket status changed:', data);
       loadData();
-    });
+    };
+
+    SocketService.on('destination_assigned', handleDestAssigned);
+    SocketService.on('journey_status_changed', handleStatusChanged);
 
     const unsubscribe = navigation?.addListener?.('focus', () => {
       loadData();
     });
 
     return () => {
-      offDest?.();
-      offStatus?.();
+      SocketService.off('destination_assigned', handleDestAssigned);
+      SocketService.off('journey_status_changed', handleStatusChanged);
       unsubscribe?.();
     };
   }, [navigation]);

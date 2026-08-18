@@ -100,11 +100,28 @@ export class TrackingDataService {
       console.warn('[TrackingDataService] Could not fetch employees from Supabase:', e);
     }
 
-    // Merge with local custom employees
+    const DEMO_EMAILS = ['sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 'emp_1', 'emp_2', 'emp_3', 'emp_sangita_styrka_com'];
+    const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com'];
+
+    // Filter out demo and admin users from Supabase users
+    supabaseEmployees = supabaseEmployees.filter((e) => {
+      const em = (e.email || '').toLowerCase();
+      const id = (e.id || '').toLowerCase();
+      return !DEMO_EMAILS.includes(em) && !DEMO_EMAILS.includes(id) && !ADMIN_EMAILS.includes(em) && e.role !== 'admin';
+    });
+
+    // Merge with local custom employees (cleaned of demo accounts)
     let customEmployees: User[] = [];
     try {
       const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
-      if (raw) customEmployees = JSON.parse(raw);
+      if (raw) {
+        const parsed: User[] = JSON.parse(raw);
+        customEmployees = parsed.filter((e) => {
+          const em = (e.email || '').toLowerCase();
+          const id = (e.id || '').toLowerCase();
+          return !DEMO_EMAILS.includes(em) && !DEMO_EMAILS.includes(id) && !ADMIN_EMAILS.includes(em) && e.role !== 'admin';
+        });
+      }
     } catch {}
 
     // ALSO merge with live locations in Supabase
@@ -113,13 +130,19 @@ export class TrackingDataService {
       const { data: locData } = await supabase.from('live_locations').select('*');
       if (locData && locData.length > 0) {
         locData.forEach((item: any) => {
-          const uId = String(item.user_id);
+          const uId = String(item.user_id).trim().toLowerCase();
+          const em = (item.email || '').trim().toLowerCase();
+
+          if (DEMO_EMAILS.includes(uId) || DEMO_EMAILS.includes(em) || ADMIN_EMAILS.includes(em) || item.role === 'admin') {
+            return;
+          }
+
           const rawName = item.name || (uId.includes('@') ? uId.split('@')[0] : uId);
           const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
           liveLocationEmployees.push({
             id: uId,
             name: formattedName,
-            email: item.email || (uId.includes('@') ? uId : `${uId}@styrka.com`),
+            email: em || (uId.includes('@') ? uId : `${uId}@styrka.com`),
             role: 'employee',
           });
         });
@@ -136,6 +159,11 @@ export class TrackingDataService {
     all.forEach((emp) => {
       const cleanId = (emp.id || '').trim().toLowerCase();
       const cleanEmail = (emp.email || '').trim().toLowerCase();
+
+      if (DEMO_EMAILS.includes(cleanId) || DEMO_EMAILS.includes(cleanEmail) || ADMIN_EMAILS.includes(cleanEmail) || emp.role === 'admin') {
+        return;
+      }
+
       const emailPrefix = cleanEmail 
         ? cleanEmail.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '').replace(/[^a-z0-9]/g, '') 
         : '';
@@ -158,7 +186,7 @@ export class TrackingDataService {
       });
     });
 
-    // Sync back to local storage so offline access is instant
+    // Sync back clean list to local storage
     try {
       await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(resultList));
     } catch {}

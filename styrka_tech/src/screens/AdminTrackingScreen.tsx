@@ -122,8 +122,7 @@ const AdminTrackingScreen = () => {
       const isMatch =
         (empId && (jUserId === empId || jEmpId === empId || locUserId === empId)) ||
         (empEmail && (jEmail === empEmail || jUserId === empEmail || locUserId === empEmail)) ||
-        (emailPrefix && emailPrefix.length > 2 && (jUserId.includes(emailPrefix) || locUserId.includes(emailPrefix) || jEmail.includes(emailPrefix))) ||
-        (empName && empName.length > 2 && (jName.includes(empName) || empName.includes(jName) || jUserId.includes(empName) || locUserId.includes(empName)));
+        (emailPrefix && emailPrefix.length > 2 && (jUserId === emailPrefix || locUserId === emailPrefix || jEmail === emailPrefix || jEmpId === emailPrefix));
 
       if (isMatch && !candidateJourneys.includes(j)) {
         candidateJourneys.push(j);
@@ -131,17 +130,6 @@ const AdminTrackingScreen = () => {
     });
 
     if (candidateJourneys.length === 0) {
-      if (isSelectedMapContext) {
-        const activeJourneysList = Object.values(journeysMap).filter((j: any) => j && (j.latestLocation || j.destination_lat));
-        if (activeJourneysList.length > 0) {
-          const sorted = [...activeJourneysList].sort((a, b) => {
-            const tA = new Date(a.latestLocation?.timestamp || 0).getTime();
-            const tB = new Date(b.latestLocation?.timestamp || 0).getTime();
-            return tB - tA;
-          });
-          return sorted[0];
-        }
-      }
       return null;
     }
 
@@ -327,7 +315,7 @@ const AdminTrackingScreen = () => {
 
             const resolvedStatus = (dest?.status === 'completed' || existingJourney?.status === 'completed')
               ? 'completed'
-              : (dest?.status === 'in_progress' || (dest?.status as any) === 'started' || existingJourney?.status === 'in_progress' || latestPing?.status === 'online'
+              : ((dest?.status === 'in_progress' || (dest?.status as any) === 'started' || existingJourney?.status === 'in_progress')
                 ? 'in_progress'
                 : 'offline');
 
@@ -585,12 +573,8 @@ const AdminTrackingScreen = () => {
         return { label: 'Journey Completed', color: '#3B82F6', canTrack: true, isOffline: true };
       }
 
-      if (journey.status === 'in_progress' || journey.status === 'started' || journey.latestLocation?.status === 'online') {
-        const pingAgeMs = journey.latestLocation?.timestamp ? Date.now() - new Date(journey.latestLocation.timestamp).getTime() : Infinity;
-        const isOnline = journey.latestLocation?.status === 'online' || pingAgeMs < 5 * 60 * 1000;
-        if (isOnline) {
-          return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
-        }
+      if (journey.status === 'in_progress' || journey.status === 'started') {
+        return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
       }
 
       return { label: 'Offline', color: '#6B7280', canTrack: false, isOffline: true };

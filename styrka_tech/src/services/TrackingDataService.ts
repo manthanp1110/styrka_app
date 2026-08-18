@@ -172,11 +172,77 @@ export class TrackingDataService {
     const cleanEmail = param.email.trim().toLowerCase();
     const password = param.password || 'Styrka123!';
 
-    let createdId: string | null = null;
+    const finalId = `emp_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
 
+    const newEmp: User = {
+      id: finalId,
+      name: cleanName,
+      email: cleanEmail,
+      role: 'employee',
+    };
+
+    // 1. Direct upsert into public.users table in Supabase (Global for all phones)
     try {
-      // 1. Register with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { error: usersError } = await supabase
+        .from('users')
+        .upsert(
+          [
+            {
+              id: finalId,
+              name: cleanName,
+              email: cleanEmail,
+              role: 'employee',
+            },
+          ],
+          { onConflict: 'email' }
+        );
+
+      if (usersError) {
+        console.warn('[TrackingDataService] Supabase users table upsert warning:', usersError.message);
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Error upserting user into public.users table:', e);
+    }
+
+    // 2. Direct upsert into public.live_locations table in Supabase (Global for all phones)
+    try {
+      const { error: locError } = await supabase
+        .from('live_locations')
+        .upsert(
+          [
+            {
+              user_id: finalId,
+              name: cleanName,
+              email: cleanEmail,
+              latitude: 0,
+              longitude: 0,
+              status: 'offline',
+              updated_at: new Date().toISOString(),
+            },
+          ],
+          { onConflict: 'user_id' }
+        );
+
+      if (locError) {
+        console.warn('[TrackingDataService] Supabase live_locations table upsert warning:', locError.message);
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Error upserting user into live_locations table:', e);
+    }
+
+    // 3. Store in local storage cache for instant offline access
+    try {
+      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
+      const customEmployees: User[] = raw ? JSON.parse(raw) : [];
+      const updated = [newEmp, ...customEmployees.filter((e) => e.email !== cleanEmail && e.id !== newEmp.id)];
+      await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('[TrackingDataService] Failed to save custom employee locally:', e);
+    }
+
+    // 4. Try registering with Supabase Auth in background
+    try {
+      await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
         options: {
@@ -186,66 +252,7 @@ export class TrackingDataService {
           },
         },
       });
-
-      if (!authError && authData.user) {
-        createdId = authData.user.id;
-      }
-    } catch (e) {
-      console.warn('[TrackingDataService] Supabase Auth signUp failed, attempting direct table insert', e);
-    }
-
-    const finalId = createdId || `emp_${Date.now()}`;
-
-    // 2. Always upsert profile into public.users and live_locations tables in Supabase
-    try {
-      await supabase
-        .from('users')
-        .upsert([
-          {
-            id: finalId,
-            name: cleanName,
-            email: cleanEmail,
-            role: 'employee',
-          },
-        ]);
-    } catch (e) {
-      console.warn('[TrackingDataService] Error upserting user into public.users table:', e);
-    }
-
-    try {
-      await supabase
-        .from('live_locations')
-        .upsert([
-          {
-            user_id: finalId,
-            name: cleanName,
-            email: cleanEmail,
-            latitude: 0,
-            longitude: 0,
-            status: 'offline',
-            updated_at: new Date().toISOString(),
-          },
-        ]);
-    } catch (e) {
-      console.warn('[TrackingDataService] Error upserting user into live_locations table:', e);
-    }
-
-    const newEmp: User = {
-      id: finalId,
-      name: cleanName,
-      email: cleanEmail,
-      role: 'employee',
-    };
-
-    // Store in local storage so it persists offline / instantly
-    try {
-      const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
-      const customEmployees: User[] = raw ? JSON.parse(raw) : [];
-      const updated = [newEmp, ...customEmployees.filter((e) => e.email !== cleanEmail && e.id !== newEmp.id)];
-      await AsyncStorage.setItem(CUSTOM_EMPLOYEES_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error('[TrackingDataService] Failed to save custom employee locally:', e);
-    }
+    } catch (e) {}
 
     return newEmp;
   }

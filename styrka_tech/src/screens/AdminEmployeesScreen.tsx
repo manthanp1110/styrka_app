@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { TrackingDataService, User, LiveLocation } from '../services/TrackingDataService';
+import SocketService from '../services/SocketService';
 
 export const AdminEmployeesScreen = ({ navigation }: any) => {
   const [employees, setEmployees] = useState<User[]>([]);
@@ -85,6 +86,10 @@ export const AdminEmployeesScreen = ({ navigation }: any) => {
         'Success',
         `Employee "${created.name}" created successfully!\n\nEmail: ${created.email}\nDefault Password: ${password.trim() || 'Styrka123!'}`
       );
+
+      try {
+        SocketService.emit('employee_created', created);
+      } catch (e) {}
 
       // Reset form & close modal
       setName('');

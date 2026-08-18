@@ -163,6 +163,8 @@ const EmployeeDestinationScreen = () => {
         destination_id: created.id,
         admin_id: user.id || 'emp_1',
         employee_id: user.id || 'emp_1',
+        email: user.email || undefined,
+        name: user.name || undefined,
         address: targetPlace.address,
         latitude: targetPlace.latitude,
         longitude: targetPlace.longitude,

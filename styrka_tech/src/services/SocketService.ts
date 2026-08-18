@@ -61,6 +61,8 @@ class SocketService {
     destination_id?: string;
     admin_id: string;
     employee_id: string;
+    email?: string;
+    name?: string;
     address: string;
     latitude: number;
     longitude: number;

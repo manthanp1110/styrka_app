@@ -188,7 +188,16 @@ const AdminTrackingScreen = () => {
                  ))
                );
 
-          const dest = allDestinations.find((d) => (d.employee_id === emp.id || (emp.email && d.employee_id === emp.email)) && d.status !== 'completed');
+          const dest = allDestinations.find((d) => 
+            (d.employee_id === emp.id || 
+            (emp.email && d.employee_id === emp.email) ||
+            (d.employee_id && (
+              d.employee_id.toLowerCase() === (emp.id || '').toLowerCase() ||
+              d.employee_id.toLowerCase() === (emp.email || '').toLowerCase() ||
+              (emp.name && d.employee_id.toLowerCase().includes(emp.name.toLowerCase())) ||
+              (emp.name && emp.name.toLowerCase().includes(d.employee_id.toLowerCase()))
+            ))) && d.status !== 'completed'
+          ) || allDestinations.find((d) => d.status !== 'completed');
 
           const existingJourney = prev[emp.id] 
             || (emp.email ? prev[emp.email] : null) 
@@ -353,12 +362,64 @@ const AdminTrackingScreen = () => {
           if (empName) nextMap[empName] = updatedJourney;
           if (incomingId) nextMap[incomingId] = updatedJourney;
           return nextMap;
+    const handleDestinationAssigned = (data: any) => {
+      console.log('[ADMIN DESTINATION] received:', data);
+      if (data && (data.latitude != null || data.address)) {
+        const targetEmpId = data.employee_id || data.user_id;
+        const targetEmail = data.email;
+        const targetName = data.name;
+
+        setActiveJourneys((prev) => {
+          const nextMap: Record<string, any> = { ...prev };
+          const destLat = data.latitude != null ? Number(data.latitude) : null;
+          const destLng = data.longitude != null ? Number(data.longitude) : null;
+          const destAddr = data.address || 'Custom destination';
+
+          Object.keys(nextMap).forEach((key) => {
+            if (
+              !targetEmpId ||
+              key === targetEmpId ||
+              (targetEmail && key === targetEmail) ||
+              (targetName && key === targetName) ||
+              key.toLowerCase().includes(String(targetEmpId).toLowerCase())
+            ) {
+              nextMap[key] = {
+                ...nextMap[key],
+                destination_lat: destLat ?? nextMap[key]?.destination_lat,
+                destination_lng: destLng ?? nextMap[key]?.destination_lng,
+                address: destAddr || nextMap[key]?.address,
+              };
+            }
+          });
+
+          if (targetEmpId) {
+            nextMap[targetEmpId] = {
+              ...(nextMap[targetEmpId] || {}),
+              id: `j_${targetEmpId}`,
+              user_id: targetEmpId,
+              destination_lat: destLat,
+              destination_lng: destLng,
+              address: destAddr,
+            };
+          }
+          if (targetEmail) {
+            nextMap[targetEmail] = {
+              ...(nextMap[targetEmail] || {}),
+              id: `j_${targetEmpId || targetEmail}`,
+              user_id: targetEmpId || targetEmail,
+              destination_lat: destLat,
+              destination_lng: destLng,
+              address: destAddr,
+            };
+          }
+          return nextMap;
         });
       }
+      fetchTrackingData();
     };
 
     SocketService.on('employee_location_changed', handleLocationChange);
-    SocketService.on('destination_assigned', fetchTrackingData);
+    SocketService.on('destination_assigned', handleDestinationAssigned);
     SocketService.on('journey_status_changed', fetchTrackingData);
 
     const interval = setInterval(() => {
@@ -368,7 +429,7 @@ const AdminTrackingScreen = () => {
     return () => {
       clearInterval(interval);
       SocketService.off('employee_location_changed', handleLocationChange);
-      SocketService.off('destination_assigned', fetchTrackingData);
+      SocketService.off('destination_assigned', handleDestinationAssigned);
       SocketService.off('journey_status_changed', fetchTrackingData);
     };
   }, []);

@@ -30,13 +30,17 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
   useImperativeHandle(ref, () => ({
     animateToRegion: (targetRegion: any) => {
       const zoom = getZoomFromRegion(targetRegion);
-      const js = `map.setView([${targetRegion.latitude}, ${targetRegion.longitude}], ${Math.round(zoom)});`;
+      const js = `if (window.map) { window.map.setView([${targetRegion.latitude}, ${targetRegion.longitude}], ${Math.round(zoom)}); } true;`;
       webViewRef.current?.injectJavaScript(js);
     },
     fitToCoordinates: (coordinates: any[]) => {
       if (!coordinates || coordinates.length === 0) return;
       const bounds = coordinates.map(c => `[${c.latitude}, ${c.longitude}]`).join(',');
-      const js = `map.fitBounds([${bounds}], { padding: [40, 40] });`;
+      const js = `if (window.map) { window.map.fitBounds([${bounds}], { padding: [40, 40] }); } true;`;
+      webViewRef.current?.injectJavaScript(js);
+    },
+    recenter: () => {
+      const js = `if (window.recenterMap) { window.recenterMap(); } true;`;
       webViewRef.current?.injectJavaScript(js);
     }
   }));
@@ -186,13 +190,7 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
 <body>
   <div id="map"></div>
   <script>
-    // Strict Maharashtra State Bounding Box (South-West: [15.60, 72.65], North-East: [22.03, 80.90])
-    var maharashtraBounds = L.latLngBounds(
-      L.latLng(15.60, 72.65),
-      L.latLng(22.03, 80.90)
-    );
-
-    var map = L.map('map', { 
+    window.map = L.map('map', { 
       zoomControl: false,
       minZoom: 3,
       maxZoom: 19
@@ -208,13 +206,20 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         minZoom: 3,
         maxZoom: 19
-      }).addTo(map);
+      }).addTo(window.map);
     });
 
-    primaryTile.addTo(map);
+    primaryTile.addTo(window.map);
 
-    var dataGroup = L.layerGroup().addTo(map);
+    var dataGroup = L.layerGroup().addTo(window.map);
     var isFirstRender = true;
+    var lastCombinedBounds = null;
+
+    window.recenterMap = function() {
+      if (lastCombinedBounds) {
+        window.map.fitBounds(lastCombinedBounds, { padding: [40, 40] });
+      }
+    };
 
     window.renderData = function(markersData, polylinesData) {
       dataGroup.clearLayers();
@@ -258,10 +263,14 @@ const UniversalWebViewMap = forwardRef(({ initialRegion, region, style, children
         for (var i = 1; i < allBounds.length; i++) {
           combinedBounds.extend(allBounds[i]);
         }
-        map.fitBounds(combinedBounds, { padding: [40, 40] });
+        lastCombinedBounds = combinedBounds;
+        if (isFirstRender) {
+          isFirstRender = false;
+          window.map.fitBounds(combinedBounds, { padding: [40, 40] });
+        }
       } else if (riderPos && isFirstRender) {
         isFirstRender = false;
-        map.setView(riderPos, 15);
+        window.map.setView(riderPos, 15);
       }
     };
 

@@ -881,7 +881,18 @@ const AdminTrackingScreen = () => {
             <View style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, flexDirection: 'row', gap: 10 }}>
               {/* Follow Mode Toggle */}
               <TouchableOpacity 
-                onPress={() => setFollowMode(!followMode)}
+                onPress={() => {
+                  const nextMode = !followMode;
+                  setFollowMode(nextMode);
+                  if (nextMode && selectedJourney?.latestLocation?.latitude != null && mapRef.current) {
+                    mapRef.current.animateToRegion({
+                      latitude: Number(selectedJourney.latestLocation.latitude),
+                      longitude: Number(selectedJourney.latestLocation.longitude),
+                      latitudeDelta: 0.03,
+                      longitudeDelta: 0.03,
+                    });
+                  }
+                }}
                 style={{ 
                   backgroundColor: followMode ? '#10B981' : '#FFF', 
                   paddingHorizontal: 12, 
@@ -1008,14 +1019,15 @@ const AdminTrackingScreen = () => {
                 {/* Recenter Map Button */}
                 <TouchableOpacity 
                   onPress={() => {
-                    if (selectedJourney?.latestLocation && mapRef.current) {
+                    if (mapRef.current?.recenter) {
+                      mapRef.current.recenter();
+                    } else if (selectedJourney?.latestLocation && mapRef.current) {
                       mapRef.current.animateToRegion({
                         latitude: Number(selectedJourney.latestLocation.latitude),
                         longitude: Number(selectedJourney.latestLocation.longitude),
-                        latitudeDelta: 0.02,
-                        longitudeDelta: 0.02,
-                      }, 1000);
-                      setFollowMode(true);
+                        latitudeDelta: 0.05,
+                        longitudeDelta: 0.05,
+                      });
                     }
                   }}
                   style={{ paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#EFF6FF', borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}

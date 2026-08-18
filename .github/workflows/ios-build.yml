@@ -1,0 +1,71 @@
+name: Build iOS App (.ipa)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'styrka_tech/**'
+      - 'App.tsx'
+      - 'app.json'
+      - 'package.json'
+      - '.github/workflows/ios-build.yml'
+
+jobs:
+  build-ios:
+    name: Compile iOS .ipa
+    runs-on: macos-14
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Node Dependencies
+        run: |
+          npm install --legacy-peer-deps
+
+      - name: 🛠️ Generate Native iOS Project (Expo Prebuild)
+        run: |
+          npx expo prebuild --platform ios --clean
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://fabtqddbaeoawlrrjwrm.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Bbu8NxxN7EsJDKK3uUGgeQ_jKF6qmh8' }}
+          EXPO_PUBLIC_MAPPLS_API_KEY: ${{ secrets.EXPO_PUBLIC_MAPPLS_API_KEY || '28b2df366fa28c4d538d96c1b5cf32fb' }}
+          EXPO_PUBLIC_BACKEND_URL: ${{ secrets.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com' }}
+
+      - name: 🍏 Install CocoaPods
+        working-directory: ios
+        run: |
+          pod install
+
+      - name: 🔨 Compile iOS Archive (xcodebuild)
+        run: |
+          xcodebuild -workspace ios/styrka.xcworkspace \
+            -scheme styrka \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/styrka.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: 📦 Package into .ipa
+        run: |
+          mkdir -p Payload
+          cp -r build/styrka.xcarchive/Products/Applications/styrka.app Payload/
+          zip -r styrka-release.ipa Payload
+
+      - name: 🚀 Upload .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: styrka-ios-ipa
+          path: styrka-release.ipa
+          retention-days: 14

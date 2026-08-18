@@ -50,10 +50,32 @@ const withMapplsOlf = (config) => {
     },
   ]);
 
-  // iOS: Modify Podfile
+  // iOS: Modify Podfile and Copy .i.olf / .i.conf files into iOS project
   config = withDangerousMod(config, [
     'ios',
     async (config) => {
+      const projectRoot = config.modRequest.projectRoot;
+      const projectName = config.modRequest.projectName || 'styrka';
+      const iosRoot = path.join(projectRoot, 'ios');
+      const destDir = path.join(iosRoot, projectName);
+
+      // 1. Copy .i.olf and .i.conf files to ios project directory
+      const files = fs.readdirSync(projectRoot);
+      const olfFile = files.find((f) => f.endsWith('.i.olf'));
+      const confFile = files.find((f) => f.endsWith('.i.conf'));
+
+      if (olfFile && confFile) {
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+        fs.copyFileSync(path.join(projectRoot, olfFile), path.join(destDir, olfFile));
+        fs.copyFileSync(path.join(projectRoot, confFile), path.join(destDir, confFile));
+        fs.copyFileSync(path.join(projectRoot, olfFile), path.join(iosRoot, olfFile));
+        fs.copyFileSync(path.join(projectRoot, confFile), path.join(iosRoot, confFile));
+        console.log(`[Mappls Config] Copied ${olfFile} and ${confFile} to ios/${projectName} and ios/`);
+      }
+
+      // 2. Modify Podfile for Mappls post_install hooks
       const file = path.join(config.modRequest.platformProjectRoot, 'Podfile');
       if (fs.existsSync(file)) {
         let contents = fs.readFileSync(file, 'utf8');
@@ -66,51 +88,10 @@ const withMapplsOlf = (config) => {
           console.log(`[Mappls Config] Added post_install hooks to Podfile`);
         }
       }
+
       return config;
     },
   ]);
-
-  // iOS: Add .i.olf and .i.conf to Xcode project
-  config = withXcodeProject(config, async (config) => {
-    const projectRoot = config.modRequest.projectRoot;
-    const projectName = config.modRequest.projectName;
-    const iosRoot = path.join(projectRoot, 'ios');
-    const destDir = path.join(iosRoot, projectName);
-
-    const files = fs.readdirSync(projectRoot);
-    const olfFile = files.find(f => f.endsWith('.i.olf'));
-    const confFile = files.find(f => f.endsWith('.i.conf'));
-
-    if (olfFile && confFile) {
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-      }
-      // Copy files to the ios project directory
-      fs.copyFileSync(path.join(projectRoot, olfFile), path.join(destDir, olfFile));
-      fs.copyFileSync(path.join(projectRoot, confFile), path.join(destDir, confFile));
-
-      try {
-        const xcodeProject = config.modResults;
-        const targetUuid = xcodeProject.getFirstTarget()?.uuid;
-        const groupKey = xcodeProject.findPBXGroupKey({ name: projectName }) || xcodeProject.findPBXGroupKey({ path: projectName });
-
-        if (groupKey) {
-          xcodeProject.addResourceFile(olfFile, targetUuid ? { target: targetUuid } : undefined, groupKey);
-          xcodeProject.addResourceFile(confFile, targetUuid ? { target: targetUuid } : undefined, groupKey);
-        } else {
-          xcodeProject.addFile(olfFile);
-          xcodeProject.addFile(confFile);
-        }
-        console.log(`[Mappls Config] Copied and linked ${olfFile} and ${confFile} for iOS`);
-      } catch (e) {
-        console.warn(`[Mappls Config] Copied files to ios/${projectName}/. Note: Xcode PBX link warning:`, e.message);
-      }
-    } else {
-      console.warn(`[Mappls Config] Warning: .i.olf or .i.conf file not found in project root!`);
-    }
-
-    return config;
-  });
 
   return config;
 };

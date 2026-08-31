@@ -922,22 +922,58 @@ const EmployeeTrackingScreen = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F4C3A' }}>
-      <View className="bg-[#0F4C3A] flex-row items-center justify-between px-4 py-4 z-10">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3 p-1">
+      <View style={{
+        backgroundColor: 'rgba(15, 76, 58, 0.96)',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        zIndex: 10,
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12, padding: 4 }}>
             <Feather name="arrow-left" size={24} color="white" />
           </TouchableOpacity>
-          <View className="w-10 h-10 rounded-full bg-[#F59E0B] items-center justify-center shadow-sm border border-[#D97706]">
-            <Text className="text-white font-bold text-lg">{user.name?.charAt(0) || 'E'}</Text>
+          <View style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: 'rgba(245, 158, 11, 0.25)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1.5,
+            borderColor: 'rgba(245, 158, 11, 0.6)',
+          }}>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>{user.name?.charAt(0) || 'E'}</Text>
           </View>
-          <View className="ml-3">
-            <Text className="text-white font-bold text-lg leading-tight">STYRKA v2</Text>
-            <Text className="text-[#F59E0B] text-[10px] font-bold tracking-widest">LIVE TRACKING</Text>
+          <View style={{ marginLeft: 12 }}>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 17, lineHeight: 22 }}>STYRKA Live</Text>
+            <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '800', letterSpacing: 1.5 }}>TRIP IN PROGRESS</Text>
           </View>
         </View>
 
-        <TouchableOpacity onPress={logout} className="w-10 h-10 rounded-xl bg-[#1A634E] items-center justify-center border border-[#144F3D]">
-          <Feather name="log-out" size={18} color="#D1D5DB" />
+        <TouchableOpacity 
+          onPress={logout} 
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(239, 68, 68, 0.16)', 
+            borderWidth: 1,
+            borderColor: 'rgba(239, 68, 68, 0.38)',
+            borderRadius: 12,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+          }}
+        >
+          <Feather name="log-out" size={15} color="#F87171" style={{ marginRight: 4 }} />
+          <Text style={{ color: '#FCA5A5', fontSize: 12, fontWeight: '700' }}>Exit</Text>
         </TouchableOpacity>
       </View>
 
@@ -990,57 +1026,104 @@ const EmployeeTrackingScreen = () => {
         <View style={styles.overlayCard}>
           {activeJourney ? (
             <View>
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="bg-emerald-100 px-3 py-1.5 rounded-full flex-row items-center border border-emerald-200">
-                  <View className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
-                  <Text className="text-emerald-700 font-bold text-xs uppercase tracking-wider">Driving</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <View style={{
+                  backgroundColor: 'rgba(209, 250, 229, 0.92)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  borderRadius: 999,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(110, 231, 183, 0.9)',
+                }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 6 }} />
+                  <Text style={{ color: '#047857', fontWeight: '800', fontSize: 11, letterSpacing: 0.6 }}>DRIVING / EN ROUTE</Text>
                 </View>
-                <Text className="text-gray-800 font-black text-lg">{Math.ceil(duration)} min</Text>
+                <Text style={{ color: '#111827', fontWeight: '900', fontSize: 19 }}>{Math.ceil(duration)} min</Text>
               </View>
               
-              <View className="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4 flex-row items-center justify-between">
+              <View style={{
+                backgroundColor: 'rgba(243, 244, 246, 0.88)',
+                padding: 14,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: 'rgba(229, 231, 235, 0.9)',
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
                  <View style={{ flex: 1 }}>
-                   <Text className="text-xs text-gray-400 font-bold uppercase mb-1">Current Location</Text>
-                   <Text className="text-gray-800 font-bold" numberOfLines={1}>{address}</Text>
+                   <Text style={{ fontSize: 10, color: '#6B7280', fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 3 }}>Current Location</Text>
+                   <Text style={{ color: '#111827', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{address}</Text>
                  </View>
-                 <View className="items-end ml-4">
-                   <Text className="text-xs text-gray-400 font-bold uppercase mb-1">Distance</Text>
-                   <Text className="text-gray-800 font-bold">{distance.toFixed(1)} km</Text>
+                 <View style={{ alignItems: 'flex-end', marginLeft: 16 }}>
+                   <Text style={{ fontSize: 10, color: '#6B7280', fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 3 }}>Distance</Text>
+                   <Text style={{ color: '#111827', fontWeight: '800', fontSize: 15 }}>{distance.toFixed(1)} km</Text>
                  </View>
               </View>
 
               <TouchableOpacity 
                 onPress={endJourney}
                 disabled={isProcessing}
-                className="bg-red-500 py-4 rounded-xl flex-row justify-center items-center shadow-sm"
+                style={{
+                  backgroundColor: '#EF4444',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                  paddingVertical: 15,
+                  borderRadius: 14,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#EF4444',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 5,
+                }}
               >
                 {isProcessing ? (
                   <ActivityIndicator color="white" />
                 ) : (
                   <>
-                    <Feather name="square" size={18} color="white" />
-                    <Text className="text-white font-bold text-base ml-2">Complete Drop-off</Text>
+                    <Feather name="square" size={17} color="white" />
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>Complete Drop-off</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <View>
-              <Text className="text-lg font-bold text-[#1F2937] mb-2">Ready to move?</Text>
-              <Text className="text-gray-500 text-sm mb-4">
-                Start tracking to log your GPS coordinates to the Admin dashboard in real-time.
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 4 }}>Ready to move?</Text>
+              <Text style={{ color: '#6B7280', fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
+                Start tracking to broadcast your GPS coordinates to the Admin dashboard in real-time.
               </Text>
               <TouchableOpacity 
                 onPress={startJourney}
                 disabled={isProcessing}
-                className="bg-[#10B981] py-4 rounded-xl flex-row justify-center items-center shadow-sm"
+                style={{
+                  backgroundColor: '#0F4C3A',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  paddingVertical: 15,
+                  borderRadius: 14,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#0F4C3A',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 5,
+                }}
               >
                 {isProcessing ? (
                   <ActivityIndicator color="white" />
                 ) : (
                   <>
                     <Feather name="play" size={18} color="white" />
-                    <Text className="text-white font-bold text-base ml-2">Start Journey</Text>
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }}>Start Journey & Track</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1057,9 +1140,20 @@ const styles = StyleSheet.create({
   map: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   overlayCard: {
-    position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: 'white',
-    borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: '#E5E7EB',
+    position: 'absolute', 
+    bottom: 24, 
+    left: 16, 
+    right: 16, 
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 24, 
+    padding: 20, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18, 
+    shadowRadius: 16, 
+    elevation: 8,
   }
 });
 

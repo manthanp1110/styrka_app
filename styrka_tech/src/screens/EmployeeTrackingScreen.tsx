@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator, StyleSheet, Platform, Alert, PermissionsAndroid } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ActivityIndicator, StyleSheet, Platform, Alert, PermissionsAndroid, AppState, AppStateStatus, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -22,6 +22,91 @@ import Constants from 'expo-constants';
 import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
 import SocketService from '../services/SocketService';
 
+export const openAppSettings = async () => {
+  try {
+    await Linking.openSettings();
+  } catch (e) {
+    if (Platform.OS === 'android') {
+      try {
+        await IntentLauncher.startActivityAsync(
+          IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
+          { data: 'package:com.manthanp_2811.styrka' }
+        );
+      } catch (err) {
+        console.log('Error opening settings:', err);
+      }
+    }
+  }
+};
+
+export const ensureAllLocationPermissions = async (): Promise<boolean> => {
+  // 1. Android 13+ Notification Permission (Required for Foreground Service sticky notification)
+  if (Platform.OS === 'android' && (Platform.Version as number) >= 33) {
+    try {
+      await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+    } catch (e) {
+      console.log('[PERMISSIONS] Notification permission request error:', e);
+    }
+  }
+
+  // 2. Foreground Location Permission
+  let fgStatus = (await Location.getForegroundPermissionsAsync()).status;
+  if (fgStatus !== 'granted') {
+    const fgReq = await Location.requestForegroundPermissionsAsync();
+    fgStatus = fgReq.status;
+  }
+
+  if (fgStatus !== 'granted') {
+    Alert.alert(
+      'Location Permission Required',
+      'Styrka requires Location permission to track your route. Please grant location access in Settings.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: openAppSettings },
+      ]
+    );
+    return false;
+  }
+
+  // 3. Android GPS Hardware check
+  try {
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    if (!servicesEnabled && Platform.OS === 'android') {
+      try {
+        await Location.enableNetworkProviderAsync();
+      } catch (e) {
+        Alert.alert(
+          'GPS Disabled',
+          'Location services (GPS) are turned off. Please turn ON Location / GPS in your Android settings.'
+        );
+      }
+    }
+  } catch {}
+
+  // 4. Background Location Permission (Required for continuous tracking when app is closed / minimized)
+  if (Platform.OS !== 'web') {
+    let bgStatus = (await Location.getBackgroundPermissionsAsync()).status;
+    if (bgStatus !== 'granted') {
+      const bgReq = await Location.requestBackgroundPermissionsAsync();
+      bgStatus = bgReq.status;
+    }
+
+    if (bgStatus !== 'granted') {
+      Alert.alert(
+        'Continuous Background Tracking',
+        'To keep live tracking active when your screen is turned off or when switching to other apps (Google Maps, WhatsApp, etc.), please set Location Permission to "Allow all the time".',
+        [
+          { text: 'Later', style: 'cancel' },
+          { text: 'Open Settings', onPress: openAppSettings },
+        ]
+      );
+    }
+  }
+
+  return true;
+};
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   var R = 6371;
@@ -180,35 +265,20 @@ const EmployeeTrackingScreen = () => {
   const fetchActiveJourney = async () => {
     setIsLoading(true);
     try {
-      // 1. Request location permissions unconditionally
-      let { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-      if (fgStatus !== 'granted') {
-        Alert.alert(
-          'Location Permission Required',
-          'Please grant location permission to enable tracking and map navigation.',
-          [{ text: 'OK' }]
-        );
+      // 1. Request all location & notification permissions
+      const permsGranted = await ensureAllLocationPermissions();
+      if (!permsGranted) {
         setIsLoading(false);
         return;
       }
 
-      // Prompt user natively to enable GPS if turned off on Android
-      try {
-        const servicesEnabled = await Location.hasServicesEnabledAsync();
-        if (!servicesEnabled && Platform.OS === 'android') {
-          try {
-            await Location.enableNetworkProviderAsync();
-          } catch (e) {
-            Alert.alert(
-              'GPS Disabled',
-              'Location services (GPS) are turned off. Please swipe down your Android notifications bar and turn ON Location / GPS.'
-            );
-          }
-        }
-      } catch {}
+      const currentEmpId = user.id || user.email || 'employee';
+      await AsyncStorage.setItem('active_tracking_user_id', currentEmpId);
+      if (user.email) await AsyncStorage.setItem('active_tracking_user_email', user.email);
+      if (user.name) await AsyncStorage.setItem('active_tracking_user_name', user.name);
 
       // Always connect SocketService for employee
-      SocketService.connect(user.id || user.email || 'employee', 'employee');
+      SocketService.connect(currentEmpId, 'employee');
 
       // 2. Fetch real initial device location immediately
       const initialLoc = await getDeviceLocation();
@@ -216,12 +286,14 @@ const EmployeeTrackingScreen = () => {
         setCurrentLocation(initialLoc);
         fetchAddress(initialLoc.latitude, initialLoc.longitude);
         TrackingDataService.updateLiveLocation({
-          userId: user.id || user.email || 'employee',
+          userId: currentEmpId,
+          name: user.name || undefined,
+          email: user.email || undefined,
           latitude: initialLoc.latitude,
           longitude: initialLoc.longitude,
         });
         SocketService.updateLocation({
-          userId: user.id || user.email || 'employee',
+          userId: currentEmpId,
           name: user.name || undefined,
           email: user.email || undefined,
           latitude: initialLoc.latitude,
@@ -231,7 +303,6 @@ const EmployeeTrackingScreen = () => {
 
       // 3. Process assigned destination or active journey
       const assigned = route.params?.assignedDestination;
-      const currentEmpId = user.id || user.email || 'employee';
 
       if (assigned) {
         const newJourney: any = {
@@ -286,7 +357,8 @@ const EmployeeTrackingScreen = () => {
           destination_address: assigned.address,
         });
 
-        AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
+        await AsyncStorage.setItem('active_journey', JSON.stringify(newJourney));
+        await AsyncStorage.setItem('active_journey_id', newJourney.id);
         setupTracking(newJourney.id);
         return;
       }
@@ -383,6 +455,58 @@ const EmployeeTrackingScreen = () => {
     };
   }, [locationSubscription]);
 
+  // AppState change listener: ensure background task and connection remain resilient when switching apps / returning to foreground
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      console.log('[AppState] State changed to:', nextAppState);
+      if (nextAppState === 'active') {
+        try {
+          const rawJourney = await AsyncStorage.getItem('active_journey');
+          if (rawJourney && Platform.OS !== 'web') {
+            const isBgRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+            if (!isBgRunning) {
+              console.log('[AppState] Resumed with active journey - restarting background location updates');
+              await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+                accuracy: Location.Accuracy.BestForNavigation,
+                timeInterval: 2000,
+                distanceInterval: 1,
+                deferredUpdatesInterval: 2000,
+                deferredUpdatesDistance: 1,
+                showsBackgroundLocationIndicator: true,
+                pausesUpdatesAutomatically: false,
+                activityType: Location.ActivityType.AutomotiveNavigation,
+                foregroundService: {
+                  notificationTitle: "Styrka Live Tracking Active",
+                  notificationBody: "Live journey tracking is running in the background.",
+                  notificationColor: "#0F4C3A",
+                  killServiceOnDestroy: false,
+                }
+              }).catch((e) => console.warn('[AppState] Restart bg task error:', e));
+            }
+          }
+
+          // Fetch fresh GPS fix on resume
+          const freshLoc = await getDeviceLocation();
+          if (freshLoc) {
+            setCurrentLocation(freshLoc);
+            trackingMapRef.current?.updateLocation(freshLoc);
+            fetchAddress(freshLoc.latitude, freshLoc.longitude);
+          }
+
+          // Process queued telemetry points
+          processQueue();
+        } catch (e) {
+          console.warn('[AppState] Resume handler exception:', e);
+        }
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, []);
+
   const isProcessingQueueRef = useRef(false);
 
   const processQueue = async () => {
@@ -400,16 +524,12 @@ const EmployeeTrackingScreen = () => {
       try {
         Alert.alert(
           "Battery Optimization",
-          "To ensure background tracking works reliably, please set this app's battery usage to 'Unrestricted' in settings.",
+          "To ensure background tracking runs continuously when switching apps or locking your phone, please set Styrka's battery usage to 'Unrestricted' in Settings.",
           [
             { text: "Cancel", style: "cancel" },
             { 
               text: "Open Settings", 
-              onPress: async () => {
-                await IntentLauncher.startActivityAsync(
-                  IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS
-                );
-              }
+              onPress: openAppSettings,
             }
           ]
         );
@@ -421,8 +541,10 @@ const EmployeeTrackingScreen = () => {
   
   const setupTracking = async (journeyId?: string) => {
     try {
-      SocketService.connect(user.id || 'emp_1', 'employee');
+      const currentEmpId = user.id || user.email || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
+      SocketService.connect(currentEmpId, 'employee');
 
+      // Foreground live location watcher for smooth map animation
       const sub = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
@@ -552,31 +674,34 @@ const EmployeeTrackingScreen = () => {
         }, 10000);
       }
 
-      // Background Location Service (Only available in compiled APK / Development Build, not Expo Go)
-      try {
-        const isExpoGo = Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
-        if (!isExpoGo && Platform.OS !== 'web') {
+      // Background Location Service (Runs continuously when app is closed, minimized, or screen locked)
+      if (Platform.OS !== 'web') {
+        try {
           const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
           if (!isBackgroundRunning) {
             await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
               accuracy: Location.Accuracy.BestForNavigation,
               timeInterval: 2000,
-              distanceInterval: 2,
+              distanceInterval: 1,
               deferredUpdatesInterval: 2000,
-              deferredUpdatesDistance: 2,
+              deferredUpdatesDistance: 1,
               showsBackgroundLocationIndicator: true,
               pausesUpdatesAutomatically: false,
+              activityType: Location.ActivityType.AutomotiveNavigation,
               foregroundService: {
-                notificationTitle: "Styrka Tracking Active",
-                notificationBody: "Live journey tracking is running in background.",
+                notificationTitle: "Styrka Live Tracking Active",
+                notificationBody: "Live journey tracking is running in the background.",
                 notificationColor: "#0F4C3A",
                 killServiceOnDestroy: false,
               }
-            }).catch(e => console.log('Background location error:', e));
+            });
+            console.log('[TRACKING] Background location task successfully started');
+          } else {
+            console.log('[TRACKING] Background location task is already active');
           }
+        } catch (bgErr: any) {
+          console.warn('[TRACKING] Background location service startup warning:', bgErr.message);
         }
-      } catch (e) {
-        console.log('Skipped background task in Expo Go context:', e);
       }
     } catch (e) {
       console.log('Error setting up tracking', e);
@@ -586,39 +711,13 @@ const EmployeeTrackingScreen = () => {
   const startJourney = async () => {
     setIsProcessing(true);
     try {
-      if (Platform.OS === 'android' && (Platform.Version as number) >= 33) {
-        try {
-          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-        } catch (e) {}
-      }
-
-      let { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-      if (fgStatus !== 'granted') {
-        alert('Permission to access location was denied');
+      const permsGranted = await ensureAllLocationPermissions();
+      if (!permsGranted) {
         setIsProcessing(false);
         return;
       }
-      
-      let { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus === 'granted') {
-        checkBatteryOptimization();
-      } else {
-        Alert.alert(
-          "Background Location Required",
-          "For live tracking to work when your phone screen is off or app is in background, please set Location Permission to 'Allow all the time' in system settings.",
-          [
-            { text: "Later", style: "cancel" },
-            { 
-              text: "Open Settings", 
-              onPress: async () => {
-                await IntentLauncher.startActivityAsync(
-                  IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS
-                );
-              } 
-            }
-          ]
-        );
-      }
+
+      checkBatteryOptimization();
 
       let startLat: number | null = null;
       let startLng: number | null = null;
@@ -667,7 +766,6 @@ const EmployeeTrackingScreen = () => {
       fetchAddress(finalStartLat, finalStartLng);
 
       const userId = user.id || user.email || 'employee';
-
       const destAddress = assignedDestination?.address || 'Custom destination';
 
       const journeyData = {
@@ -792,9 +890,8 @@ const EmployeeTrackingScreen = () => {
         completed_at: nowIso,
       });
 
-      // Clear storage & state
+      // Clear active journey from storage (keep active_tracking_user_id for user session)
       await AsyncStorage.removeItem('active_journey');
-      await AsyncStorage.removeItem('active_tracking_user_id');
       await AsyncStorage.removeItem('active_journey_id');
 
       activeJourneyRef.current = null;

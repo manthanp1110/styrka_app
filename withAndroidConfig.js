@@ -22,6 +22,7 @@ module.exports = function withAndroidConfig(config) {
           'android:name': 'expo.modules.location.services.LocationTaskService',
           'android:exported': 'false',
           'android:foregroundServiceType': 'location',
+          'android:stopWithTask': 'false',
         },
       });
     } else {
@@ -29,6 +30,19 @@ module.exports = function withAndroidConfig(config) {
         (s) => s.$['android:name'] === 'expo.modules.location.services.LocationTaskService'
       );
       service.$['android:foregroundServiceType'] = 'location';
+      service.$['android:stopWithTask'] = 'false';
+    }
+
+    if (!androidManifest['uses-permission']) {
+      androidManifest['uses-permission'] = [];
+    }
+    const hasBatteryOptPerm = androidManifest['uses-permission'].some(
+      (p) => p.$['android:name'] === 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'
+    );
+    if (!hasBatteryOptPerm) {
+      androidManifest['uses-permission'].push({
+        $: { 'android:name': 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' }
+      });
     }
     
     return config;

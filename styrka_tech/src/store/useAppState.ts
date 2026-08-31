@@ -55,6 +55,16 @@ export const useAppState = create<AppState>((set, get) => ({
             savedUser.role = 'admin';
           }
 
+          if (savedUser.id) {
+            AsyncStorage.setItem('active_tracking_user_id', savedUser.id).catch(() => {});
+          }
+          if (savedUser.email) {
+            AsyncStorage.setItem('active_tracking_user_email', savedUser.email).catch(() => {});
+          }
+          if (savedUser.name) {
+            AsyncStorage.setItem('active_tracking_user_name', savedUser.name).catch(() => {});
+          }
+
           set({
             user: savedUser,
             isAuthenticated: true,
@@ -87,6 +97,8 @@ export const useAppState = create<AppState>((set, get) => ({
     try {
       await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userObj));
       await AsyncStorage.setItem('active_tracking_user_id', userId);
+      if (cleanEmail) await AsyncStorage.setItem('active_tracking_user_email', cleanEmail);
+      if (name) await AsyncStorage.setItem('active_tracking_user_name', name);
     } catch (e) {}
     set({
       user: userObj,

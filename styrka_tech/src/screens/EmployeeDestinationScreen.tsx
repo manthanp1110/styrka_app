@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -194,6 +195,11 @@ const EmployeeDestinationScreen = () => {
         name: user.name || undefined,
         status: 'started',
       });
+
+      const currentEmpId = user.id || user.email || 'emp_1';
+      await AsyncStorage.setItem('active_tracking_user_id', currentEmpId);
+      if (user.email) await AsyncStorage.setItem('active_tracking_user_email', user.email);
+      if (user.name) await AsyncStorage.setItem('active_tracking_user_name', user.name);
 
       // Reset state
       setSelectedPlace(null);

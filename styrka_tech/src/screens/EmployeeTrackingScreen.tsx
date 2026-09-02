@@ -21,6 +21,7 @@ import MapplsApi from '../utils/mapplsApi';
 import Constants from 'expo-constants';
 import MapplsTrackingMap, { MapplsTrackingMapRef } from '../components/MapplsTrackingMap';
 import SocketService from '../services/SocketService';
+import BackgroundLocationManager from '../services/BackgroundLocationManager';
 
 export const openAppSettings = async () => {
   try {
@@ -39,73 +40,8 @@ export const openAppSettings = async () => {
   }
 };
 
-export const ensureAllLocationPermissions = async (): Promise<boolean> => {
-  // 1. Android 13+ Notification Permission (Required for Foreground Service sticky notification)
-  if (Platform.OS === 'android' && (Platform.Version as number) >= 33) {
-    try {
-      await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-      );
-    } catch (e) {
-      console.log('[PERMISSIONS] Notification permission request error:', e);
-    }
-  }
-
-  // 2. Foreground Location Permission
-  let fgStatus = (await Location.getForegroundPermissionsAsync()).status;
-  if (fgStatus !== 'granted') {
-    const fgReq = await Location.requestForegroundPermissionsAsync();
-    fgStatus = fgReq.status;
-  }
-
-  if (fgStatus !== 'granted') {
-    Alert.alert(
-      'Location Permission Required',
-      'Styrka requires Location permission to track your route. Please grant location access in Settings.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Settings', onPress: openAppSettings },
-      ]
-    );
-    return false;
-  }
-
-  // 3. Android GPS Hardware check
-  try {
-    const servicesEnabled = await Location.hasServicesEnabledAsync();
-    if (!servicesEnabled && Platform.OS === 'android') {
-      try {
-        await Location.enableNetworkProviderAsync();
-      } catch (e) {
-        Alert.alert(
-          'GPS Disabled',
-          'Location services (GPS) are turned off. Please turn ON Location / GPS in your Android settings.'
-        );
-      }
-    }
-  } catch {}
-
-  // 4. Background Location Permission (Required for continuous tracking when app is closed / minimized)
-  if (Platform.OS !== 'web') {
-    let bgStatus = (await Location.getBackgroundPermissionsAsync()).status;
-    if (bgStatus !== 'granted') {
-      const bgReq = await Location.requestBackgroundPermissionsAsync();
-      bgStatus = bgReq.status;
-    }
-
-    if (bgStatus !== 'granted') {
-      Alert.alert(
-        'Continuous Background Tracking',
-        'To keep live tracking active when your screen is turned off or when switching to other apps (Google Maps, WhatsApp, etc.), please set Location Permission to "Allow all the time".',
-        [
-          { text: 'Later', style: 'cancel' },
-          { text: 'Open Settings', onPress: openAppSettings },
-        ]
-      );
-    }
-  }
-
-  return true;
+export const ensureAllLocationPermissions = async (promptBattery: boolean = false): Promise<boolean> => {
+  return await BackgroundLocationManager.ensurePermissionsAndBatteryOpt(promptBattery);
 };
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -459,32 +395,9 @@ const EmployeeTrackingScreen = () => {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       console.log('[AppState] State changed to:', nextAppState);
+      await BackgroundLocationManager.verifyAndResumeTracking();
       if (nextAppState === 'active') {
         try {
-          const rawJourney = await AsyncStorage.getItem('active_journey');
-          if (rawJourney && Platform.OS !== 'web') {
-            const isBgRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-            if (!isBgRunning) {
-              console.log('[AppState] Resumed with active journey - restarting background location updates');
-              await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-                accuracy: Location.Accuracy.BestForNavigation,
-                timeInterval: 2000,
-                distanceInterval: 1,
-                deferredUpdatesInterval: 2000,
-                deferredUpdatesDistance: 1,
-                showsBackgroundLocationIndicator: true,
-                pausesUpdatesAutomatically: false,
-                activityType: Location.ActivityType.AutomotiveNavigation,
-                foregroundService: {
-                  notificationTitle: "Styrka Live Tracking Active",
-                  notificationBody: "Live journey tracking is running in the background.",
-                  notificationColor: "#0F4C3A",
-                  killServiceOnDestroy: false,
-                }
-              }).catch((e) => console.warn('[AppState] Restart bg task error:', e));
-            }
-          }
-
           // Fetch fresh GPS fix on resume
           const freshLoc = await getDeviceLocation();
           if (freshLoc) {
@@ -520,23 +433,7 @@ const EmployeeTrackingScreen = () => {
   };
 
   const checkBatteryOptimization = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        Alert.alert(
-          "Battery Optimization",
-          "To ensure background tracking runs continuously when switching apps or locking your phone, please set Styrka's battery usage to 'Unrestricted' in Settings.",
-          [
-            { text: "Cancel", style: "cancel" },
-            { 
-              text: "Open Settings", 
-              onPress: openAppSettings,
-            }
-          ]
-        );
-      } catch (e) {
-        console.log("Could not launch battery settings", e);
-      }
-    }
+    await BackgroundLocationManager.requestIgnoreBatteryOptimizations();
   };
   
   const setupTracking = async (journeyId?: string) => {
@@ -676,32 +573,7 @@ const EmployeeTrackingScreen = () => {
 
       // Background Location Service (Runs continuously when app is closed, minimized, or screen locked)
       if (Platform.OS !== 'web') {
-        try {
-          const isBackgroundRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-          if (!isBackgroundRunning) {
-            await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-              accuracy: Location.Accuracy.BestForNavigation,
-              timeInterval: 2000,
-              distanceInterval: 1,
-              deferredUpdatesInterval: 2000,
-              deferredUpdatesDistance: 1,
-              showsBackgroundLocationIndicator: true,
-              pausesUpdatesAutomatically: false,
-              activityType: Location.ActivityType.AutomotiveNavigation,
-              foregroundService: {
-                notificationTitle: "Styrka Live Tracking Active",
-                notificationBody: "Live journey tracking is running in the background.",
-                notificationColor: "#0F4C3A",
-                killServiceOnDestroy: false,
-              }
-            });
-            console.log('[TRACKING] Background location task successfully started');
-          } else {
-            console.log('[TRACKING] Background location task is already active');
-          }
-        } catch (bgErr: any) {
-          console.warn('[TRACKING] Background location service startup warning:', bgErr.message);
-        }
+        await BackgroundLocationManager.startTracking(user, activeJourneyRef.current);
       }
     } catch (e) {
       console.log('Error setting up tracking', e);
@@ -711,13 +583,11 @@ const EmployeeTrackingScreen = () => {
   const startJourney = async () => {
     setIsProcessing(true);
     try {
-      const permsGranted = await ensureAllLocationPermissions();
+      const permsGranted = await ensureAllLocationPermissions(true);
       if (!permsGranted) {
         setIsProcessing(false);
         return;
       }
-
-      checkBatteryOptimization();
 
       let startLat: number | null = null;
       let startLng: number | null = null;
@@ -834,6 +704,7 @@ const EmployeeTrackingScreen = () => {
       fetchRoute(finalStartLat, finalStartLng, destLat, destLng);
       
       await setupTracking(journeyData.id);
+      await BackgroundLocationManager.startTracking(user, journeyData);
       alert("Journey started! Tracking is active.");
     } catch (e: any) {
       alert("Failed to start journey: " + e.message);

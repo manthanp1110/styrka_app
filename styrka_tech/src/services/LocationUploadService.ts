@@ -19,18 +19,18 @@ class LocationUploadService {
       let userId = await AsyncStorage.getItem('active_tracking_user_id');
       if (!userId) {
         try {
-          const sessionRaw = await AsyncStorage.getItem('@styrka_auth_session');
-          if (sessionRaw) {
-            const parsed = JSON.parse(sessionRaw);
+          const authRaw = await AsyncStorage.getItem('@styrka_auth_user');
+          if (authRaw) {
+            const parsed = JSON.parse(authRaw);
             if (parsed?.id) userId = parsed.id;
           }
         } catch (e) {}
       }
       if (!userId) {
         try {
-          const authRaw = await AsyncStorage.getItem('@styrka_auth_user');
-          if (authRaw) {
-            const parsed = JSON.parse(authRaw);
+          const sessionRaw = await AsyncStorage.getItem('@styrka_auth_session');
+          if (sessionRaw) {
+            const parsed = JSON.parse(sessionRaw);
             if (parsed?.id) userId = parsed.id;
           }
         } catch (e) {}

@@ -1,35 +1,49 @@
 import * as TaskManager from 'expo-task-manager';
-import * as Location from 'expo-location';
 import * as Battery from 'expo-battery';
 import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TelemetryQueue } from '../utils/TelemetryQueue';
 import LocationUploadService from '../services/LocationUploadService';
 import { TrackingDataService } from '../services/TrackingDataService';
 import SocketService from '../services/SocketService';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 export const LOCATION_TASK_NAME = 'background-location-task';
 let backgroundSequenceNumber = 1;
+
+const AUTH_KEY = '@styrka_auth_user';
 
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
   if (error) {
     console.error('[Background Task] Location Task Error:', error);
     return;
   }
-  
+
   if (data) {
     const { locations } = data;
     if (locations && locations.length > 0) {
-      const loc = locations[0];
-      
+      // Always select the newest, freshest location in the received batch
+      const loc = locations[locations.length - 1];
+
       try {
         let userId = await AsyncStorage.getItem('active_tracking_user_id');
         let userEmail = await AsyncStorage.getItem('active_tracking_user_email');
         let userName = await AsyncStorage.getItem('active_tracking_user_name');
+        let userRole: string | null = null;
 
-        // Fallback to auth session if active_tracking_user_id is missing
+        // Primary fallback: Read active authenticated user session
+        try {
+          const authRaw = await AsyncStorage.getItem(AUTH_KEY);
+          if (authRaw) {
+            const authUser = JSON.parse(authRaw);
+            if (authUser?.id && !userId) userId = authUser.id;
+            if (authUser?.email && !userEmail) userEmail = authUser.email;
+            if (authUser?.name && !userName) userName = authUser.name;
+            if (authUser?.role) userRole = authUser.role;
+          }
+        } catch (e) {}
+
+        // Secondary fallback for backwards compatibility
         if (!userId) {
           try {
             const sessionRaw = await AsyncStorage.getItem('@styrka_auth_session');
@@ -42,7 +56,22 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           } catch (e) {}
         }
 
-        // Fallback to active journey
+        // Do not track admin users in background
+        const cleanEmail = (userEmail || '').trim().toLowerCase();
+        const cleanId = String(userId || '').trim().toLowerCase();
+        const ADMIN_EMAILS = [
+          'manthanpandhare1110@gmail.com',
+          'pravindagade007@gmail.com',
+          'rustumsayyed905@gmail.com',
+          'admin_1',
+          'admin_2',
+          'admin_3'
+        ];
+        if (userRole === 'admin' || ADMIN_EMAILS.includes(cleanEmail) || cleanId.startsWith('admin')) {
+          return;
+        }
+
+        // Fallback to active journey if present
         let journeyObj: any = null;
         try {
           const rawJourney = await AsyncStorage.getItem('active_journey');
@@ -52,11 +81,16 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           }
         } catch (e) {}
 
-        const finalUserId = userId || 'employee';
-        const timestamp = new Date(loc.timestamp || Date.now()).toISOString();
-        const journeyId = (await AsyncStorage.getItem('active_journey_id')) || journeyObj?.id || 'default_journey';
+        if (!userId) {
+          console.warn('[Background Task] No valid employee ID found. Skipping background location write.');
+          return;
+        }
 
-        console.log(`[Background Task] Location received for user ${finalUserId}: (${loc.coords.latitude}, ${loc.coords.longitude})`);
+        const finalUserId = userId;
+        const timestamp = new Date(loc.timestamp || Date.now()).toISOString();
+        const journeyId = (await AsyncStorage.getItem('active_journey_id')) || journeyObj?.id || `journey_${finalUserId}`;
+
+        console.log(`[Background Task] Live location update for employee ${finalUserId}: (${loc.coords.latitude}, ${loc.coords.longitude})`);
 
         let batteryLevel = 1.0;
         try {
@@ -90,10 +124,10 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           sequenceNumber: seq,
         };
 
-        // Enqueue coordinate for offline resilience
+        // 1. Enqueue coordinate for offline resilience
         await TelemetryQueue.enqueue(payload);
 
-        // 1. Update Supabase live_locations directly in background
+        // 2. Direct Supabase live_locations update (high reliability via HTTPS REST)
         try {
           await TrackingDataService.updateLiveLocation({
             userId: finalUserId,
@@ -109,10 +143,10 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
             status: 'online',
           });
         } catch (e: any) {
-          console.warn('[Background Task] Supabase live location update error:', e.message);
+          console.warn('[Background Task] Supabase live location update error:', e?.message || e);
         }
 
-        // 2. Broadcast Socket.IO location update in background to Render server
+        // 3. Broadcast Socket.IO location update in background to Render server
         try {
           SocketService.connect(finalUserId, 'employee');
           SocketService.updateLocation({
@@ -131,15 +165,14 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
             status: 'online',
           });
         } catch (e: any) {
-          console.warn('[Background Task] Socket update error:', e.message);
+          console.warn('[Background Task] Socket update error:', e?.message || e);
         }
 
-        // 3. Attempt immediate queue process
+        // 4. Attempt immediate queue process
         await LocationUploadService.processQueue();
       } catch (err: any) {
-        console.error('[Background Task] Execution exception:', err.message);
+        console.error('[Background Task] Execution exception:', err?.message || err);
       }
     }
   }
 });
-

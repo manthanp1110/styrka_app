@@ -21,6 +21,7 @@ import { useAppState } from '../store/useAppState';
 import { TrackingDataService } from '../services/TrackingDataService';
 import MapplsApi from '../utils/mapplsApi';
 import SocketService from '../services/SocketService';
+import BackgroundLocationManager from '../services/BackgroundLocationManager';
 
 const EmployeeDestinationScreen = () => {
   const navigation = useNavigation<NavigationProp<any>>();
@@ -61,6 +62,10 @@ const EmployeeDestinationScreen = () => {
     });
 
     SocketService.connect(user.id || user.email || 'employee', 'employee');
+
+    if (user.id && user.role !== 'admin') {
+      BackgroundLocationManager.startTracking(user).catch(() => {});
+    }
 
     return () => {
       unsubscribe?.();

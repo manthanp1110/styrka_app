@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { TrackingDataService } from '../services/TrackingDataService';
 import SocketService from '../services/SocketService';
+import BackgroundLocationManager from '../services/BackgroundLocationManager';
 
 export type UserRole = 'admin' | 'employee' | null;
 
@@ -70,6 +71,11 @@ export const useAppState = create<AppState>((set, get) => ({
             isAuthenticated: true,
             isLoading: false,
           });
+
+          // If employee, initiate continuous background tracking
+          if (savedUser.role !== 'admin') {
+            BackgroundLocationManager.startTracking(savedUser).catch(() => {});
+          }
           return;
         }
       }
@@ -105,6 +111,11 @@ export const useAppState = create<AppState>((set, get) => ({
       isAuthenticated: true,
       isLoading: false,
     });
+
+    // Start continuous background tracking if employee
+    if (finalRole !== 'admin') {
+      BackgroundLocationManager.startTracking(userObj).catch(() => {});
+    }
   },
 
   logout: async () => {
@@ -115,13 +126,8 @@ export const useAppState = create<AppState>((set, get) => ({
       const userName = currentUser.name || (await AsyncStorage.getItem('active_tracking_user_name'));
       const nowIso = new Date().toISOString();
 
-      // 1. Stop background GPS location task
-      try {
-        const isTaskStarted = await Location.hasStartedLocationUpdatesAsync('background-location-task');
-        if (isTaskStarted) {
-          await Location.stopLocationUpdatesAsync('background-location-task');
-        }
-      } catch (e) {}
+      // 1. Stop background GPS location task via BackgroundLocationManager
+      await BackgroundLocationManager.stopTracking();
 
       // 2. Mark any active journey/destination as COMPLETED in Supabase & Local Storage
       let activeDestId: string | null = null;

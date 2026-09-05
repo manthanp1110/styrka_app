@@ -395,8 +395,8 @@ const EmployeeTrackingScreen = () => {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       console.log('[AppState] State changed to:', nextAppState);
-      await BackgroundLocationManager.verifyAndResumeTracking();
       if (nextAppState === 'active') {
+        await BackgroundLocationManager.verifyAndResumeTracking();
         try {
           // Fetch fresh GPS fix on resume
           const freshLoc = await getDeviceLocation();
@@ -440,6 +440,13 @@ const EmployeeTrackingScreen = () => {
     try {
       const currentEmpId = user.id || user.email || (await AsyncStorage.getItem('active_tracking_user_id')) || 'emp_1';
       SocketService.connect(currentEmpId, 'employee');
+
+      // Start continuous background tracking immediately while in foreground
+      if (Platform.OS !== 'web') {
+        BackgroundLocationManager.startTracking(user, activeJourneyRef.current).catch((err) => {
+          console.warn('[EmployeeTrackingScreen] Early background start error:', err);
+        });
+      }
 
       // Foreground live location watcher for smooth map animation
       const sub = await Location.watchPositionAsync(

@@ -127,7 +127,47 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
         // 1. Enqueue coordinate for offline resilience
         await TelemetryQueue.enqueue(payload);
 
-        // 2. Direct Supabase live_locations update (high reliability via HTTPS REST)
+        // 2. Direct HTTPS REST upload to Render Telemetry server (bulletproof background delivery)
+        try {
+          const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
+          const restPayload = {
+            locations: [{
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              accuracy: loc.coords.accuracy,
+              speed: loc.coords.speed || 0,
+              heading: loc.coords.heading || 0,
+              altitude: loc.coords.altitude,
+              timestamp,
+              batteryLevel,
+              networkType,
+              isMoving,
+              deviceId,
+              userId: finalUserId,
+              employee_id: finalUserId,
+              email: userEmail || undefined,
+              name: userName || undefined,
+              destination_lat: journeyObj?.destination_lat ? Number(journeyObj.destination_lat) : undefined,
+              destination_lng: journeyObj?.destination_lng ? Number(journeyObj.destination_lng) : undefined,
+              destination_address: journeyObj?.address || undefined,
+              status: 'online',
+            }],
+          };
+
+          const res = await fetch(`${backendUrl}/api/location/upload`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${finalUserId}`,
+            },
+            body: JSON.stringify(restPayload),
+          });
+          console.log(`[Background Task] REST upload for ${finalUserId} HTTP status: ${res.status}`);
+        } catch (restErr: any) {
+          console.warn('[Background Task] REST location upload error:', restErr?.message || restErr);
+        }
+
+        // 3. Direct Supabase live_locations update (high reliability via HTTPS REST)
         try {
           await TrackingDataService.updateLiveLocation({
             userId: finalUserId,
@@ -146,7 +186,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           console.warn('[Background Task] Supabase live location update error:', e?.message || e);
         }
 
-        // 3. Broadcast Socket.IO location update in background to Render server
+        // 4. Broadcast Socket.IO location update in background to Render server
         try {
           SocketService.connect(finalUserId, 'employee');
           SocketService.updateLocation({
@@ -168,7 +208,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           console.warn('[Background Task] Socket update error:', e?.message || e);
         }
 
-        // 4. Attempt immediate queue process
+        // 5. Attempt immediate queue process
         await LocationUploadService.processQueue();
       } catch (err: any) {
         console.error('[Background Task] Execution exception:', err?.message || err);

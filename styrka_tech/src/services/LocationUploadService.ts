@@ -68,16 +68,45 @@ class LocationUploadService {
         if (batch.length === 0) break;
 
         const latestItem = batch[batch.length - 1];
-        await TrackingDataService.updateLiveLocation({
-          userId,
-          latitude: latestItem.latitude,
-          longitude: latestItem.longitude,
-          heading: latestItem.heading,
-          speed: latestItem.speed,
-          destination_lat: destLat,
-          destination_lng: destLng,
-          destination_address: destAddr,
-        });
+
+        // 1. Upload batch directly to Render REST server
+        try {
+          const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
+          const restLocations = batch.map((item) => ({
+            ...item,
+            userId,
+            employee_id: userId,
+            destination_lat: destLat,
+            destination_lng: destLng,
+            destination_address: destAddr,
+            status: 'online',
+          }));
+
+          await fetch(`${backendUrl}/api/location/upload`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userId}`,
+            },
+            body: JSON.stringify({ locations: restLocations }),
+          });
+        } catch (restErr) {
+          console.warn('[LocationUploadService] REST batch upload warning:', restErr);
+        }
+
+        // 2. Update local state and Supabase
+        try {
+          await TrackingDataService.updateLiveLocation({
+            userId,
+            latitude: latestItem.latitude,
+            longitude: latestItem.longitude,
+            heading: latestItem.heading,
+            speed: latestItem.speed,
+            destination_lat: destLat,
+            destination_lng: destLng,
+            destination_address: destAddr,
+          });
+        } catch (supaErr) {}
 
         await TelemetryQueue.dequeueBatch(batch.length);
         size = await TelemetryQueue.size();

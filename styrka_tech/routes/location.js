@@ -21,13 +21,14 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
 
 router.post('/upload', express.json(), async (req, res) => {
   try {
-    const userId = req.user.id;
+    const defaultUserId = req.user?.id || 'employee';
     const { locations } = req.body;
     if (!Array.isArray(locations) || locations.length === 0) {
       return res.status(400).json({ success: false, reason: 'No locations provided.' });
     }
 
     const activeEmployees = req.app.get('activeEmployees');
+    const io = req.app.get('io');
     let processedCount = 0;
     
     // Sort locations by timestamp ascending to process them in order
@@ -48,24 +49,54 @@ router.post('/upload', express.json(), async (req, res) => {
         continue;
       }
 
-      const cache = activeEmployees.get(userId) || {
+      const empId = payload.userId || payload.employee_id || defaultUserId;
+      const cache = activeEmployees.get(empId) || {
         lastWriteLat: 0,
         lastWriteLng: 0,
         lastWriteTime: 0,
         status: 'online'
       };
 
-      cache.status = 'online';
-      cache.latestLoc = {
-        employee_id: userId,
+      const empEmail = payload.email || cache.email || cache.latestLoc?.email || '';
+      const empName = payload.name || cache.name || cache.latestLoc?.name || '';
+      const isOffline = payload.status === 'offline';
+
+      const locationRecord = {
+        employee_id: empId,
+        user_id: empId,
+        email: empEmail,
+        name: empName,
         latitude,
         longitude,
-        speed: speed || 0,
+        speed: isOffline ? 0 : (speed || 0),
         heading: heading || 0,
-        timestamp: timestamp || new Date().toISOString()
+        accuracy: accuracy || 0,
+        altitude: altitude || 0,
+        status: isOffline ? 'offline' : 'online',
+        timestamp: timestamp || new Date().toISOString(),
+        destination_lat: payload.destination_lat != null ? Number(payload.destination_lat) : (cache.latestLoc?.destination_lat != null ? Number(cache.latestLoc.destination_lat) : null),
+        destination_lng: payload.destination_lng != null ? Number(payload.destination_lng) : (cache.latestLoc?.destination_lng != null ? Number(cache.latestLoc.destination_lng) : null),
+        destination_address: payload.destination_address || cache.latestLoc?.destination_address || null,
+        batteryLevel: batteryLevel != null ? batteryLevel : null,
+        networkType: networkType || null,
+        deviceId: deviceId || null,
       };
 
-      activeEmployees.set(userId, cache);
+      cache.status = isOffline ? 'offline' : 'online';
+      cache.latestLoc = locationRecord;
+      if (empEmail) cache.email = empEmail;
+      if (empName) cache.name = empName;
+
+      activeEmployees.set(empId, cache);
+      if (empEmail) activeEmployees.set(empEmail, cache);
+      if (empName) activeEmployees.set(empName, cache);
+
+      // CRITICAL: Real-time broadcast to admin room so Admin sees background location updates live!
+      if (io) {
+        io.to('admin_room').emit('employee_location_changed', locationRecord);
+        io.to('employee_room').emit('employee_location_changed', locationRecord);
+      }
+
       processedCount++;
     }
 
@@ -74,6 +105,33 @@ router.post('/upload', express.json(), async (req, res) => {
   } catch (err) {
     console.error('[Location REST API] Processing failed:', err.message);
     res.status(500).json({ success: false, reason: 'Internal server error processing locations.' });
+  }
+});
+
+// GET /api/location/active - Returns all active employee live locations
+router.get('/active', async (req, res) => {
+  try {
+    const activeEmployees = req.app.get('activeEmployees');
+    if (!activeEmployees) {
+      return res.status(200).json([]);
+    }
+
+    const seen = new Set();
+    const result = [];
+    for (const [key, record] of activeEmployees.entries()) {
+      if (record && record.latestLoc && record.latestLoc.latitude != null) {
+        const primaryId = record.latestLoc.employee_id || record.latestLoc.user_id;
+        if (primaryId && !seen.has(primaryId)) {
+          seen.add(primaryId);
+          result.push(record.latestLoc);
+        }
+      }
+    }
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('[Location REST API] Failed to get active employees:', err.message);
+    res.status(500).json({ success: false, reason: 'Failed to retrieve active employees.' });
   }
 });
 

@@ -823,6 +823,35 @@ export class TrackingDataService {
       } catch (err) {
         console.warn('[TrackingDataService] Could not upsert live location to Supabase:', err);
       }
+
+      // 3. Sync to Render Telemetry server via REST
+      try {
+        const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
+        fetch(`${backendUrl}/api/location/upload`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${location.userId}`,
+          },
+          body: JSON.stringify({
+            locations: [{
+              userId: location.userId,
+              employee_id: location.userId,
+              email: empEmail,
+              name: empName,
+              latitude: Number(finalLat),
+              longitude: Number(finalLng),
+              heading: Number(location.heading || existingLoc?.heading || 0),
+              speed: Number(location.speed || 0),
+              status: location.status || 'online',
+              destination_lat: destLat != null ? Number(destLat) : undefined,
+              destination_lng: destLng != null ? Number(destLng) : undefined,
+              destination_address: destAddress || undefined,
+              timestamp,
+            }],
+          }),
+        }).catch(() => {});
+      } catch (e) {}
     } catch (e) {
       console.error('[TrackingDataService] Error updating live location', e);
     }
@@ -897,6 +926,47 @@ export class TrackingDataService {
       }
     } catch (e) {
       console.warn('[TrackingDataService] Could not fetch live_locations from Supabase:', e);
+    }
+
+    // 1b. Fetch active locations from Render Telemetry server
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${backendUrl}/api/location/active`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const activeList = await res.json();
+        if (Array.isArray(activeList)) {
+          activeList.forEach((item: any) => {
+            if (item && item.latitude != null) {
+              const locObj: LiveLocation = {
+                user_id: String(item.user_id || item.employee_id),
+                name: item.name || undefined,
+                email: item.email || undefined,
+                latitude: Number(item.latitude),
+                longitude: Number(item.longitude),
+                heading: Number(item.heading || 0),
+                speed: Number(item.speed || 0),
+                status: item.status || 'online',
+                timestamp: item.timestamp || new Date().toISOString(),
+                updated_at: item.timestamp || new Date().toISOString(),
+                destination_lat: item.destination_lat != null ? Number(item.destination_lat) : null,
+                destination_lng: item.destination_lng != null ? Number(item.destination_lng) : null,
+                destination_address: item.destination_address || null,
+              };
+
+              const keyPrimary = String(item.user_id || item.employee_id);
+              resultMap[keyPrimary] = locObj;
+              if (item.email) resultMap[String(item.email)] = locObj;
+              if (item.name) resultMap[String(item.name)] = locObj;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Could not fetch live locations from Render server:', e);
     }
 
     // 2. Merge with local storage cache

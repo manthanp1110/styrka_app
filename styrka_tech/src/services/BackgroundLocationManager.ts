@@ -28,8 +28,11 @@ class BackgroundLocationManager {
     if (this.appStateSubscription) return;
     this.appStateSubscription = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
       console.log('[BackgroundLocationManager] AppState changed to:', nextState);
-      // Whenever app transitions (to background, inactive, or active), ensure tracking is running for logged-in employee
-      await this.verifyAndResumeTracking();
+      // Only verify and resume when app transitions back to 'active' foreground state!
+      // Attempting to start a foreground service while in background is rejected on Android 14+.
+      if (nextState === 'active') {
+        await this.verifyAndResumeTracking();
+      }
     });
   }
 
@@ -76,7 +79,7 @@ class BackgroundLocationManager {
   /**
    * Verify all required permissions (Foreground Location, Background Location "Allow all the time", POST_NOTIFICATIONS)
    */
-  public async ensurePermissionsAndBatteryOpt(promptBattery: boolean = false): Promise<boolean> {
+  public async ensurePermissionsAndBatteryOpt(promptBattery: boolean = true): Promise<boolean> {
     if (Platform.OS === 'web') return true;
 
     // 1. Android 13+ (API 33+) Notification Permission (Mandatory for Foreground Service)
@@ -147,14 +150,10 @@ class BackgroundLocationManager {
 
     // 5. Battery optimization alert if requested
     if (promptBattery && Platform.OS === 'android') {
-      Alert.alert(
-        'Unrestricted Background Battery',
-        'To prevent Android from stopping live tracking when the screen is locked or the app is closed, please set Styrka battery usage to "Unrestricted".',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Allow Unrestricted', onPress: () => this.requestIgnoreBatteryOptimizations() },
-        ]
-      );
+      // Prompt direct intent launcher for unrestricted battery
+      try {
+        await this.requestIgnoreBatteryOptimizations();
+      } catch (e) {}
     }
 
     return true;
@@ -188,8 +187,8 @@ class BackgroundLocationManager {
     this.isStarting = true;
 
     try {
-      // 1. Ensure permissions
-      await this.ensurePermissionsAndBatteryOpt(false);
+      // 1. Ensure permissions and battery optimization exemption
+      await this.ensurePermissionsAndBatteryOpt(true);
 
       // 2. Persist active employee credentials for headless background access
       await AsyncStorage.setItem('active_tracking_user_id', resolvedId);
@@ -210,6 +209,13 @@ class BackgroundLocationManager {
         console.log('[BackgroundLocationManager] Background location updates already active.');
         this.isStarting = false;
         return true;
+      }
+
+      // Guard: Android 14+ prohibits starting a foreground service while the app is in the background
+      if (Platform.OS === 'android' && AppState.currentState !== 'active') {
+        console.log('[BackgroundLocationManager] App currently in background. Foreground service will start on resume.');
+        this.isStarting = false;
+        return false;
       }
 
       // 4. Start foreground service location updates with zero deferral

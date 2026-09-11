@@ -2,18 +2,47 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "C:/Users/LENOVO/Downloads/mappls-react-native-sdk-main"
-		},
-		{
-			"path": "C:/Users/LENOVO/Downloads/app1785087457522i1448970855 (1)"
 		}
 	],
 	"settings": {
 		"mssql.enableLinting": false,
 		"files.associations": {
 			"*.sql": "postgres"
-		}
+		},
+		"files.exclude": {
+			"**/node_modules": true,
+			"**/android_backup": true,
+			"**/apk_unzipped": true
+		},
+		"search.exclude": {
+			"**/node_modules": true,
+			"**/android_backup": true,
+			"**/apk_unzipped": true
+		},
+		"files.watcherExclude": {
+			"**/node_modules/**": true,
+			"**/android_backup/**": true,
+			"**/apk_unzipped/**": true
+		},
+		"gradle.autoDetect": "off",
+		"gradle.nestedProjects": false,
+		"java.import.gradle.enabled": false,
+		"java.gradle.buildServer.enabled": false,
+		"java.import.gradle.wrapper.enabled": true,
+		"java.import.gradle.version": "8.14.3",
+		"java.project.exclusion": [
+			"**/node_modules/**",
+			"**/android_backup/**",
+			"**/apk_unzipped/**"
+		],
+		"java.import.exclusions": [
+			"**/node_modules/**",
+			"**/android_backup/**",
+			"**/apk_unzipped/**"
+		],
+		"java.project.importHint": false,
+		"java.autobuild.enabled": false,
+		"java.errors.incompleteClasspath.severity": "ignore",
+		"java.configuration.updateBuildConfiguration": "disabled"
 	}
 }

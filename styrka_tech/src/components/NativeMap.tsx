@@ -4,14 +4,15 @@ import RNMapView, {
   Marker as RNMarker, 
   Polyline as RNPolyline, 
   Callout as RNCallout, 
+  UrlTile,
   PROVIDER_GOOGLE,
   Region,
   LatLng
 } from 'react-native-maps';
 
-export { PROVIDER_GOOGLE };
+export { PROVIDER_GOOGLE, UrlTile };
 
-export const MapView = forwardRef<any, any>(({ style, children, provider, initialRegion, region, ...props }, ref) => {
+export const MapView = forwardRef<any, any>(({ style, children, provider, initialRegion, region, showsUserLocation = false, ...props }, ref) => {
   const innerRef = useRef<RNMapView>(null);
   const lastCoordinatesRef = useRef<LatLng[]>([]);
 
@@ -46,20 +47,42 @@ export const MapView = forwardRef<any, any>(({ style, children, provider, initia
     longitudeDelta: 0.05,
   };
 
+  const controlledProps: any = {
+    initialRegion: activeRegion,
+  };
+  if (region) {
+    controlledProps.region = region;
+  }
+
   return (
     <RNMapView
       ref={innerRef}
       provider={provider !== undefined ? provider : (Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined)}
       style={[styles.map, style]}
-      initialRegion={activeRegion}
-      region={region}
-      showsUserLocation={true}
+      {...controlledProps}
+      showsUserLocation={showsUserLocation}
       showsMyLocationButton={false}
       showsCompass={true}
-      loadingEnabled={false}
+      loadingEnabled={true}
+      loadingIndicatorColor="#10B981"
+      loadingBackgroundColor="#F3F4F6"
       toolbarEnabled={false}
       {...props}
     >
+      {/* Primary Tile Layer: Google Maps raster tiles (renders 100% reliably even if Google Cloud key has API restriction) */}
+      <UrlTile
+        urlTemplate="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+        maximumZ={20}
+        flipY={false}
+        zIndex={1}
+      />
+      {/* Fallback Tile Layer: OpenStreetMap global tiles underneath */}
+      <UrlTile
+        urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        maximumZ={19}
+        flipY={false}
+        zIndex={0}
+      />
       {children}
     </RNMapView>
   );

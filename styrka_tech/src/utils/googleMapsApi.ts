@@ -8,7 +8,7 @@ import { decodePolyline } from './mapsUtils';
 const GOOGLE_MAPS_KEY = 
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
   process.env.GOOGLE_MAPS_API_KEY || 
-  'AIzaSyBTEuKfeLP-6-RREJ49VqwlNmuKEI8jQmI';
+  'AIzaSyDzMQl7NDjYwd90yhYbnqyoOJbFSwKx6u4';
 
 export const GoogleMapsApi = {
   /**
@@ -77,8 +77,45 @@ export const GoogleMapsApi = {
       ? rawQuery 
       : `${rawQuery}, Maharashtra`;
 
-    // 1. Primary: Google Places Autocomplete API
+    // 1. Primary: Google Places API
     if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+      // 1A. Places API (New)
+      try {
+        const newUrl = 'https://places.googleapis.com/v1/places:autocomplete';
+        const newRes = await fetch(newUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_MAPS_KEY,
+          },
+          body: JSON.stringify({
+            input: searchQuery,
+            includedRegionCodes: ['in'],
+          }),
+        });
+        if (newRes.ok) {
+          const newData = await newRes.json();
+          if (newData && newData.suggestions && newData.suggestions.length > 0) {
+            const results = newData.suggestions
+              .filter((s: any) => s.placePrediction)
+              .map((s: any) => {
+                const p = s.placePrediction;
+                return {
+                  place_id: p.placeId,
+                  placeName: p.structuredFormat?.mainText?.text || p.text?.text || searchQuery,
+                  placeAddress: p.text?.text || searchQuery,
+                  latitude: null,
+                  longitude: null,
+                };
+              });
+            if (results.length > 0) {
+              return { suggestedLocations: results };
+            }
+          }
+        }
+      } catch (e) {}
+
+      // 1B. Legacy Places Autocomplete API
       try {
         const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(searchQuery)}&components=country:in&key=${GOOGLE_MAPS_KEY}`;
         const res = await fetch(url);

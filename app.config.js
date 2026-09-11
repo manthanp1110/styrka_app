@@ -1,5 +1,5 @@
 module.exports = ({ config }) => {
-  const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBTEuKfeLP-6-RREJ49VqwlNmuKEI8jQmI';
+  const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDzMQl7NDjYwd90yhYbnqyoOJbFSwKx6u4';
   return {
     ...config,
     android: {

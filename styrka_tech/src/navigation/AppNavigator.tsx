@@ -108,6 +108,7 @@ const AdminTabs = () => {
 const EmployeeTabs = () => {
   return (
     <Tab.Navigator
+      initialRouteName="LiveTracking"
       screenOptions={({ route }) => ({
         headerShown: true,
         headerStyle: { 
@@ -158,8 +159,8 @@ const EmployeeTabs = () => {
         },
       })}
     >
-      <Tab.Screen name="Select Destination" component={EmployeeDestinationScreen} options={{ title: 'Select Destination' }} />
-      <Tab.Screen name="LiveTracking" component={EmployeeTrackingScreen} options={{ title: 'Start & Track Journey' }} />
+      <Tab.Screen name="LiveTracking" component={EmployeeTrackingScreen} options={{ title: 'Duty & Live Track' }} />
+      <Tab.Screen name="Select Destination" component={EmployeeDestinationScreen} options={{ title: 'Set Destination' }} />
     </Tab.Navigator>
   );
 };

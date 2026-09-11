@@ -192,6 +192,7 @@ class BackgroundLocationManager {
 
       // 2. Persist active employee credentials for headless background access
       await AsyncStorage.setItem('active_tracking_user_id', resolvedId);
+      await AsyncStorage.setItem('is_duty_connected', 'true');
       if (user.email) await AsyncStorage.setItem('active_tracking_user_email', user.email);
       if (user.name) await AsyncStorage.setItem('active_tracking_user_name', user.name);
 
@@ -230,8 +231,8 @@ class BackgroundLocationManager {
         pausesUpdatesAutomatically: false,
         activityType: Location.ActivityType.AutomotiveNavigation,
         foregroundService: {
-          notificationTitle: 'Styrka Live Tracking Active',
-          notificationBody: 'Continuously tracking employee live location.',
+          notificationTitle: 'Styrka Duty Active',
+          notificationBody: 'Broadcasting your live location to Admin',
           notificationColor: '#0F4C3A',
           killServiceOnDestroy: false,
         },
@@ -253,6 +254,7 @@ class BackgroundLocationManager {
   public async stopTracking(): Promise<void> {
     if (Platform.OS === 'web') return;
     try {
+      await AsyncStorage.setItem('is_duty_connected', 'false');
       const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
       if (isRunning) {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
@@ -264,12 +266,19 @@ class BackgroundLocationManager {
   }
 
   /**
-   * Verify and resume tracking if a logged-in employee session exists
+   * Verify and resume tracking if a logged-in employee session exists and duty is connected
    */
   public async verifyAndResumeTracking(): Promise<void> {
     if (Platform.OS === 'web') return;
 
     try {
+      // Check if duty was connected
+      const isConnected = await AsyncStorage.getItem('is_duty_connected');
+      if (isConnected !== 'true') {
+        console.log('[BackgroundLocationManager] Duty is not connected. Skipping background resume.');
+        return;
+      }
+
       // Read saved user session
       const rawUser = await AsyncStorage.getItem(AUTH_KEY);
       if (!rawUser) return;
@@ -293,7 +302,7 @@ class BackgroundLocationManager {
 
       const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
       if (!isRunning) {
-        console.log('[BackgroundLocationManager] Employee session found but background tracking not active. Resuming...');
+        console.log('[BackgroundLocationManager] Active duty session found. Resuming background tracking...');
         let journey: any = null;
         try {
           const rawJourney = await AsyncStorage.getItem('active_journey');

@@ -291,13 +291,38 @@ const EmployeeDestinationScreen = () => {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <>
-                      <Feather name="navigation" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.startJourneyBtnText}>Start Journey & Track Route</Text>
+                      <Feather name="check" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.startJourneyBtnText}>Set As Target Destination</Text>
                     </>
                   )}
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Clear / Free Roam Option */}
+            <TouchableOpacity
+              onPress={async () => {
+                await AsyncStorage.removeItem('active_journey');
+                await AsyncStorage.removeItem('active_journey_id');
+                navigation.navigate('LiveTracking');
+              }}
+              style={{
+                marginTop: 14,
+                paddingVertical: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#F3F4F6',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                flexDirection: 'row',
+              }}
+            >
+              <Feather name="navigation" size={14} color="#4B5563" style={{ marginRight: 6 }} />
+              <Text style={{ color: '#4B5563', fontWeight: '700', fontSize: 13 }}>
+                Clear Destination (Free Roaming Duty)
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Recent / Saved Destinations Section */}
@@ -365,8 +390,8 @@ const EmployeeDestinationScreen = () => {
                       });
                     }}
                   >
-                    <Feather name="play-circle" size={18} color="white" />
-                    <Text style={styles.reselectBtnText}>Select & Start Journey</Text>
+                    <Feather name="check-circle" size={18} color="white" />
+                    <Text style={styles.reselectBtnText}>Select As Destination</Text>
                   </TouchableOpacity>
                 )}
               </View>

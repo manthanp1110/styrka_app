@@ -299,11 +299,14 @@ const AdminTrackingScreen = () => {
               ? Number(latestPing.longitude) 
               : (existingJourney?.start_lng != null ? Number(existingJourney.start_lng) : (destLng || 77.2090));
 
+            const isPingOnline = latestPing?.status === 'online' || loc?.status === 'online' || existingJourney?.status === 'online';
             const resolvedStatus = (dest?.status === 'completed' || existingJourney?.status === 'completed')
               ? 'completed'
-              : ((dest?.status === 'in_progress' || (dest?.status as any) === 'started' || existingJourney?.status === 'in_progress')
-                ? 'in_progress'
-                : 'offline');
+              : (isPingOnline
+                ? 'online'
+                : ((dest?.status === 'in_progress' || (dest?.status as any) === 'started' || existingJourney?.status === 'in_progress')
+                  ? 'in_progress'
+                  : 'offline'));
 
             const journeyObj = {
               ...(existingJourney || {}),
@@ -559,8 +562,19 @@ const AdminTrackingScreen = () => {
         return { label: 'Journey Completed', color: '#3B82F6', canTrack: true, isOffline: true };
       }
 
-      if (journey.status === 'in_progress' || journey.status === 'started') {
-        return { label: 'Journey Started / On Route', color: '#10B981', canTrack: true, isOffline: false };
+      const isOnline = journey.status === 'online' || journey.latestLocation?.status === 'online' || journey.status === 'in_progress' || journey.status === 'started';
+      if (isOnline) {
+        const hasDest = journey.destination_lat != null && journey.destination_lng != null;
+        return { 
+          label: hasDest ? 'On Route (Destination Set)' : 'Live Duty (Online)', 
+          color: '#10B981', 
+          canTrack: true, 
+          isOffline: false 
+        };
+      }
+
+      if (journey.latestLocation) {
+        return { label: 'Recent Location (Offline)', color: '#6B7280', canTrack: true, isOffline: true };
       }
 
       return { label: 'Offline', color: '#6B7280', canTrack: false, isOffline: true };
@@ -1013,9 +1027,13 @@ const AdminTrackingScreen = () => {
                   <Text style={{ color: '#2563EB', fontSize: 12, marginTop: 2, fontWeight: '700' }} numberOfLines={2}>
                     📍 Current: {currentLocationAddress || (selectedJourney?.latestLocation?.latitude ? `${Number(selectedJourney.latestLocation.latitude).toFixed(4)}°N, ${Number(selectedJourney.latestLocation.longitude).toFixed(4)}°E` : 'Locating rider...')}
                   </Text>
-                  {selectedJourney?.address && (
+                  {selectedJourney?.destination_lat != null && selectedJourney?.destination_lng != null && selectedJourney?.address ? (
                     <Text style={{ color: '#6B7280', fontSize: 11, marginTop: 2 }} numberOfLines={1}>
                       🏁 Dest: {selectedJourney.address}
+                    </Text>
+                  ) : (
+                    <Text style={{ color: '#059669', fontSize: 11, marginTop: 2, fontWeight: '600' }}>
+                      🟢 Duty Active (Free Roaming / No Destination)
                     </Text>
                   )}
                 </View>

@@ -1,13 +1,21 @@
 /**
- * Google Maps Platform REST API Client for Styrka.
- * Handles Places Autocomplete, Place Details, Directions, and Geocoding.
- * Includes graceful fallbacks to OSRM and Photon/Nominatim if API key is not yet provided or rate-limited.
+ * Unified Google Maps Platform API Client for Styrka.
+ * Supports dedicated keys for Places API (New), Routes API, Geocoding API, and Maps SDK.
+ * Includes graceful offline and failover fallbacks.
  */
 import { decodePolyline } from './mapsUtils';
 
-const GOOGLE_MAPS_KEY = 
+const PLACES_KEY = 
+  process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 
+  'AIzaSyCzIxAa6CfY0ZE4CNUtw3YklRsrFZ0Tfcw';
+
+const ROUTES_KEY = 
+  process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY || 
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
-  process.env.GOOGLE_MAPS_API_KEY || 
+  'AIzaSyBVTjEjTCMXsj3nNvmwuKvWlk7LMXQyEnA';
+
+const GEOCODING_KEY = 
+  process.env.EXPO_PUBLIC_GOOGLE_GEOCODING_API_KEY || 
   'AIzaSyDzMQl7NDjYwd90yhYbnqyoOJbFSwKx6u4';
 
 export const GoogleMapsApi = {
@@ -19,13 +27,13 @@ export const GoogleMapsApi = {
     const [destLng, destLat] = params.destination.split(',');
 
     // 1A. Primary: Google Routes API (New)
-    if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+    if (ROUTES_KEY) {
       try {
         const routesRes = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Goog-Api-Key': GOOGLE_MAPS_KEY,
+            'X-Goog-Api-Key': ROUTES_KEY,
             'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
           },
           body: JSON.stringify({
@@ -48,11 +56,13 @@ export const GoogleMapsApi = {
             };
           }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('[GoogleMapsApi] Routes API error:', err);
+      }
 
-      // 1B. Fallback: Legacy Google Directions API
+      // 1B. Fallback: Google Directions API
       try {
-        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLng}&destination=${destLat},${destLng}&mode=driving&key=${GOOGLE_MAPS_KEY}`;
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLng}&destination=${destLat},${destLng}&mode=driving&key=${ROUTES_KEY}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -64,13 +74,11 @@ export const GoogleMapsApi = {
                 distance: leg?.distance?.value || 1000,
                 duration: leg?.duration?.value || 300,
                 geometry: route.overview_polyline?.points || '',
-              }]
+              }],
             };
           }
         }
-      } catch (err) {
-        console.warn('[GoogleMapsApi] Google Directions error:', err);
-      }
+      } catch (err) {}
     }
 
     // 2. High-accuracy OSRM Driving Engine Fallback
@@ -85,7 +93,6 @@ export const GoogleMapsApi = {
       console.log('[GoogleMapsApi] OSRM Direction error:', error);
     }
 
-    // Fallback straight line
     return {
       routes: [{
         distance: 1000,
@@ -108,16 +115,15 @@ export const GoogleMapsApi = {
       ? rawQuery 
       : `${rawQuery}, Maharashtra`;
 
-    // 1. Primary: Google Places API
-    if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
-      // 1A. Places API (New)
+    // 1A. Primary: Google Places API (New)
+    if (PLACES_KEY) {
       try {
         const newUrl = 'https://places.googleapis.com/v1/places:autocomplete';
         const newRes = await fetch(newUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Goog-Api-Key': GOOGLE_MAPS_KEY,
+            'X-Goog-Api-Key': PLACES_KEY,
           },
           body: JSON.stringify({
             input: searchQuery,
@@ -144,11 +150,13 @@ export const GoogleMapsApi = {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[GoogleMapsApi] Places API New error:', e);
+      }
 
-      // 1B. Legacy Places Autocomplete API
+      // 1B. Fallback: Legacy Google Places Autocomplete API
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(searchQuery)}&components=country:in&key=${GOOGLE_MAPS_KEY}`;
+        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(searchQuery)}&components=country:in&key=${PLACES_KEY}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -163,14 +171,12 @@ export const GoogleMapsApi = {
             return { suggestedLocations: results };
           }
         }
-      } catch (e) {
-        console.warn('[GoogleMapsApi] Google Places autocomplete error:', e);
-      }
+      } catch (e) {}
     }
 
     const results: any[] = [];
 
-    // 2. Photon Geocoding Engine (Fast, OpenStreetMap powered, zero rate limits)
+    // 2. Photon Geocoding Engine Fallback
     try {
       const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(searchQuery)}&limit=10`;
       const photonRes = await fetch(photonUrl);
@@ -198,11 +204,9 @@ export const GoogleMapsApi = {
           });
         }
       }
-    } catch (e) {
-      console.warn('[GoogleMapsApi] Photon search error:', e);
-    }
+    } catch (e) {}
 
-    // 3. Nominatim / OpenStreetMap Search Fallback
+    // 3. Nominatim OpenStreetMap Search Fallback
     if (results.length === 0) {
       try {
         const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10`;
@@ -228,9 +232,7 @@ export const GoogleMapsApi = {
             }
           }
         }
-      } catch (e) {
-        console.warn('[GoogleMapsApi] Nominatim autoSuggest fallback error:', e);
-      }
+      } catch (e) {}
     }
 
     return { suggestedLocations: results };
@@ -253,10 +255,26 @@ export const GoogleMapsApi = {
       }
     }
 
-    // 1. Google Place Details API
-    if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+    // 1A. Google Places API (New) Place Details
+    if (PLACES_KEY) {
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(id)}&fields=geometry,formatted_address&key=${GOOGLE_MAPS_KEY}`;
+        const newUrl = `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}?fields=id,displayName,location,formattedAddress&key=${PLACES_KEY}`;
+        const newRes = await fetch(newUrl);
+        if (newRes.ok) {
+          const newData = await newRes.json();
+          if (newData && newData.location) {
+            return {
+              latitude: Number(newData.location.latitude),
+              longitude: Number(newData.location.longitude),
+              formatted_address: newData.formattedAddress || newData.displayName?.text,
+            };
+          }
+        }
+      } catch (e) {}
+
+      // 1B. Fallback: Legacy Google Place Details
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(id)}&fields=geometry,formatted_address&key=${PLACES_KEY}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -268,9 +286,7 @@ export const GoogleMapsApi = {
             };
           }
         }
-      } catch (e) {
-        console.error('[GoogleMapsApi] placeDetail error:', e);
-      }
+      } catch (e) {}
     }
 
     return null;
@@ -281,9 +297,9 @@ export const GoogleMapsApi = {
    */
   reverseGeocode: async (params: { latitude: number; longitude: number }) => {
     // 1. Google Geocoding API
-    if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+    if (GEOCODING_KEY) {
       try {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${params.latitude},${params.longitude}&key=${GOOGLE_MAPS_KEY}`;
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${params.latitude},${params.longitude}&key=${GEOCODING_KEY}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -294,7 +310,7 @@ export const GoogleMapsApi = {
           }
         }
       } catch (e) {
-        console.warn('[GoogleMapsApi] Google reverseGeocode error:', e);
+        console.warn('[GoogleMapsApi] Geocoding API error:', e);
       }
     }
 
@@ -321,9 +337,9 @@ export const GoogleMapsApi = {
    */
   geocode: async (params: { address: string }) => {
     // 1. Google Geocoding API
-    if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+    if (GEOCODING_KEY) {
       try {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(params.address)}&key=${GOOGLE_MAPS_KEY}`;
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(params.address)}&key=${GEOCODING_KEY}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -339,7 +355,7 @@ export const GoogleMapsApi = {
           }
         }
       } catch (e) {
-        console.warn('[GoogleMapsApi] Google geocode error:', e);
+        console.warn('[GoogleMapsApi] Geocoding API error:', e);
       }
     }
 

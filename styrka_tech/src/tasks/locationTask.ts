@@ -167,7 +167,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
           console.warn('[Background Task] REST location upload error:', restErr?.message || restErr);
         }
 
-        // 3. Direct Supabase live_locations update (high reliability via HTTPS REST)
+        // 3. Direct Firebase / Local live_locations update
         try {
           await TrackingDataService.updateLiveLocation({
             userId: finalUserId,
@@ -183,7 +183,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
             status: 'online',
           });
         } catch (e: any) {
-          console.warn('[Background Task] Supabase live location update error:', e?.message || e);
+          console.warn('[Background Task] Live location update error:', e?.message || e);
         }
 
         // 4. Broadcast Socket.IO location update in background to Render server

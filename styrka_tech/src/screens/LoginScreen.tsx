@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useAppState } from '../store/useAppState';
-import { supabase } from '../config/supabase';
+import { auth, isFirebaseConfigured } from '../config/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { TrackingDataService } from '../services/TrackingDataService';
 
 const LoginScreen = () => {
@@ -12,7 +13,7 @@ const LoginScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const signInWithSupabase = async (loginEmail: string, loginPassword: string) => {
+  const signInWithFirebase = async (loginEmail: string, loginPassword: string) => {
     const cleanEmail = loginEmail.trim().toLowerCase();
 
     // 0. Explicitly block deactivated legacy demo accounts
@@ -50,35 +51,30 @@ const LoginScreen = () => {
       throw new Error('No active employee account found for this email. Please ask your Admin to add you.');
     }
 
-    // 2. Try signing in with Supabase Auth
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: loginPassword,
-      });
-
-      if (!error && data.user) {
-        await setSession(matchedUser.id, matchedUser.role, matchedUser.name, matchedUser.email);
-        return;
-      }
-    } catch (e: any) {}
-
-    // 3. Authenticate with credentials
-    if (loginPassword.length >= 4) {
-      // Background sync with Supabase Auth if needed
+    // 2. Try signing in with Firebase Auth if configured
+    if (isFirebaseConfigured && auth) {
       try {
-        await supabase.auth.signUp({
-          email: cleanEmail,
-          password: loginPassword,
-          options: {
-            data: {
-              name: matchedUser.name,
-              role: matchedUser.role,
-            },
-          },
-        });
-      } catch {}
+        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
+        if (userCredential.user) {
+          await setSession(matchedUser.id, matchedUser.role, matchedUser.name, matchedUser.email);
+          return;
+        }
+      } catch (err: any) {
+        // If user not found in Firebase Auth yet, auto-create account for registered employee
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+          try {
+            const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, loginPassword);
+            if (newCred.user) {
+              await setSession(matchedUser.id, matchedUser.role, matchedUser.name, matchedUser.email);
+              return;
+            }
+          } catch (signUpErr) {}
+        }
+      }
+    }
 
+    // 3. Fallback / Offline authentication with credentials
+    if (loginPassword.length >= 4) {
       await setSession(matchedUser.id, matchedUser.role, matchedUser.name, matchedUser.email);
       return;
     }
@@ -98,7 +94,7 @@ const LoginScreen = () => {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      await signInWithSupabase(email, password);
+      await signInWithFirebase(email, password);
     } catch (e: any) {
       setErrorMsg(e.message || 'An unexpected error occurred.');
     } finally {

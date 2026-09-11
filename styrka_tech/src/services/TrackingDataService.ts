@@ -1,5 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../config/supabase';
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  writeBatch,
+} from 'firebase/firestore';
+import { db, auth, isFirebaseConfigured } from '../config/firebase';
 
 export interface User {
   id: string;
@@ -65,7 +78,7 @@ const DESTINATIONS_KEY = '@styrka_destinations';
 const LOCATIONS_KEY = '@styrka_live_locations';
 const CUSTOM_EMPLOYEES_KEY = '@styrka_custom_employees';
 
-// Safe timeout wrapper to prevent Supabase or network operations from ever hanging the app
+// Safe timeout wrapper to prevent Firebase or network operations from ever hanging the app
 export function withTimeout<T>(promise: PromiseLike<T> | Promise<T>, ms: number = 2500, fallbackVal?: T): Promise<T> {
   let timer: any;
   const timeoutPromise = new Promise<T>((resolve, reject) => {
@@ -81,13 +94,29 @@ export function withTimeout<T>(promise: PromiseLike<T> | Promise<T>, ms: number 
 }
 
 export class TrackingDataService {
-  // Clear all employees from local storage & Supabase
+  // Clear all employees from local storage & Firebase
   static async clearAllEmployees(): Promise<void> {
-    try {
-      withTimeout(supabase.from('users').delete().eq('role', 'employee'), 1500).catch(() => {});
-      withTimeout(supabase.from('destinations').delete().neq('id', '00000000-0000-0000-0000-000000000000'), 1500).catch(() => {});
-      withTimeout(supabase.from('live_locations').delete().neq('user_id', '00000000-0000-0000-0000-000000000000'), 1500).catch(() => {});
-    } catch (e) {}
+    if (db && isFirebaseConfigured) {
+      const firestore = db;
+      try {
+        const clearCloud = async () => {
+          const collectionsToClear = ['users', 'destinations', 'live_locations'];
+          for (const colName of collectionsToClear) {
+            try {
+              const snap = await getDocs(collection(firestore, colName));
+              const batch = writeBatch(firestore);
+              snap.docs.forEach((docItem) => {
+                const data = docItem.data();
+                if (colName === 'users' && data.role === 'admin') return;
+                batch.delete(docItem.ref);
+              });
+              await batch.commit();
+            } catch (err) {}
+          }
+        };
+        withTimeout(clearCloud(), 2000).catch(() => {});
+      } catch (e) {}
+    }
     try {
       await AsyncStorage.removeItem(CUSTOM_EMPLOYEES_KEY);
       await AsyncStorage.removeItem(DESTINATIONS_KEY);
@@ -95,7 +124,7 @@ export class TrackingDataService {
     } catch (e) {}
   }
 
-  // Get list of employees from Render backend, Supabase destinations, users table & local storage
+  // Get list of employees from Render backend, Firebase destinations, users collection & local storage
   static async getEmployees(): Promise<User[]> {
     const DEMO_EMAILS = [
       'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
@@ -132,85 +161,91 @@ export class TrackingDataService {
       console.log('[TrackingDataService] Backend active employees fetch:', e);
     }
 
-    // 2. Fetch destinations directory from Supabase with fast 2s timeout
+    // 2. Fetch destinations directory from Firebase with fast 2s timeout
     let destinationEmployees: User[] = [];
-    try {
-      const { data: dests } = await withTimeout(
-        supabase.from('destinations').select('*').order('created_at', { ascending: false }),
-        2000,
-        { data: null, error: null } as any
-      );
-      if (dests && dests.length > 0) {
-        dests.forEach((d: any) => {
-          const rawId = (d.employee_id || d.admin_id || '').trim();
-          if (!rawId) return;
-          const lowerId = rawId.toLowerCase();
-          if (DEMO_EMAILS.includes(lowerId) || ADMIN_EMAILS.includes(lowerId) || lowerId.startsWith('emp_17869')) return;
+    if (db && isFirebaseConfigured) {
+      try {
+        const destSnap = await withTimeout(
+          getDocs(query(collection(db, 'destinations'), orderBy('created_at', 'desc'))),
+          2000,
+          null as any
+        );
+        if (destSnap && destSnap.docs) {
+          destSnap.docs.forEach((docItem: any) => {
+            const d = docItem.data();
+            const rawId = (d.employee_id || d.admin_id || '').trim();
+            if (!rawId) return;
+            const lowerId = rawId.toLowerCase();
+            if (DEMO_EMAILS.includes(lowerId) || ADMIN_EMAILS.includes(lowerId) || lowerId.startsWith('emp_17869')) return;
 
-          let email = '';
-          let name = '';
+            let email = '';
+            let name = '';
 
-          if (d.address && d.address.startsWith('Directory:')) {
-            const match = d.address.match(/Directory:\s*(.*?)\s*<([^>]+)>/);
-            if (match) {
-              name = match[1];
-              email = match[2].toLowerCase();
+            if (d.address && d.address.startsWith('Directory:')) {
+              const match = d.address.match(/Directory:\s*(.*?)\s*<([^>]+)>/);
+              if (match) {
+                name = match[1];
+                email = match[2].toLowerCase();
+              }
             }
-          }
 
-          if (!email) {
-            if (rawId.startsWith('emp_') && rawId.includes('_gmail_com')) {
-              const withoutPrefix = rawId.replace(/^emp_/, '').replace(/_gmail_com$/, '');
-              email = `${withoutPrefix}@gmail.com`;
-            } else if (rawId.includes('@')) {
-              email = rawId.toLowerCase();
+            if (!email) {
+              if (rawId.startsWith('emp_') && rawId.includes('_gmail_com')) {
+                const withoutPrefix = rawId.replace(/^emp_/, '').replace(/_gmail_com$/, '');
+                email = `${withoutPrefix}@gmail.com`;
+              } else if (rawId.includes('@')) {
+                email = rawId.toLowerCase();
+              }
             }
-          }
 
-          if (!name && email) {
-            const prefix = email.split('@')[0];
-            const letters = prefix.replace(/[^a-zA-Z]/g, '');
-            name = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (prefix.charAt(0).toUpperCase() + prefix.slice(1));
-          }
+            if (!name && email) {
+              const prefix = email.split('@')[0];
+              const letters = prefix.replace(/[^a-zA-Z]/g, '');
+              name = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (prefix.charAt(0).toUpperCase() + prefix.slice(1));
+            }
 
-          if (email && !DEMO_EMAILS.includes(email) && !ADMIN_EMAILS.includes(email)) {
-            destinationEmployees.push({
-              id: rawId,
-              name: name || 'Employee',
-              email: email,
-              role: 'employee',
-            });
-          }
-        });
+            if (email && !DEMO_EMAILS.includes(email) && !ADMIN_EMAILS.includes(email)) {
+              destinationEmployees.push({
+                id: rawId,
+                name: name || 'Employee',
+                email: email,
+                role: 'employee',
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[TrackingDataService] Could not fetch destinations for employee directory:', e);
       }
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not fetch destinations for employee directory:', e);
     }
 
-    // 3. Fetch from Supabase users with fast 2s timeout
-    let supabaseEmployees: User[] = [];
-    try {
-      const { data, error } = await withTimeout(
-        supabase.from('users').select('id, name, email, role'),
-        2000,
-        { data: null, error: null } as any
-      );
-      if (!error && data && data.length > 0) {
-        supabaseEmployees = data
-          .filter((p: any) => p.role !== 'admin')
-          .map((p: any) => ({
-            id: String(p.id),
-            name: p.name || p.email,
-            email: p.email || `${p.id}@styrka.com`,
-            role: 'employee' as const,
-          }));
+    // 3. Fetch from Firebase users with fast 2s timeout
+    let firebaseEmployees: User[] = [];
+    if (db && isFirebaseConfigured) {
+      try {
+        const usersSnap = await withTimeout(
+          getDocs(collection(db, 'users')),
+          2000,
+          null as any
+        );
+        if (usersSnap && usersSnap.docs && usersSnap.docs.length > 0) {
+          firebaseEmployees = usersSnap.docs
+            .map((docSnap: any) => ({ id: docSnap.id, ...docSnap.data() }))
+            .filter((p: any) => p.role !== 'admin')
+            .map((p: any) => ({
+              id: String(p.id),
+              name: p.name || p.email,
+              email: p.email || `${p.id}@styrka.com`,
+              role: 'employee' as const,
+            }));
+        }
+      } catch (e) {
+        console.warn('[TrackingDataService] Could not fetch employees from Firebase:', e);
       }
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not fetch employees from Supabase:', e);
     }
 
-    // Filter out demo and admin users from Supabase users
-    supabaseEmployees = supabaseEmployees.filter((e) => {
+    // Filter out demo and admin users from Firebase users
+    firebaseEmployees = firebaseEmployees.filter((e) => {
       const em = (e.email || '').toLowerCase();
       const id = (e.id || '').toLowerCase();
       return !DEMO_EMAILS.includes(em) && !DEMO_EMAILS.includes(id) && !ADMIN_EMAILS.includes(em) && e.role !== 'admin';
@@ -230,36 +265,39 @@ export class TrackingDataService {
       }
     } catch {}
 
-    // ALSO merge with live locations in Supabase (with 2s timeout)
+    // ALSO merge with live locations in Firebase (with 2s timeout)
     let liveLocationEmployees: User[] = [];
-    try {
-      const { data: locData } = await withTimeout(
-        supabase.from('live_locations').select('*'),
-        2000,
-        { data: null, error: null } as any
-      );
-      if (locData && locData.length > 0) {
-        locData.forEach((item: any) => {
-          const uId = String(item.user_id).trim().toLowerCase();
-          const em = (item.email || '').trim().toLowerCase();
+    if (db && isFirebaseConfigured) {
+      try {
+        const locSnap = await withTimeout(
+          getDocs(collection(db, 'live_locations')),
+          2000,
+          null as any
+        );
+        if (locSnap && locSnap.docs && locSnap.docs.length > 0) {
+          locSnap.docs.forEach((docItem: any) => {
+            const item = docItem.data();
+            const uId = String(item.user_id || docItem.id).trim().toLowerCase();
+            const em = (item.email || '').trim().toLowerCase();
 
-          if (DEMO_EMAILS.includes(uId) || DEMO_EMAILS.includes(em) || ADMIN_EMAILS.includes(em) || item.role === 'admin') {
-            return;
-          }
+            if (DEMO_EMAILS.includes(uId) || DEMO_EMAILS.includes(em) || ADMIN_EMAILS.includes(em) || item.role === 'admin') {
+              return;
+            }
 
-          const rawName = item.name || (uId.includes('@') ? uId.split('@')[0] : uId);
-          const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-          liveLocationEmployees.push({
-            id: uId,
-            name: formattedName,
-            email: em || (uId.includes('@') ? uId : `${uId}@styrka.com`),
-            role: 'employee',
+            const rawName = item.name || (uId.includes('@') ? uId.split('@')[0] : uId);
+            const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            liveLocationEmployees.push({
+              id: uId,
+              name: formattedName,
+              email: em || (uId.includes('@') ? uId : `${uId}@styrka.com`),
+              role: 'employee',
+            });
           });
-        });
-      }
-    } catch {}
+        }
+      } catch {}
+    }
 
-    const all = [...backendEmployees, ...destinationEmployees, ...supabaseEmployees, ...customEmployees, ...liveLocationEmployees];
+    const all = [...backendEmployees, ...destinationEmployees, ...firebaseEmployees, ...customEmployees, ...liveLocationEmployees];
 
     const seenIds = new Set<string>();
     const seenEmails = new Set<string>();
@@ -312,7 +350,7 @@ export class TrackingDataService {
     return resultList;
   }
 
-  // Add a new employee to Supabase and local storage
+  // Add a new employee to Firebase and local storage
   static async addEmployee(param: { name: string; email: string; password?: string }): Promise<User> {
     const cleanName = param.name.trim();
     const cleanEmail = param.email.trim().toLowerCase();
@@ -327,49 +365,61 @@ export class TrackingDataService {
       role: 'employee',
     };
 
-    // 1. Direct insert directory record into Supabase destinations table (Global for all phones)
-    try {
-      await supabase.from('destinations').insert([
-        {
+    if (db && isFirebaseConfigured) {
+      // 1. Direct insert directory record into Firebase destinations collection (Global for all phones)
+      try {
+        const destRef = doc(collection(db, 'destinations'));
+        await setDoc(destRef, {
           admin_id: 'admin_directory',
           employee_id: finalId,
           address: `Directory: ${cleanName} <${cleanEmail}>`,
           latitude: 0,
           longitude: 0,
           status: 'pending',
-        },
-      ]);
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not insert directory record into destinations table:', e);
-    }
-
-    // 2. Direct upsert into public.live_locations table in Supabase (Global for all phones)
-    try {
-      const { error: locError } = await supabase
-        .from('live_locations')
-        .upsert(
-          [
-            {
-              user_id: finalId,
-              name: cleanName,
-              email: cleanEmail,
-              latitude: 0,
-              longitude: 0,
-              status: 'offline',
-              updated_at: new Date().toISOString(),
-            },
-          ],
-          { onConflict: 'user_id' }
-        );
-
-      if (locError) {
-        console.warn('[TrackingDataService] Supabase live_locations table upsert warning:', locError.message);
+          created_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn('[TrackingDataService] Could not insert directory record into destinations collection:', e);
       }
-    } catch (e) {
-      console.warn('[TrackingDataService] Error upserting user into live_locations table:', e);
+
+      // 2. Direct upsert into live_locations collection in Firebase (Global for all phones)
+      try {
+        await setDoc(
+          doc(db, 'live_locations', finalId),
+          {
+            user_id: finalId,
+            name: cleanName,
+            email: cleanEmail,
+            latitude: 0,
+            longitude: 0,
+            status: 'offline',
+            updated_at: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('[TrackingDataService] Error upserting user into live_locations collection:', e);
+      }
+
+      // 3. Insert into users collection
+      try {
+        await setDoc(
+          doc(db, 'users', finalId),
+          {
+            id: finalId,
+            name: cleanName,
+            email: cleanEmail,
+            role: 'employee',
+            created_at: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('[TrackingDataService] Error creating Firebase user record:', e);
+      }
     }
 
-    // 3. Store in local storage cache for instant offline access
+    // 4. Store in local storage cache for instant offline access
     try {
       const raw = await AsyncStorage.getItem(CUSTOM_EMPLOYEES_KEY);
       const customEmployees: User[] = raw ? JSON.parse(raw) : [];
@@ -379,48 +429,56 @@ export class TrackingDataService {
       console.error('[TrackingDataService] Failed to save custom employee locally:', e);
     }
 
-    // 4. Try registering with Supabase Auth in background
-    try {
-      await supabase.auth.signUp({
-        email: cleanEmail,
-        password: password,
-        options: {
-          data: {
-            name: cleanName,
-            role: 'employee',
-          },
-        },
-      });
-    } catch (e) {}
+    // 5. Try registering with Firebase Auth in background
+    if (auth && isFirebaseConfigured) {
+      try {
+        const { createUserWithEmailAndPassword } = await import('firebase/auth');
+        await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      } catch (e) {}
+    }
 
     return newEmp;
   }
 
-  // Delete an employee from Supabase and local storage
+  // Delete an employee from Firebase and local storage
   static async deleteEmployee(employeeId: string): Promise<void> {
     const cleanKey = (employeeId || '').trim().toLowerCase();
     if (!cleanKey) return;
 
     const emailPrefix = cleanKey.includes('@') ? cleanKey.split('@')[0] : cleanKey;
 
-    try {
-      // 1. Delete from Supabase users table
-      await supabase.from('users').delete().eq('id', employeeId);
-      await supabase.from('users').delete().eq('email', cleanKey);
+    if (db && isFirebaseConfigured) {
+      try {
+        // 1. Delete from Firebase users collection
+        await deleteDoc(doc(db, 'users', employeeId)).catch(() => {});
+        if (cleanKey !== employeeId) {
+          await deleteDoc(doc(db, 'users', cleanKey)).catch(() => {});
+        }
+        const userByEmailQuery = query(collection(db, 'users'), where('email', '==', cleanKey));
+        const userSnap = await getDocs(userByEmailQuery);
+        userSnap.forEach((d) => deleteDoc(d.ref).catch(() => {}));
 
-      // 2. Delete from Supabase live_locations table so it isn't re-synthesized on fetch!
-      await supabase.from('live_locations').delete().eq('user_id', employeeId);
-      await supabase.from('live_locations').delete().eq('email', cleanKey);
-      if (emailPrefix && emailPrefix.length > 2) {
-        await supabase.from('live_locations').delete().ilike('user_id', `%${emailPrefix}%`);
-        await supabase.from('users').delete().ilike('email', `%${emailPrefix}%`);
+        // 2. Delete from Firebase live_locations collection
+        await deleteDoc(doc(db, 'live_locations', employeeId)).catch(() => {});
+        if (cleanKey !== employeeId) {
+          await deleteDoc(doc(db, 'live_locations', cleanKey)).catch(() => {});
+        }
+        const locByEmailQuery = query(collection(db, 'live_locations'), where('email', '==', cleanKey));
+        const locSnap = await getDocs(locByEmailQuery);
+        locSnap.forEach((d) => deleteDoc(d.ref).catch(() => {}));
+
+        // 3. Delete from Firebase destinations collection
+        const destQuery = query(collection(db, 'destinations'), where('employee_id', '==', employeeId));
+        const destSnap = await getDocs(destQuery);
+        destSnap.forEach((d) => deleteDoc(d.ref).catch(() => {}));
+        if (cleanKey !== employeeId) {
+          const destQuery2 = query(collection(db, 'destinations'), where('employee_id', '==', cleanKey));
+          const destSnap2 = await getDocs(destQuery2);
+          destSnap2.forEach((d) => deleteDoc(d.ref).catch(() => {}));
+        }
+      } catch (e) {
+        console.warn('[TrackingDataService] Error deleting employee from Firebase:', e);
       }
-
-      // 3. Delete from Supabase destinations table
-      await supabase.from('destinations').delete().eq('employee_id', employeeId);
-      await supabase.from('destinations').delete().eq('employee_id', cleanKey);
-    } catch (e) {
-      console.warn('[TrackingDataService] Error deleting employee from Supabase:', e);
     }
 
     // 4. Delete from local storage cache
@@ -461,7 +519,7 @@ export class TrackingDataService {
     }
   }
 
-  // Get user by email or ID from Supabase or local storage
+  // Get user by email or ID from Firebase or local storage
   static async getUser(emailOrId: string): Promise<User | null> {
     const cleanStr = (emailOrId || '').trim().toLowerCase();
     if (!cleanStr) return null;
@@ -481,72 +539,69 @@ export class TrackingDataService {
     );
     if (matchedAdmin) return matchedAdmin;
 
-    // 2. Check Supabase users table by email
-    try {
-      const { data: userByEmail } = await supabase
-        .from('users')
-        .select('id, name, email, role')
-        .eq('email', cleanStr)
-        .maybeSingle();
+    // 2. Check Firebase users collection by email or ID
+    if (db && isFirebaseConfigured) {
+      try {
+        // Check by ID
+        const docByIdSnap = await withTimeout(getDoc(doc(db, 'users', cleanStr)), 2000, null as any);
+        if (docByIdSnap && docByIdSnap.exists()) {
+          const uData = docByIdSnap.data();
+          if (!DEMO_EMAILS.includes((uData.email || '').toLowerCase())) {
+            return {
+              id: String(uData.id || docByIdSnap.id),
+              name: uData.name || cleanStr.split('@')[0],
+              email: uData.email || cleanStr,
+              role: (uData.role as any) || 'employee',
+            };
+          }
+        }
 
-      if (userByEmail && !DEMO_EMAILS.includes((userByEmail.email || '').toLowerCase())) {
-        return {
-          id: String(userByEmail.id),
-          name: userByEmail.name || cleanStr.split('@')[0],
-          email: userByEmail.email || cleanStr,
-          role: (userByEmail.role as any) || 'employee',
-        };
-      }
+        // Check by email query
+        const qEmail = query(collection(db, 'users'), where('email', '==', cleanStr));
+        const emailSnap = await withTimeout(getDocs(qEmail), 2000, null as any);
+        if (emailSnap && emailSnap.docs && emailSnap.docs.length > 0) {
+          const uData = emailSnap.docs[0].data();
+          if (!DEMO_EMAILS.includes((uData.email || '').toLowerCase())) {
+            return {
+              id: String(uData.id || emailSnap.docs[0].id),
+              name: uData.name || cleanStr.split('@')[0],
+              email: uData.email || cleanStr,
+              role: (uData.role as any) || 'employee',
+            };
+          }
+        }
+      } catch {}
 
-      // Check by ID
-      const { data: userById } = await supabase
-        .from('users')
-        .select('id, name, email, role')
-        .eq('id', cleanStr)
-        .maybeSingle();
+      // 3. Check Firebase live_locations collection
+      try {
+        const locDocSnap = await withTimeout(getDoc(doc(db, 'live_locations', cleanStr)), 2000, null as any);
+        if (locDocSnap && locDocSnap.exists()) {
+          const locData = locDocSnap.data();
+          if (!DEMO_EMAILS.includes((locData.email || '').toLowerCase())) {
+            return {
+              id: String(locData.user_id || locDocSnap.id),
+              name: locData.name || cleanStr.split('@')[0],
+              email: locData.email || cleanStr,
+              role: 'employee',
+            };
+          }
+        }
 
-      if (userById && !DEMO_EMAILS.includes((userById.email || '').toLowerCase())) {
-        return {
-          id: String(userById.id),
-          name: userById.name || cleanStr.split('@')[0],
-          email: userById.email || cleanStr,
-          role: (userById.role as any) || 'employee',
-        };
-      }
-    } catch {}
-
-    // 3. Check Supabase live_locations table
-    try {
-      const { data: locByEmail } = await supabase
-        .from('live_locations')
-        .select('user_id, name, email')
-        .eq('email', cleanStr)
-        .maybeSingle();
-
-      if (locByEmail && !DEMO_EMAILS.includes((locByEmail.email || '').toLowerCase())) {
-        return {
-          id: String(locByEmail.user_id),
-          name: locByEmail.name || cleanStr.split('@')[0],
-          email: locByEmail.email || cleanStr,
-          role: 'employee',
-        };
-      }
-
-      const { data: locById } = await supabase
-        .from('live_locations')
-        .select('user_id, name, email')
-        .eq('user_id', cleanStr)
-        .maybeSingle();
-
-      if (locById && !DEMO_EMAILS.includes((locById.email || '').toLowerCase())) {
-        return {
-          id: String(locById.user_id),
-          name: locById.name || cleanStr.split('@')[0],
-          email: locById.email || cleanStr,
-          role: 'employee',
-        };
-      }
-    } catch {}
+        const qLocEmail = query(collection(db, 'live_locations'), where('email', '==', cleanStr));
+        const locEmailSnap = await withTimeout(getDocs(qLocEmail), 2000, null as any);
+        if (locEmailSnap && locEmailSnap.docs && locEmailSnap.docs.length > 0) {
+          const locData = locEmailSnap.docs[0].data();
+          if (!DEMO_EMAILS.includes((locData.email || '').toLowerCase())) {
+            return {
+              id: String(locData.user_id || locEmailSnap.docs[0].id),
+              name: locData.name || cleanStr.split('@')[0],
+              email: locData.email || cleanStr,
+              role: 'employee',
+            };
+          }
+        }
+      } catch {}
+    }
 
     // 4. Check local custom employees cache
     try {
@@ -569,15 +624,19 @@ export class TrackingDataService {
       const displayName = letters ? (letters.charAt(0).toUpperCase() + letters.slice(1)) : (prefix.charAt(0).toUpperCase() + prefix.slice(1));
       const fallbackId = `emp_${cleanStr.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
-      // Upsert into Supabase asynchronously to persist across devices
-      Promise.resolve(
-        supabase.from('users').upsert({
-          id: fallbackId,
-          name: displayName,
-          email: cleanStr,
-          role: 'employee',
-        })
-      ).catch(() => {});
+      // Upsert into Firebase asynchronously to persist across devices
+      if (db && isFirebaseConfigured) {
+        setDoc(
+          doc(db, 'users', fallbackId),
+          {
+            id: fallbackId,
+            name: displayName,
+            email: cleanStr,
+            role: 'employee',
+          },
+          { merge: true }
+        ).catch(() => {});
+      }
 
       return {
         id: fallbackId,
@@ -609,30 +668,23 @@ export class TrackingDataService {
       created_at: new Date().toISOString(),
     };
 
-    // Save to Supabase `destinations` table
-    try {
-      const { data, error } = await supabase
-        .from('destinations')
-        .insert([
-          {
-            admin_id: String(param.adminId),
-            employee_id: String(param.employeeId),
-            address: param.address,
-            latitude: param.latitude,
-            longitude: param.longitude,
-            status: 'pending',
-          },
-        ])
-        .select()
-        .single();
-
-      if (!error && data) {
-        newDest.id = String(data.id);
-      } else if (error) {
-        console.warn('[TrackingDataService] Supabase destination insert error:', error.message);
+    // Save to Firebase `destinations` collection
+    if (db && isFirebaseConfigured) {
+      try {
+        await setDoc(doc(db, 'destinations', newDest.id), {
+          id: newDest.id,
+          admin_id: String(param.adminId),
+          employee_id: String(param.employeeId),
+          address: param.address,
+          latitude: param.latitude,
+          longitude: param.longitude,
+          status: 'pending',
+          created_at: newDest.created_at,
+          updated_at: newDest.created_at,
+        });
+      } catch (e) {
+        console.warn('[TrackingDataService] Could not insert destination to Firebase:', e);
       }
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not insert destination to Supabase:', e);
     }
 
     // Save to local storage for instant access across screens
@@ -647,19 +699,18 @@ export class TrackingDataService {
     destinationId: string,
     param: { address: string; latitude: number; longitude: number }
   ): Promise<void> {
-    // 1. Supabase update
-    try {
-      await supabase
-        .from('destinations')
-        .update({
+    // 1. Firebase update
+    if (db && isFirebaseConfigured) {
+      try {
+        await updateDoc(doc(db, 'destinations', destinationId), {
           address: param.address,
           latitude: param.latitude,
           longitude: param.longitude,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', destinationId);
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not update destination in Supabase:', e);
+        });
+      } catch (e) {
+        console.warn('[TrackingDataService] Could not update destination in Firebase:', e);
+      }
     }
 
     // 2. Local storage update
@@ -679,11 +730,13 @@ export class TrackingDataService {
 
   // Delete an assigned destination
   static async deleteDestination(destinationId: string): Promise<void> {
-    // 1. Supabase delete
-    try {
-      await supabase.from('destinations').delete().eq('id', destinationId);
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not delete destination from Supabase:', e);
+    // 1. Firebase delete
+    if (db && isFirebaseConfigured) {
+      try {
+        await deleteDoc(doc(db, 'destinations', destinationId));
+      } catch (e) {
+        console.warn('[TrackingDataService] Could not delete destination from Firebase:', e);
+      }
     }
 
     // 2. Local storage delete
@@ -698,45 +751,47 @@ export class TrackingDataService {
       const raw = await AsyncStorage.getItem(DESTINATIONS_KEY);
       const localList: AssignedDestination[] = raw ? JSON.parse(raw) : [];
 
-      // Combine with Supabase (with 2s timeout)
-      try {
-        const { data, error } = await withTimeout(
-          supabase
-            .from('destinations')
-            .select('*')
-            .order('created_at', { ascending: false }),
-          2000,
-          { data: null, error: null } as any
-        );
+      // Combine with Firebase (with 2s timeout)
+      if (db && isFirebaseConfigured) {
+        try {
+          const snap = await withTimeout(
+            getDocs(query(collection(db, 'destinations'), orderBy('created_at', 'desc'))),
+            2000,
+            null as any
+          );
 
-        if (!error && data && data.length > 0) {
-          const remoteList: AssignedDestination[] = data.map((d: any) => ({
-            id: String(d.id),
-            admin_id: d.admin_id ? String(d.admin_id) : 'admin_1',
-            employee_id: d.employee_id ? String(d.employee_id) : 'emp_1',
-            address: d.address || '',
-            latitude: Number(d.latitude),
-            longitude: Number(d.longitude),
-            status: d.status || 'pending',
-            created_at: d.created_at || new Date().toISOString(),
-            completed_at: d.completed_at || d.updated_at || undefined,
-            updated_at: d.updated_at || undefined,
-          }));
+          if (snap && snap.docs && snap.docs.length > 0) {
+            const remoteList: AssignedDestination[] = snap.docs.map((docSnap: any) => {
+              const d = docSnap.data();
+              return {
+                id: String(d.id || docSnap.id),
+                admin_id: d.admin_id ? String(d.admin_id) : 'admin_1',
+                employee_id: d.employee_id ? String(d.employee_id) : 'emp_1',
+                address: d.address || '',
+                latitude: Number(d.latitude),
+                longitude: Number(d.longitude),
+                status: d.status || 'pending',
+                created_at: d.created_at || new Date().toISOString(),
+                completed_at: d.completed_at || d.updated_at || undefined,
+                updated_at: d.updated_at || undefined,
+              };
+            });
 
-          const destMap = new Map<string, AssignedDestination>();
-          [...localList, ...remoteList].forEach((item) => {
-            const existing = destMap.get(item.id);
-            if (!existing) {
-              destMap.set(item.id, item);
-            } else {
-              if (item.status === 'completed' || new Date(item.updated_at || item.created_at).getTime() >= new Date(existing.updated_at || existing.created_at).getTime()) {
+            const destMap = new Map<string, AssignedDestination>();
+            [...localList, ...remoteList].forEach((item) => {
+              const existing = destMap.get(item.id);
+              if (!existing) {
                 destMap.set(item.id, item);
+              } else {
+                if (item.status === 'completed' || new Date(item.updated_at || item.created_at).getTime() >= new Date(existing.updated_at || existing.created_at).getTime()) {
+                  destMap.set(item.id, item);
+                }
               }
-            }
-          });
-          return Array.from(destMap.values());
-        }
-      } catch {}
+            });
+            return Array.from(destMap.values());
+          }
+        } catch {}
+      }
 
       return localList;
     } catch {
@@ -776,28 +831,25 @@ export class TrackingDataService {
     completedAt?: string
   ): Promise<void> {
     const nowIso = completedAt || new Date().toISOString();
-    // 1. Supabase update
-    try {
-      if (destinationId) {
-        await supabase
-          .from('destinations')
-          .update({
+    // 1. Firebase update
+    if (db && isFirebaseConfigured) {
+      try {
+        if (destinationId) {
+          const updatePayload: any = {
             status,
             ...(status === 'completed' ? { completed_at: nowIso } : {}),
             updated_at: nowIso,
-          })
-          .eq('id', destinationId);
-
-        await supabase
-          .from('destinations')
-          .update({
-            status,
-            ...(status === 'completed' ? { completed_at: nowIso } : {}),
-            updated_at: nowIso,
-          })
-          .eq('employee_id', destinationId);
-      }
-    } catch (e) {}
+          };
+          updateDoc(doc(db, 'destinations', destinationId), updatePayload).catch(async () => {
+            const q = query(collection(db!, 'destinations'), where('employee_id', '==', destinationId));
+            const snap = await getDocs(q);
+            snap.forEach((docSnap) => {
+              updateDoc(docSnap.ref, updatePayload).catch(() => {});
+            });
+          });
+        }
+      } catch (e) {}
+    }
 
     // 2. Local update
     const all = await this.getAllDestinations();
@@ -892,24 +944,30 @@ export class TrackingDataService {
         }).catch(() => {});
       } catch (e) {}
 
-      // 3. Non-blocking asynchronous sync to Supabase live_locations (fast 2s timeout)
-      withTimeout(
-        supabase.from('live_locations').upsert({
-          user_id: String(location.userId),
-          name: empName,
-          email: empEmail,
-          latitude: Number(finalLat),
-          longitude: Number(finalLng),
-          heading: Number(location.heading || existingLoc?.heading || 0),
-          speed: Number(location.speed || 0),
-          status: location.status || 'online',
-          destination_lat: destLat != null ? Number(destLat) : null,
-          destination_lng: destLng != null ? Number(destLng) : null,
-          destination_address: destAddress,
-          updated_at: timestamp,
-        }),
-        2000
-      ).catch(() => {});
+      // 3. Non-blocking asynchronous sync to Firebase live_locations (fast 2s timeout)
+      if (db && isFirebaseConfigured) {
+        withTimeout(
+          setDoc(
+            doc(db, 'live_locations', String(location.userId)),
+            {
+              user_id: String(location.userId),
+              name: empName,
+              email: empEmail,
+              latitude: Number(finalLat),
+              longitude: Number(finalLng),
+              heading: Number(location.heading || existingLoc?.heading || 0),
+              speed: Number(location.speed || 0),
+              status: location.status || 'online',
+              destination_lat: destLat != null ? Number(destLat) : null,
+              destination_lng: destLng != null ? Number(destLng) : null,
+              destination_address: destAddress || null,
+              updated_at: timestamp,
+            },
+            { merge: true }
+          ),
+          2000
+        ).catch(() => {});
+      }
     } catch (e) {
       console.error('[TrackingDataService] Error updating live location', e);
     }
@@ -917,33 +975,34 @@ export class TrackingDataService {
 
   // Get live location for employee
   static async getLiveLocation(userId: string): Promise<LiveLocation | null> {
-    try {
-      const { data, error } = await withTimeout(
-        supabase
-          .from('live_locations')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle(),
-        2000,
-        { data: null, error: null } as any
-      );
+    if (db && isFirebaseConfigured) {
+      try {
+        const snap = await withTimeout(
+          getDoc(doc(db, 'live_locations', userId)),
+          2000,
+          null as any
+        );
 
-      if (!error && data) {
-        return {
-          user_id: String(data.user_id),
-          latitude: Number(data.latitude),
-          longitude: Number(data.longitude),
-          heading: Number(data.heading || 0),
-          speed: Number(data.speed || 0),
-          status: data.status || 'online',
-          timestamp: data.updated_at || new Date().toISOString(),
-          updated_at: data.updated_at || new Date().toISOString(),
-          destination_lat: data.destination_lat != null ? Number(data.destination_lat) : null,
-          destination_lng: data.destination_lng != null ? Number(data.destination_lng) : null,
-          destination_address: data.destination_address || null,
-        };
-      }
-    } catch {}
+        if (snap && snap.exists()) {
+          const data = snap.data();
+          return {
+            user_id: String(data.user_id || snap.id),
+            name: data.name || undefined,
+            email: data.email || undefined,
+            latitude: Number(data.latitude),
+            longitude: Number(data.longitude),
+            heading: Number(data.heading || 0),
+            speed: Number(data.speed || 0),
+            status: data.status || 'online',
+            timestamp: data.updated_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+            destination_lat: data.destination_lat != null ? Number(data.destination_lat) : null,
+            destination_lng: data.destination_lng != null ? Number(data.destination_lng) : null,
+            destination_address: data.destination_address || null,
+          };
+        }
+      } catch {}
+    }
 
     try {
       const raw = await AsyncStorage.getItem(LOCATIONS_KEY);
@@ -997,42 +1056,45 @@ export class TrackingDataService {
       console.log('[TrackingDataService] Render live locations fetch fallback:', e);
     }
 
-    // 2. Fetch live locations from Supabase with 2s timeout
-    try {
-      const { data, error } = await withTimeout(
-        supabase.from('live_locations').select('*'),
-        2000,
-        { data: null, error: null } as any
-      );
-      if (!error && data && data.length > 0) {
-        data.forEach((item: any) => {
-          const locObj: LiveLocation = {
-            user_id: String(item.user_id),
-            name: item.name || undefined,
-            email: item.email || undefined,
-            latitude: Number(item.latitude),
-            longitude: Number(item.longitude),
-            heading: Number(item.heading || 0),
-            speed: Number(item.speed || 0),
-            status: item.status || 'online',
-            timestamp: item.updated_at || new Date().toISOString(),
-            updated_at: item.updated_at || new Date().toISOString(),
-            destination_lat: item.destination_lat != null ? Number(item.destination_lat) : null,
-            destination_lng: item.destination_lng != null ? Number(item.destination_lng) : null,
-            destination_address: item.destination_address || null,
-          };
+    // 2. Fetch live locations from Firebase with 2s timeout
+    if (db && isFirebaseConfigured) {
+      try {
+        const snap = await withTimeout(
+          getDocs(collection(db, 'live_locations')),
+          2000,
+          null as any
+        );
+        if (snap && snap.docs && snap.docs.length > 0) {
+          snap.docs.forEach((docSnap: any) => {
+            const item = docSnap.data();
+            const locObj: LiveLocation = {
+              user_id: String(item.user_id || docSnap.id),
+              name: item.name || undefined,
+              email: item.email || undefined,
+              latitude: Number(item.latitude),
+              longitude: Number(item.longitude),
+              heading: Number(item.heading || 0),
+              speed: Number(item.speed || 0),
+              status: item.status || 'online',
+              timestamp: item.updated_at || new Date().toISOString(),
+              updated_at: item.updated_at || new Date().toISOString(),
+              destination_lat: item.destination_lat != null ? Number(item.destination_lat) : null,
+              destination_lng: item.destination_lng != null ? Number(item.destination_lng) : null,
+              destination_address: item.destination_address || null,
+            };
 
-          const keyPrimary = String(item.user_id);
-          if (!resultMap[keyPrimary]) resultMap[keyPrimary] = locObj;
-          if (item.email && !resultMap[String(item.email)]) resultMap[String(item.email)] = locObj;
-          if (item.name && !resultMap[String(item.name)]) resultMap[String(item.name)] = locObj;
-        });
+            const keyPrimary = String(item.user_id || docSnap.id);
+            if (!resultMap[keyPrimary]) resultMap[keyPrimary] = locObj;
+            if (item.email && !resultMap[String(item.email)]) resultMap[String(item.email)] = locObj;
+            if (item.name && !resultMap[String(item.name)]) resultMap[String(item.name)] = locObj;
+          });
+        }
+      } catch (e) {
+        console.warn('[TrackingDataService] Firebase live_locations warning:', e);
       }
-    } catch (e) {
-      console.warn('[TrackingDataService] Supabase live_locations warning:', e);
     }
 
-    // 2. Merge with local storage cache
+    // 3. Merge with local storage cache
     try {
       const raw = await AsyncStorage.getItem(LOCATIONS_KEY);
       if (raw) {
@@ -1055,4 +1117,3 @@ export class TrackingDataService {
     return resultMap;
   }
 }
-

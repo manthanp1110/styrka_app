@@ -168,9 +168,12 @@ const AdminTrackingScreen = () => {
   const fetchTrackingData = async () => {
     setIsRefreshing(true);
     try {
-      const usersData = await TrackingDataService.getEmployees();
-      const allLocations = await TrackingDataService.getAllLiveLocations();
-      const allDestinations = await TrackingDataService.getAllDestinations();
+      // Fetch in parallel with zero blocking
+      const [usersData, allLocations, allDestinations] = await Promise.all([
+        TrackingDataService.getEmployees().catch(() => []),
+        TrackingDataService.getAllLiveLocations().catch(() => ({})),
+        TrackingDataService.getAllDestinations().catch(() => []),
+      ]);
 
       const fetchedEmployees = usersData || [];
 
@@ -181,6 +184,7 @@ const AdminTrackingScreen = () => {
         const DEMO_KEYS = ['emp_1', 'emp_2', 'emp_3', 'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 'emp_sangita_styrka_com', 'emp_rahul_styrka_com', 'emp_vikram_styrka_com'];
         const ADMIN_KEYS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
 
+        // 1. Process employees from directory
         (fetchedEmployees || []).forEach((e) => {
           const em = (e.email || '').toLowerCase().trim();
           const id = (e.id || '').toLowerCase().trim();
@@ -208,16 +212,42 @@ const AdminTrackingScreen = () => {
           });
         });
 
+        // 2. ALSO synthesize any active broadcasting employees from allLocations (e.g. Render backend)
+        Object.values(allLocations || {}).forEach((loc: any) => {
+          if (loc && (loc.user_id || loc.employee_id)) {
+            const uId = loc.user_id || loc.employee_id;
+            const uEm = (loc.email || '').toLowerCase().trim();
+            if (DEMO_KEYS.includes(uId) || DEMO_KEYS.includes(uEm) || ADMIN_KEYS.includes(uEm) || loc.role === 'admin') return;
+
+            if (!mergedMap.has(uId)) {
+              let disp = loc.name || '';
+              if (!disp && uEm.includes('@')) {
+                const pref = uEm.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
+                disp = pref.charAt(0).toUpperCase() + pref.slice(1);
+              }
+              if (!disp) disp = 'Employee';
+
+              mergedMap.set(uId, {
+                id: uId,
+                name: disp,
+                email: uEm || `${uId}@styrka.com`,
+                role: 'employee',
+              });
+            }
+          }
+        });
+
         return Array.from(mergedMap.values());
       });
 
       setActiveJourneys((prev) => {
         const nextMap: Record<string, any> = { ...prev };
+        const locMap = (allLocations || {}) as Record<string, any>;
 
         for (const emp of usersData || []) {
-          const loc = allLocations[emp.id]
-            || (emp.email ? allLocations[emp.email] : null)
-            || Object.values(allLocations).find((l: any) => 
+          const loc = locMap[emp.id]
+            || (emp.email ? locMap[emp.email] : null)
+            || Object.values(locMap).find((l: any) => 
                  l.user_id === emp.id || 
                  (emp.email && l.user_id === emp.email) ||
                  (l.user_id && (
@@ -370,6 +400,32 @@ const AdminTrackingScreen = () => {
         const empEmail = matched?.email || loc.email;
 
         console.log('[ADMIN LOCATION] employee matched:', { primaryEmpId, matchedName: matched?.name || 'none' });
+
+        // If employee is not in list yet, dynamically add them
+        if (!matched) {
+          const DEMO_KEYS = ['emp_1', 'emp_2', 'emp_3', 'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com'];
+          const ADMIN_KEYS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
+          const em = (loc.email || '').toLowerCase().trim();
+          if (!DEMO_KEYS.includes(incomingId) && !ADMIN_KEYS.includes(em) && loc.role !== 'admin') {
+            let displayName = loc.name || '';
+            if (!displayName && em.includes('@')) {
+              const pref = em.split('@')[0].replace(/^emp_/, '').replace(/_styrka_com$/, '');
+              displayName = pref.charAt(0).toUpperCase() + pref.slice(1);
+            }
+            if (!displayName) displayName = 'Employee';
+
+            const newEmp = {
+              id: incomingId,
+              name: displayName,
+              email: loc.email || `${incomingId}@styrka.com`,
+              role: 'employee',
+            };
+            setEmployees((prev) => {
+              if (prev.some(e => e.id === incomingId || (em && e.email === em))) return prev;
+              return [...prev, newEmp];
+            });
+          }
+        }
 
         setActiveJourneys((prev) => {
           const currentJourney = prev[primaryEmpId] || (empEmail ? prev[empEmail] : null) || prev[incomingId];

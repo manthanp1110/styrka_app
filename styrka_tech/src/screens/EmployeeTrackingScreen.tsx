@@ -96,6 +96,11 @@ const EmployeeTrackingScreen = () => {
   const heartbeatTimerRef = useRef<any>(null);
   const lastDbUploadTimeRef = useRef<number>(0);
   const lastDbUploadCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const hasCenteredRef = useRef<boolean>(false);
+  const lastGeocodeCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastGeocodeTimeRef = useRef<number>(0);
+  const lastRouteCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastRouteTimeRef = useRef<number>(0);
 
   const fetchWithTimeout = (promise: Promise<any>, ms: number) => {
     let timeoutId: any;
@@ -106,19 +111,37 @@ const EmployeeTrackingScreen = () => {
   };
 
   const fetchAddress = async (lat: number, lng: number) => {
+    const now = Date.now();
+    const last = lastGeocodeCoordsRef.current;
+    if (last && now - lastGeocodeTimeRef.current < 25000) {
+      const moved = getDistanceFromLatLonInKm(last.lat, last.lng, lat, lng) * 1000;
+      if (moved < 50) return;
+    }
+    lastGeocodeCoordsRef.current = { lat, lng };
+    lastGeocodeTimeRef.current = now;
+
     try {
-      const res = await fetchWithTimeout(GoogleMapsApi.reverseGeocode({ latitude: lat, longitude: lng }), 5000);
+      const res = await fetchWithTimeout(GoogleMapsApi.reverseGeocode({ latitude: lat, longitude: lng }), 3500);
       if (res && res.results && res.results.length > 0) {
         setAddress(res.results[0].formatted_address);
         return;
       }
     } catch (e) {
-      console.log('[EmployeeTracking] Reverse geocoding error:', e);
+      console.log('[EmployeeTracking] Reverse geocoding fallback:', e);
     }
     setAddress(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   };
 
   const fetchRoute = async (originLat: number, originLng: number, destLat: number, destLng: number) => {
+    const now = Date.now();
+    const last = lastRouteCoordsRef.current;
+    if (last && now - lastRouteTimeRef.current < 20000) {
+      const moved = getDistanceFromLatLonInKm(last.lat, last.lng, originLat, originLng) * 1000;
+      if (moved < 30) return;
+    }
+    lastRouteCoordsRef.current = { lat: originLat, lng: originLng };
+    lastRouteTimeRef.current = now;
+
     try {
       const res = await fetchWithTimeout(GoogleMapsApi.direction({
         origin: `${originLng},${originLat}`,
@@ -126,7 +149,7 @@ const EmployeeTrackingScreen = () => {
         profile: 'driving',
         overview: 'full',
         geometries: 'polyline'
-      }), 10000);
+      }), 6000);
       
       if (res && res.routes && res.routes.length > 0) {
         const route = res.routes[0];
@@ -194,6 +217,15 @@ const EmployeeTrackingScreen = () => {
       if (initialLoc) {
         setCurrentLocation(initialLoc);
         fetchAddress(initialLoc.latitude, initialLoc.longitude);
+        if (!hasCenteredRef.current && mapRef.current) {
+          hasCenteredRef.current = true;
+          mapRef.current.animateToRegion({
+            latitude: initialLoc.latitude,
+            longitude: initialLoc.longitude,
+            latitudeDelta: 0.018,
+            longitudeDelta: 0.018,
+          }, 800);
+        }
       }
 
       // 3. Process assigned destination (if user just picked one or if saved)
@@ -311,7 +343,15 @@ const EmployeeTrackingScreen = () => {
           const timestamp = new Date(loc.timestamp).toISOString();
 
           setCurrentLocation({ latitude: newLat, longitude: newLng });
-          trackingMapRef.current?.updateLocation({ latitude: newLat, longitude: newLng });
+          if (!hasCenteredRef.current && mapRef.current) {
+            hasCenteredRef.current = true;
+            mapRef.current.animateToRegion({
+              latitude: newLat,
+              longitude: newLng,
+              latitudeDelta: 0.018,
+              longitudeDelta: 0.018,
+            }, 800);
+          }
           fetchAddress(newLat, newLng);
 
           const journey = activeJourneyRef.current;
@@ -337,7 +377,7 @@ const EmployeeTrackingScreen = () => {
             lastDbUploadCoordsRef.current = { lat: newLat, lng: newLng };
 
             const userId = user.id || user.email || 'employee';
-            await TrackingDataService.updateLiveLocation({
+            TrackingDataService.updateLiveLocation({
               userId,
               latitude: newLat,
               longitude: newLng,
@@ -347,7 +387,7 @@ const EmployeeTrackingScreen = () => {
               destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
               destination_address: journey?.address || undefined,
               status: 'online',
-            });
+            }).catch(() => {});
 
             SocketService.updateLocation({
               userId,
@@ -452,6 +492,12 @@ const EmployeeTrackingScreen = () => {
         if (initialLoc) {
           setCurrentLocation(initialLoc);
           fetchAddress(lat, lng);
+          mapRef.current?.animateToRegion({
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.018,
+            longitudeDelta: 0.018,
+          }, 800);
         }
 
         // 1. Start continuous Background Foreground Service (runs even when screen is locked or app closed)
@@ -461,8 +507,8 @@ const EmployeeTrackingScreen = () => {
         // 2. Start Foreground Watcher
         startForegroundWatcher();
 
-        // 3. Broadcast online status to Admin via Supabase & Socket.IO
-        await TrackingDataService.updateLiveLocation({
+        // 3. Broadcast online status to Admin via Supabase & Socket.IO (non-blocking)
+        TrackingDataService.updateLiveLocation({
           userId,
           name: user.name || undefined,
           email: user.email || undefined,
@@ -472,7 +518,7 @@ const EmployeeTrackingScreen = () => {
           destination_lng: journey?.destination_lng ? Number(journey.destination_lng) : undefined,
           destination_address: journey?.address || undefined,
           status: 'online',
-        });
+        }).catch(() => {});
 
         SocketService.updateLocation({
           userId,
@@ -578,51 +624,54 @@ const EmployeeTrackingScreen = () => {
 
       {/* Main Map Container */}
       <View style={styles.mapContainer}>
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#10B981" />
-            <Text style={{ marginTop: 10, color: '#4B5563' }}>Starting Maps...</Text>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          initialRegion={initialRegion}
+        >
+          {/* Current Employee Marker */}
+          {currentLocation && (
+            <Marker
+              coordinate={{
+                latitude: Number(currentLocation.latitude),
+                longitude: Number(currentLocation.longitude),
+              }}
+              title={user.name || "My Current Location"}
+              pinColor="#2563EB"
+            />
+          )}
+
+          {/* Optional Destination Marker */}
+          {activeJourney?.destination_lat && activeJourney?.destination_lng && (
+            <Marker
+              coordinate={{
+                latitude: Number(activeJourney.destination_lat),
+                longitude: Number(activeJourney.destination_lng),
+              }}
+              title="Destination"
+              description={activeJourney.address}
+              pinColor="#EF4444"
+            />
+          )}
+
+          {/* Optional Polyline Route */}
+          {routeCoordinates.length >= 2 && (
+            <Polyline
+              coordinates={routeCoordinates}
+              strokeColor="#2563EB"
+              strokeWidth={5}
+            />
+          )}
+        </MapView>
+
+        {/* Floating GPS locating badge */}
+        {(!currentLocation || isLoading) && (
+          <View style={styles.gpsFloatingBadge}>
+            <ActivityIndicator size="small" color="#10B981" />
+            <Text style={{ marginLeft: 8, color: '#1F2937', fontSize: 12, fontWeight: '700' }}>
+              Acquiring GPS fix...
+            </Text>
           </View>
-        ) : (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={initialRegion}
-          >
-            {/* Current Employee Marker */}
-            {currentLocation && (
-              <Marker
-                coordinate={{
-                  latitude: Number(currentLocation.latitude),
-                  longitude: Number(currentLocation.longitude),
-                }}
-                title={user.name || "My Current Location"}
-                pinColor="#2563EB"
-              />
-            )}
-
-            {/* Optional Destination Marker */}
-            {activeJourney?.destination_lat && activeJourney?.destination_lng && (
-              <Marker
-                coordinate={{
-                  latitude: Number(activeJourney.destination_lat),
-                  longitude: Number(activeJourney.destination_lng),
-                }}
-                title="Destination"
-                description={activeJourney.address}
-                pinColor="#EF4444"
-              />
-            )}
-
-            {/* Optional Polyline Route */}
-            {routeCoordinates.length >= 2 && (
-              <Polyline
-                coordinates={routeCoordinates}
-                strokeColor="#2563EB"
-                strokeWidth={5}
-              />
-            )}
-          </MapView>
         )}
 
         {/* Floating Recenter Map Button */}
@@ -800,6 +849,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  gpsFloatingBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   recenterFab: {
     position: 'absolute',

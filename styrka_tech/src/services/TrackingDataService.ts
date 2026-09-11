@@ -65,13 +65,28 @@ const DESTINATIONS_KEY = '@styrka_destinations';
 const LOCATIONS_KEY = '@styrka_live_locations';
 const CUSTOM_EMPLOYEES_KEY = '@styrka_custom_employees';
 
+// Safe timeout wrapper to prevent Supabase or network operations from ever hanging the app
+export function withTimeout<T>(promise: PromiseLike<T> | Promise<T>, ms: number = 2500, fallbackVal?: T): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => {
+      if (fallbackVal !== undefined) {
+        resolve(fallbackVal);
+      } else {
+        reject(new Error(`Operation timed out after ${ms}ms`));
+      }
+    }, ms);
+  });
+  return Promise.race([Promise.resolve(promise), timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 export class TrackingDataService {
   // Clear all employees from local storage & Supabase
   static async clearAllEmployees(): Promise<void> {
     try {
-      await supabase.from('users').delete().eq('role', 'employee');
-      await supabase.from('destinations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('live_locations').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+      withTimeout(supabase.from('users').delete().eq('role', 'employee'), 1500).catch(() => {});
+      withTimeout(supabase.from('destinations').delete().neq('id', '00000000-0000-0000-0000-000000000000'), 1500).catch(() => {});
+      withTimeout(supabase.from('live_locations').delete().neq('user_id', '00000000-0000-0000-0000-000000000000'), 1500).catch(() => {});
     } catch (e) {}
     try {
       await AsyncStorage.removeItem(CUSTOM_EMPLOYEES_KEY);
@@ -80,7 +95,7 @@ export class TrackingDataService {
     } catch (e) {}
   }
 
-  // Get list of employees from Supabase destinations, users table & local storage
+  // Get list of employees from Render backend, Supabase destinations, users table & local storage
   static async getEmployees(): Promise<User[]> {
     const DEMO_EMAILS = [
       'sangita@styrka.com', 'rahul@styrka.com', 'vikram@styrka.com', 
@@ -89,9 +104,42 @@ export class TrackingDataService {
     ];
     const ADMIN_EMAILS = ['manthanpandhare1110@gmail.com', 'pravindagade007@gmail.com', 'rustumsayyed905@gmail.com', 'admin_1', 'admin_2', 'admin_3'];
 
+    // 1. Primary: Fetch active employees directly from Render backend (always active & fast)
+    let backendEmployees: User[] = [];
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
+      const res = await withTimeout(fetch(`${backendUrl}/api/location/active`), 2500);
+      if (res && res.ok) {
+        const activeList = await res.json();
+        if (Array.isArray(activeList)) {
+          activeList.forEach((item: any) => {
+            const uId = String(item.user_id || item.employee_id || '').trim();
+            const em = (item.email || '').trim().toLowerCase();
+            if (uId && !DEMO_EMAILS.includes(uId) && !ADMIN_EMAILS.includes(em) && item.role !== 'admin') {
+              const rawName = item.name || (em.includes('@') ? em.split('@')[0] : uId);
+              const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+              backendEmployees.push({
+                id: uId,
+                name: formattedName,
+                email: em || (uId.includes('@') ? uId : `${uId}@styrka.com`),
+                role: 'employee',
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.log('[TrackingDataService] Backend active employees fetch:', e);
+    }
+
+    // 2. Fetch destinations directory from Supabase with fast 2s timeout
     let destinationEmployees: User[] = [];
     try {
-      const { data: dests } = await supabase.from('destinations').select('*').order('created_at', { ascending: false });
+      const { data: dests } = await withTimeout(
+        supabase.from('destinations').select('*').order('created_at', { ascending: false }),
+        2000,
+        { data: null, error: null } as any
+      );
       if (dests && dests.length > 0) {
         dests.forEach((d: any) => {
           const rawId = (d.employee_id || d.admin_id || '').trim();
@@ -139,11 +187,14 @@ export class TrackingDataService {
       console.warn('[TrackingDataService] Could not fetch destinations for employee directory:', e);
     }
 
+    // 3. Fetch from Supabase users with fast 2s timeout
     let supabaseEmployees: User[] = [];
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email, role');
+      const { data, error } = await withTimeout(
+        supabase.from('users').select('id, name, email, role'),
+        2000,
+        { data: null, error: null } as any
+      );
       if (!error && data && data.length > 0) {
         supabaseEmployees = data
           .filter((p: any) => p.role !== 'admin')
@@ -179,10 +230,14 @@ export class TrackingDataService {
       }
     } catch {}
 
-    // ALSO merge with live locations in Supabase
+    // ALSO merge with live locations in Supabase (with 2s timeout)
     let liveLocationEmployees: User[] = [];
     try {
-      const { data: locData } = await supabase.from('live_locations').select('*');
+      const { data: locData } = await withTimeout(
+        supabase.from('live_locations').select('*'),
+        2000,
+        { data: null, error: null } as any
+      );
       if (locData && locData.length > 0) {
         locData.forEach((item: any) => {
           const uId = String(item.user_id).trim().toLowerCase();
@@ -204,7 +259,7 @@ export class TrackingDataService {
       }
     } catch {}
 
-    const all = [...destinationEmployees, ...supabaseEmployees, ...customEmployees, ...liveLocationEmployees];
+    const all = [...backendEmployees, ...destinationEmployees, ...supabaseEmployees, ...customEmployees, ...liveLocationEmployees];
 
     const seenIds = new Set<string>();
     const seenEmails = new Set<string>();
@@ -643,12 +698,16 @@ export class TrackingDataService {
       const raw = await AsyncStorage.getItem(DESTINATIONS_KEY);
       const localList: AssignedDestination[] = raw ? JSON.parse(raw) : [];
 
-      // Combine with Supabase
+      // Combine with Supabase (with 2s timeout)
       try {
-        const { data, error } = await supabase
-          .from('destinations')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const { data, error } = await withTimeout(
+          supabase
+            .from('destinations')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          2000,
+          { data: null, error: null } as any
+        );
 
         if (!error && data && data.length > 0) {
           const remoteList: AssignedDestination[] = data.map((d: any) => ({
@@ -804,27 +863,7 @@ export class TrackingDataService {
 
       await AsyncStorage.setItem(LOCATIONS_KEY, JSON.stringify(locMap));
 
-      // 2. Sync to Supabase `live_locations` table for cross-device visibility
-      try {
-        await supabase.from('live_locations').upsert({
-          user_id: String(location.userId),
-          name: empName,
-          email: empEmail,
-          latitude: Number(finalLat),
-          longitude: Number(finalLng),
-          heading: Number(location.heading || existingLoc?.heading || 0),
-          speed: Number(location.speed || 0),
-          status: location.status || 'online',
-          destination_lat: destLat != null ? Number(destLat) : null,
-          destination_lng: destLng != null ? Number(destLng) : null,
-          destination_address: destAddress,
-          updated_at: timestamp,
-        });
-      } catch (err) {
-        console.warn('[TrackingDataService] Could not upsert live location to Supabase:', err);
-      }
-
-      // 3. Sync to Render Telemetry server via REST
+      // 2. Sync to Render Telemetry server via REST (Immediate, resilient)
       try {
         const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
         fetch(`${backendUrl}/api/location/upload`, {
@@ -852,6 +891,25 @@ export class TrackingDataService {
           }),
         }).catch(() => {});
       } catch (e) {}
+
+      // 3. Non-blocking asynchronous sync to Supabase live_locations (fast 2s timeout)
+      withTimeout(
+        supabase.from('live_locations').upsert({
+          user_id: String(location.userId),
+          name: empName,
+          email: empEmail,
+          latitude: Number(finalLat),
+          longitude: Number(finalLng),
+          heading: Number(location.heading || existingLoc?.heading || 0),
+          speed: Number(location.speed || 0),
+          status: location.status || 'online',
+          destination_lat: destLat != null ? Number(destLat) : null,
+          destination_lng: destLng != null ? Number(destLng) : null,
+          destination_address: destAddress,
+          updated_at: timestamp,
+        }),
+        2000
+      ).catch(() => {});
     } catch (e) {
       console.error('[TrackingDataService] Error updating live location', e);
     }
@@ -860,11 +918,15 @@ export class TrackingDataService {
   // Get live location for employee
   static async getLiveLocation(userId: string): Promise<LiveLocation | null> {
     try {
-      const { data, error } = await supabase
-        .from('live_locations')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase
+          .from('live_locations')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        2000,
+        { data: null, error: null } as any
+      );
 
       if (!error && data) {
         return {
@@ -897,46 +959,12 @@ export class TrackingDataService {
   static async getAllLiveLocations(): Promise<Record<string, LiveLocation>> {
     const resultMap: Record<string, LiveLocation> = {};
 
-    // 1. Fetch live locations from Supabase
-    try {
-      const { data, error } = await supabase.from('live_locations').select('*');
-      if (!error && data && data.length > 0) {
-        data.forEach((item: any) => {
-          const locObj: LiveLocation = {
-            user_id: String(item.user_id),
-            name: item.name || undefined,
-            email: item.email || undefined,
-            latitude: Number(item.latitude),
-            longitude: Number(item.longitude),
-            heading: Number(item.heading || 0),
-            speed: Number(item.speed || 0),
-            status: item.status || 'online',
-            timestamp: item.updated_at || new Date().toISOString(),
-            updated_at: item.updated_at || new Date().toISOString(),
-            destination_lat: item.destination_lat != null ? Number(item.destination_lat) : null,
-            destination_lng: item.destination_lng != null ? Number(item.destination_lng) : null,
-            destination_address: item.destination_address || null,
-          };
-
-          const keyPrimary = String(item.user_id);
-          resultMap[keyPrimary] = locObj;
-          if (item.email) resultMap[String(item.email)] = locObj;
-          if (item.name) resultMap[String(item.name)] = locObj;
-        });
-      }
-    } catch (e) {
-      console.warn('[TrackingDataService] Could not fetch live_locations from Supabase:', e);
-    }
-
-    // 1b. Fetch active locations from Render Telemetry server
+    // 1. Fetch active locations from Render Telemetry server (Primary, fast)
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://styrka-app.onrender.com';
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`${backendUrl}/api/location/active`, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await withTimeout(fetch(`${backendUrl}/api/location/active`), 2500);
 
-      if (res.ok) {
+      if (res && res.ok) {
         const activeList = await res.json();
         if (Array.isArray(activeList)) {
           activeList.forEach((item: any) => {
@@ -966,7 +994,42 @@ export class TrackingDataService {
         }
       }
     } catch (e) {
-      console.warn('[TrackingDataService] Could not fetch live locations from Render server:', e);
+      console.log('[TrackingDataService] Render live locations fetch fallback:', e);
+    }
+
+    // 2. Fetch live locations from Supabase with 2s timeout
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('live_locations').select('*'),
+        2000,
+        { data: null, error: null } as any
+      );
+      if (!error && data && data.length > 0) {
+        data.forEach((item: any) => {
+          const locObj: LiveLocation = {
+            user_id: String(item.user_id),
+            name: item.name || undefined,
+            email: item.email || undefined,
+            latitude: Number(item.latitude),
+            longitude: Number(item.longitude),
+            heading: Number(item.heading || 0),
+            speed: Number(item.speed || 0),
+            status: item.status || 'online',
+            timestamp: item.updated_at || new Date().toISOString(),
+            updated_at: item.updated_at || new Date().toISOString(),
+            destination_lat: item.destination_lat != null ? Number(item.destination_lat) : null,
+            destination_lng: item.destination_lng != null ? Number(item.destination_lng) : null,
+            destination_address: item.destination_address || null,
+          };
+
+          const keyPrimary = String(item.user_id);
+          if (!resultMap[keyPrimary]) resultMap[keyPrimary] = locObj;
+          if (item.email && !resultMap[String(item.email)]) resultMap[String(item.email)] = locObj;
+          if (item.name && !resultMap[String(item.name)]) resultMap[String(item.name)] = locObj;
+        });
+      }
+    } catch (e) {
+      console.warn('[TrackingDataService] Supabase live_locations warning:', e);
     }
 
     // 2. Merge with local storage cache

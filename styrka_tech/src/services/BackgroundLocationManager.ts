@@ -148,12 +148,9 @@ class BackgroundLocationManager {
       );
     }
 
-    // 5. Battery optimization alert if requested
+    // 5. Battery optimization alert if requested (non-blocking)
     if (promptBattery && Platform.OS === 'android') {
-      // Prompt direct intent launcher for unrestricted battery
-      try {
-        await this.requestIgnoreBatteryOptimizations();
-      } catch (e) {}
+      this.requestIgnoreBatteryOptimizations().catch(() => {});
     }
 
     return true;
@@ -187,8 +184,8 @@ class BackgroundLocationManager {
     this.isStarting = true;
 
     try {
-      // 1. Ensure permissions and battery optimization exemption
-      await this.ensurePermissionsAndBatteryOpt(true);
+      // 1. Ensure permissions (without re-prompting battery dialog)
+      await this.ensurePermissionsAndBatteryOpt(false);
 
       // 2. Persist active employee credentials for headless background access
       await AsyncStorage.setItem('active_tracking_user_id', resolvedId);

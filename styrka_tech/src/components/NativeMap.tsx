@@ -53,10 +53,10 @@ export const MapView = forwardRef<any, any>(({ style, children, provider, initia
       style={[styles.map, style]}
       initialRegion={activeRegion}
       region={region}
-      showsUserLocation={false}
+      showsUserLocation={true}
       showsMyLocationButton={false}
       showsCompass={true}
-      loadingEnabled={true}
+      loadingEnabled={false}
       toolbarEnabled={false}
       {...props}
     >

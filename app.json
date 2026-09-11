@@ -44,7 +44,12 @@
         "WAKE_LOCK",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ],
-      "package": "com.manthanp_2811.styrka"
+      "package": "com.manthanp_2811.styrka",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBTEuKfeLP-6-RREJ49VqwlNmuKEI8jQmI"
+        }
+      }
     },
     "extra": {
       "eas": {

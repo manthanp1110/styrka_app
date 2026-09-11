@@ -15,5 +15,12 @@
     "**/apk_unzipped/**"
   ],
   "java.project.importHint": false,
-  "java.autobuild.enabled": false
+  "java.autobuild.enabled": false,
+  "java.errors.incompleteClasspath.severity": "ignore",
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/android_backup/**": true,
+    "**/apk_unzipped/**": true
+  }
 }

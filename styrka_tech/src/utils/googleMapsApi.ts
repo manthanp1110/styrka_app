@@ -18,8 +18,39 @@ export const GoogleMapsApi = {
     const [originLng, originLat] = params.origin.split(',');
     const [destLng, destLat] = params.destination.split(',');
 
-    // 1. Primary: Google Maps Directions API (if key is available)
+    // 1A. Primary: Google Routes API (New)
     if (GOOGLE_MAPS_KEY && GOOGLE_MAPS_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+      try {
+        const routesRes = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_MAPS_KEY,
+            'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+          },
+          body: JSON.stringify({
+            origin: { location: { latLng: { latitude: Number(originLat), longitude: Number(originLng) } } },
+            destination: { location: { latLng: { latitude: Number(destLat), longitude: Number(destLng) } } },
+            travelMode: 'DRIVE',
+          }),
+        });
+        if (routesRes.ok) {
+          const routesData = await routesRes.json();
+          if (routesData && routesData.routes && routesData.routes.length > 0) {
+            const r = routesData.routes[0];
+            const durationSec = r.duration ? parseInt(r.duration.replace('s', '')) : 300;
+            return {
+              routes: [{
+                distance: r.distanceMeters || 1000,
+                duration: durationSec,
+                geometry: r.polyline?.encodedPolyline || '',
+              }],
+            };
+          }
+        }
+      } catch (err) {}
+
+      // 1B. Fallback: Legacy Google Directions API
       try {
         const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLng}&destination=${destLat},${destLng}&mode=driving&key=${GOOGLE_MAPS_KEY}`;
         const res = await fetch(url);
